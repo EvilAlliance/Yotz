@@ -92,10 +92,13 @@ const TypeChecker = struct {
             },
             .variable, .constant => {
                 var dic = &self.scopes.items[self.scopes.items.len - 1];
+
                 if (dic.get(stmt.token.?.getText())) |variable| {
                     Logger.logLocation.err(stmt.token.?.loc, "Identifier {s} is already in use", .{variable.token.?.getText()});
                     Logger.logLocation.err(variable.token.?.loc, "{s} is declared in use", .{variable.token.?.getText()});
+                    return;
                 }
+
                 try dic.put(stmt.token.?.getText(), stmt);
 
                 const a = try self.inferMachine.add(stmt);
@@ -104,15 +107,14 @@ const TypeChecker = struct {
 
                 if (proto.data[0] != 0) {
                     const t = self.ast.nodeList.items[proto.data[0]];
+                    const expr = &self.ast.nodeList.items[proto.data[1]];
 
                     self.inferMachine.found(stmt.*, t, stmt.token.?.loc);
 
-                    const expr = &self.ast.nodeList.items[proto.data[1]];
                     self.checkExpressionExpectedType(expr, t);
                 } else {
                     const expr = &self.ast.nodeList.items[proto.data[1]];
-                    const b = try self.checkExpressionInferType(expr);
-                    if (b) |bS|
+                    if (self.checkExpressionInferType(expr)) |bS|
                         _ = self.inferMachine.merge(a, bS) catch |err| switch (err) {
                             error.IncompatibleType => unreachable,
                             error.OutOfMemory => return error.OutOfMemory,
@@ -129,16 +131,14 @@ const TypeChecker = struct {
                 return null;
             },
             .load => {
-                const variable = self.scopes.getLast().get(expr.token.?.getText());
-
-                if (variable) |v| {
-                    return try self.inferMachine.add(v);
-                } else {
+                const variable = self.scopes.getLast().get(expr.token.?.getText()) orelse {
                     Logger.logLocation.err(expr.token.?.loc, "Unknown identifier in expression \"{s}\"", .{expr.token.?.getText()});
                     self.errs += 1;
 
                     return null;
-                }
+                };
+
+                return try self.inferMachine.add(variable);
             },
             .parentesis, .neg => {
                 const left = &self.ast.nodeList.items[expr.data[0]];
@@ -152,18 +152,23 @@ const TypeChecker = struct {
                 const a = try self.checkExpressionInferType(left);
                 const b = try self.checkExpressionInferType(right);
 
-                if (a) |aS| {
-                    if (b) |bS|
-                        return self.inferMachine.merge(aS, bS) catch |err| switch (err) {
-                            error.IncompatibleType => {
-                                const tLeft = self.inferMachine.setTOvar.get(aS).?[0].?;
-                                const tRight = self.inferMachine.setTOvar.get(bS).?[0].?;
-                                Logger.logLocation.err(expr.token.?.loc, "To the left of this operation has {s} and to the right has {s}, they must be the same", .{ tLeft[0].token.?.tag.getName(), tRight[0].token.?.tag.getName() });
+                if (a != null and b != null) {
+                    const aS = a.?;
+                    const bS = a.?;
 
-                                return null;
-                            },
-                            error.OutOfMemory => return error.OutOfMemory,
-                        };
+                    return self.inferMachine.merge(aS, bS) catch |err| switch (err) {
+                        error.IncompatibleType => {
+                            const tLeft = self.inferMachine.setTOvar.get(aS).?[0].?;
+                            const tRight = self.inferMachine.setTOvar.get(bS).?[0].?;
+                            Logger.logLocation.err(expr.token.?.loc, "To the left of this operation has {s} and to the right has {s}, they must be the same", .{ tLeft[0].token.?.tag.getName(), tRight[0].token.?.tag.getName() });
+
+                            return null;
+                        },
+                        error.OutOfMemory => return error.OutOfMemory,
+                    };
+                }
+
+                if (a) |aS| {
                     return aS;
                 } else {
                     return b;
@@ -187,24 +192,24 @@ const TypeChecker = struct {
                 self.checkValueForType(expr.*, expectedType);
             },
             .load => {
-                const variable = self.scopes.getLast().get(expr.token.?.getText());
-
-                if (variable) |v| {
-                    const proto = self.ast.nodeList.items[v.data[0]];
-                    if (proto.data[0] != 0) {
-                        const t = self.ast.nodeList.items[proto.data[0]];
-
-                        if (t.token.?.tag != expectedType.token.?.tag) {
-                            Logger.logLocation.err(v.token.?.loc, "This variable declared here with type {s}", .{t.token.?.tag.getName()});
-                            Logger.logLocation.err(expr.token.?.loc, "Is use here with another type {s}, these types are incompatible", .{expectedType.token.?.tag.getName()});
-                            self.errs += 1;
-                        }
-                    } else {
-                        self.inferMachine.found(v.*, expectedType, expr.token.?.loc);
-                    }
-                } else {
+                const variable = self.scopes.getLast().get(expr.token.?.getText()) orelse {
                     Logger.logLocation.err(expr.token.?.loc, "Unknown identifier in expression \"{s}\"", .{expr.token.?.getText()});
                     self.errs += 1;
+
+                    return;
+                };
+
+                const proto = self.ast.nodeList.items[variable.data[0]];
+                if (proto.data[0] != 0) {
+                    const t = self.ast.nodeList.items[proto.data[0]];
+
+                    if (t.token.?.tag != expectedType.token.?.tag) {
+                        Logger.logLocation.err(variable.token.?.loc, "This variable declared here with type {s}", .{t.token.?.tag.getName()});
+                        Logger.logLocation.err(expr.token.?.loc, "Is use here with another type {s}, these types are incompatible", .{expectedType.token.?.tag.getName()});
+                        self.errs += 1;
+                    }
+                } else {
+                    self.inferMachine.found(variable.*, expectedType, expr.token.?.loc);
                 }
             },
             .parentesis, .neg => {
@@ -285,6 +290,7 @@ const TypeChecker = struct {
 
 pub fn typeCheck(p: Parser.Ast) std.mem.Allocator.Error!bool {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
     const alloc = arena.allocator();
     return try TypeChecker.init(alloc, p);
 }

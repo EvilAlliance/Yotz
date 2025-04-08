@@ -47,6 +47,12 @@ pub fn init(alloc: std.mem.Allocator) @This() {
 }
 
 pub fn deinit(self: *@This()) void {
+    var it = self.setTOvar.valueIterator();
+
+    while (it.next()) |tuple| {
+        tuple[1].deinit();
+    }
+
     self.varTOset.deinit();
     self.setTOvar.deinit();
 }
@@ -58,6 +64,7 @@ pub fn add(self: *@This(), node: *Parser.Node) std.mem.Allocator.Error!usize {
         self.sets += 1;
         break :set index;
     };
+
     try self.varTOset.put(node.*, sets);
 
     if (self.setTOvar.getPtr(sets)) |set| {
@@ -75,33 +82,22 @@ pub fn merge(self: *@This(), a: usize, b: usize) (std.mem.Allocator.Error || err
     const ta = self.setTOvar.getPtr(a).?;
     const tb = self.setTOvar.getPtr(b).?;
 
-    if (ta[0]) |aType| {
-        if (tb[0]) |bType| {
-            if (aType[0].token.?.tag != bType[0].token.?.tag) return error.IncompatibleType;
-        }
-    }
+    if (ta[0]) |aType| if (tb[0]) |bType|
+        if (aType[0].token.?.tag != bType[0].token.?.tag) return error.IncompatibleType;
 
-    var dest: *struct { ?struct { Parser.Node, Lexer.Location }, std.ArrayList(*Parser.Node) } = undefined;
-    var org: *struct { ?struct { Parser.Node, Lexer.Location }, std.ArrayList(*Parser.Node) } = undefined;
-    var orgIndex: usize = undefined;
+    const dest = if (ta[0] != null) ta else tb;
+    const org = if (ta[0] != null) tb else ta;
+    const orgIndex = if (ta[0] != null) a else b;
 
-    if (ta[0] != null) {
-        dest = ta;
-        org = tb;
+    if (ta[0] != null)
+        try self.reuse.append(b)
+    else
+        try self.reuse.append(a);
 
-        orgIndex = a;
-        self.reuse.append(b) catch unreachable;
-    } else {
-        dest = tb;
-        org = ta;
-
-        orgIndex = b;
-        self.reuse.append(a) catch unreachable;
-    }
     try dest[1].appendSlice(org[1].items);
 
-    for (org[1].items) |value| {
-        try self.varTOset.put(value.*, orgIndex);
+    for (org[1].items) |x| {
+        try self.varTOset.put(x.*, orgIndex);
     }
 
     org[1].clearRetainingCapacity();
