@@ -36,7 +36,38 @@ const TypeChecker = struct {
 
         checker.inferMachine.printState();
 
+        if (ast.functions.get("main") == null) {
+            Logger.log.err("Main function is missing, Expected: \n{s}", .{
+                \\ fn main() u8{
+                \\     return 0;
+                \\ }
+            });
+            checker.errs += 1;
+        }
+
+        if (ast.functions.get("_start")) |start| {
+            Logger.logLocation.err(ast.nodeList.items[start].getLocation(), "_start is an identifier not available", .{});
+            checker.errs += 1;
+        }
+
         return checker.errs > 0;
+    }
+
+    pub fn searchVariableScope(self: *Self, name: []const u8) ?*Parser.Node {
+        var i: usize = self.scopes.items.len;
+        while (i > 0) {
+            i -= 1;
+
+            var dic = &self.scopes.items[i];
+            if (dic.get(name)) |n| return n;
+        }
+
+        return null;
+    }
+
+    pub fn addVariableScope(self: *Self, name: []const u8, node: *Parser.Node) std.mem.Allocator.Error!void {
+        var scope = self.scopes.getLast();
+        try scope.put(name, node);
     }
 
     pub fn deinit(self: *Self) void {
@@ -60,7 +91,10 @@ const TypeChecker = struct {
         } else {
             try self.scopes.append(Scope.init(self.alloc));
             try self.checkStatements(stmtORscope, t);
-            _ = self.scopes.pop();
+            {
+                var x = self.scopes.pop().?;
+                x.deinit();
+            }
         }
     }
 
@@ -80,7 +114,10 @@ const TypeChecker = struct {
             i = stmt.data[1];
         }
 
-        _ = self.scopes.pop();
+        {
+            var x = self.scopes.pop().?;
+            x.deinit();
+        }
     }
 
     fn checkStatements(self: *Self, stmt: *Parser.Node, retType: Parser.Node) std.mem.Allocator.Error!void {
@@ -91,15 +128,13 @@ const TypeChecker = struct {
                 self.checkExpressionExpectedType(expr, retType);
             },
             .variable, .constant => {
-                var dic = &self.scopes.items[self.scopes.items.len - 1];
-
-                if (dic.get(stmt.token.?.getText())) |variable| {
+                if (self.searchVariableScope(stmt.getText())) |variable| {
                     Logger.logLocation.err(stmt.token.?.loc, "Identifier {s} is already in use", .{variable.token.?.getText()});
                     Logger.logLocation.err(variable.token.?.loc, "{s} is declared in use", .{variable.token.?.getText()});
                     return;
                 }
 
-                try dic.put(stmt.token.?.getText(), stmt);
+                try self.addVariableScope(stmt.getText(), stmt);
 
                 const a = try self.inferMachine.add(stmt);
 
@@ -114,7 +149,7 @@ const TypeChecker = struct {
                     self.checkExpressionExpectedType(expr, t);
                 } else {
                     const expr = &self.ast.nodeList.items[proto.data[1]];
-                    if (self.checkExpressionInferType(expr)) |bS|
+                    if (try self.checkExpressionInferType(expr)) |bS|
                         _ = self.inferMachine.merge(a, bS) catch |err| switch (err) {
                             error.IncompatibleType => unreachable,
                             error.OutOfMemory => return error.OutOfMemory,

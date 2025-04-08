@@ -37,7 +37,7 @@ token: ?Lexer.Token,
 // 0 is invalid beacause 0 is root
 data: struct { usize, usize },
 
-pub fn getLocation(self: *@This()) []const u8 {
+pub fn getLocation(self: *@This()) Lexer.Location {
     return self.token.?.loc;
 }
 

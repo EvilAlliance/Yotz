@@ -1,5 +1,6 @@
 TODO: Runtime check for overflow depending of release or safe
 TODO: Jhonathan Blow Q&A Parser ver mas tarde 1:06:22
+TODO: Constant can have multiple types if init does not determine it
 TODO: TypeCheck does not check if main returns the correct type
 DONE: Change unexpeceted change when new log is created
 DONE: Make my own log function, think it to print error with more information
@@ -11,3 +12,5 @@ DONE: Fuse Lexer to the parser
 DONE: When creating a variable it overwrites the old one
 DONE: Correct the function to check if load node exist
 DONE: Make sure the semicolons comes after clossing all parentesis in expression
+DONE: Create auxiliary function to check search for identifiers
+DONE: TypeCheck does not check main exist and a fucntion or gloabal variable _start
