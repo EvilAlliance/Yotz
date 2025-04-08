@@ -37,18 +37,18 @@ token: ?Lexer.Token,
 // 0 is invalid beacause 0 is root
 data: struct { usize, usize },
 
-pub fn getLocation(self: *@This()) Lexer.Location {
+pub fn getLocation(self: *const @This()) Lexer.Location {
     return self.token.?.loc;
 }
 
-pub fn getTag(self: *@This()) Lexer.TokenType {
+pub fn getTokenTag(self: *const @This()) Lexer.TokenType {
     return self.token.?.tag;
 }
 
-pub fn getText(self: *@This()) []const u8 {
+pub fn getText(self: *const @This()) []const u8 {
     return self.token.?.loc.getText();
 }
 
-pub fn getName(self: *@This()) []const u8 {
+pub fn getName(self: *const @This()) []const u8 {
     return self.token.?.tag.getName();
 }

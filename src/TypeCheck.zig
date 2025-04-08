@@ -36,7 +36,15 @@ const TypeChecker = struct {
 
         checker.inferMachine.printState();
 
-        if (ast.functions.get("main") == null) {
+        if (ast.functions.get("main")) |main| {
+            const func = ast.nodeList.items[main];
+            const proto = ast.nodeList.items[func.data[0]];
+            const t = ast.nodeList.items[proto.data[1]];
+
+            if (t.getTokenTag() != .unsigned8) {
+                Logger.logLocation.err(t.getLocation(), "Main must return u8 instead of {s}", .{t.getName()});
+            }
+        } else {
             Logger.log.err("Main function is missing, Expected: \n{s}", .{
                 \\ fn main() u8{
                 \\     return 0;

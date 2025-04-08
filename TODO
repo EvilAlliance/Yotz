@@ -1,6 +1,8 @@
 TODO: Runtime check for overflow depending of release or safe
 TODO: Jhonathan Blow Q&A Parser ver mas tarde 1:06:22
 TODO: Constant can have multiple types if init does not determine it
+TODO: Report unknown types
+TODO: Assign the types to the variables nodes
 TODO: TypeCheck does not check if main returns the correct type
 DONE: Change unexpeceted change when new log is created
 DONE: Make my own log function, think it to print error with more information
