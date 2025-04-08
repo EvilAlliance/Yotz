@@ -90,9 +90,9 @@ pub fn merge(self: *@This(), a: usize, b: usize) (std.mem.Allocator.Error || err
     const orgIndex = if (ta[0] != null) a else b;
 
     if (ta[0] != null)
-        try self.reuse.append(b)
+        self.reuse.append(b) catch {}
     else
-        try self.reuse.append(a);
+        self.reuse.append(a) catch {};
 
     try dest[1].appendSlice(org[1].items);
 
