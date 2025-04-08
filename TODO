@@ -3,7 +3,6 @@ TODO: Jhonathan Blow Q&A Parser ver mas tarde 1:06:22
 TODO: Constant can have multiple types if init does not determine it
 TODO: Report unknown types
 TODO: Assign the types to the variables nodes
-TODO: TypeCheck does not check if main returns the correct type
 DONE: Change unexpeceted change when new log is created
 DONE: Make my own log function, think it to print error with more information
 DONE: Unexpected should have multiple tokentypes
@@ -16,3 +15,4 @@ DONE: Correct the function to check if load node exist
 DONE: Make sure the semicolons comes after clossing all parentesis in expression
 DONE: Create auxiliary function to check search for identifiers
 DONE: TypeCheck does not check main exist and a fucntion or gloabal variable _start
+DONE: TypeCheck does not check if main returns the correct type
