@@ -79,15 +79,17 @@ pub fn add(self: *@This(), node: *Parser.Node) std.mem.Allocator.Error!usize {
 }
 
 pub fn merge(self: *@This(), a: usize, b: usize) (std.mem.Allocator.Error || error{IncompatibleType})!usize {
+    if (a == b) return a;
     const ta = self.setTOvar.getPtr(a).?;
     const tb = self.setTOvar.getPtr(b).?;
 
-    if (ta[0]) |aType| if (tb[0]) |bType|
-        if (aType[0].token.?.tag != bType[0].token.?.tag) return error.IncompatibleType;
+    if (ta[0]) |aType| if (tb[0]) |bType| {
+        if (aType[0].getTokenTag() != bType[0].getTokenTag()) return error.IncompatibleType;
+    };
 
     const dest = if (ta[0] != null) ta else tb;
     const org = if (ta[0] != null) tb else ta;
-    const orgIndex = if (ta[0] != null) a else b;
+    const destIndex = if (ta[0] != null) a else b;
 
     if (ta[0] != null)
         self.reuse.append(b) catch {}
@@ -97,13 +99,13 @@ pub fn merge(self: *@This(), a: usize, b: usize) (std.mem.Allocator.Error || err
     try dest[1].appendSlice(org[1].items);
 
     for (org[1].items) |x| {
-        try self.varTOset.put(x.*, orgIndex);
+        try self.varTOset.put(x.*, destIndex);
     }
 
     org[1].clearRetainingCapacity();
     org[0] = null;
 
-    return orgIndex;
+    return destIndex;
 }
 
 pub fn found(self: *@This(), a: Parser.Node, t: Parser.Node, loc: Lexer.Location) void {
@@ -124,7 +126,7 @@ pub fn printState(self: @This()) void {
     var it = self.setTOvar.keyIterator();
 
     while (it.next()) |setIndex| {
-        if (Util.listContains(usize, &self.reuse.buffer, setIndex.*)) continue;
+        if (Util.listContains(usize, self.reuse.buffer[0..self.reuse.len], setIndex.*)) continue;
         Logger.log.info("{}:", .{setIndex.*});
         const set = self.setTOvar.get(setIndex.*).?;
 

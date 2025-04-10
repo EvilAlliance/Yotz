@@ -4,6 +4,7 @@ const Logger = @import("Logger.zig");
 const InferMachine = @import("InferMachine.zig");
 
 const Parser = @import("./Parser/Parser.zig");
+const nl = @import("./Parser/NodeListUtil.zig");
 
 const Scope = std.StringHashMap(*Parser.Node);
 const Scopes = std.ArrayList(Scope);
@@ -17,9 +18,9 @@ const TypeChecker = struct {
 
     inferMachine: InferMachine,
 
-    ast: Parser.Ast,
+    ast: *Parser.Ast,
     scopes: Scopes,
-    pub fn init(alloc: std.mem.Allocator, ast: Parser.Ast) std.mem.Allocator.Error!bool {
+    pub fn init(alloc: std.mem.Allocator, ast: *Parser.Ast) std.mem.Allocator.Error!bool {
         var checker = @This(){
             .alloc = alloc,
             .inferMachine = InferMachine.init(alloc),
@@ -28,13 +29,28 @@ const TypeChecker = struct {
         };
         defer checker.deinit();
 
-        var it = checker.ast.functions.valueIterator();
+        var itFunc = checker.ast.functions.valueIterator();
 
-        while (it.next()) |func| {
+        while (itFunc.next()) |func| {
             try checker.checkFunction(&checker.ast.nodeList.items[func.*]);
         }
 
-        checker.inferMachine.printState();
+        var itSet = checker.inferMachine.setTOvar.valueIterator();
+
+        while (itSet.next()) |set| {
+            if (set[0]) |v| {
+                const t, _ = v;
+                const index = try nl.addNode(&checker.ast.nodeList, t);
+                for (set[1].items) |variable| {
+                    const proto = &ast.nodeList.items[variable.data[0]];
+                    proto.data[0] = index;
+                }
+            } else {
+                for (set[1].items) |variable| {
+                    Logger.logLocation.err(variable.getLocation(), "Variable has unknown type", .{});
+                }
+            }
+        }
 
         if (ast.functions.get("main")) |main| {
             const func = ast.nodeList.items[main];
@@ -43,6 +59,7 @@ const TypeChecker = struct {
 
             if (t.getTokenTag() != .unsigned8) {
                 Logger.logLocation.err(t.getLocation(), "Main must return u8 instead of {s}", .{t.getName()});
+                checker.errs += 1;
             }
         } else {
             Logger.log.err("Main function is missing, Expected: \n{s}", .{
@@ -74,7 +91,7 @@ const TypeChecker = struct {
     }
 
     pub fn addVariableScope(self: *Self, name: []const u8, node: *Parser.Node) std.mem.Allocator.Error!void {
-        var scope = self.scopes.getLast();
+        var scope = &self.scopes.items[self.scopes.items.len - 1];
         try scope.put(name, node);
     }
 
@@ -139,6 +156,7 @@ const TypeChecker = struct {
                 if (self.searchVariableScope(stmt.getText())) |variable| {
                     Logger.logLocation.err(stmt.token.?.loc, "Identifier {s} is already in use", .{variable.token.?.getText()});
                     Logger.logLocation.err(variable.token.?.loc, "{s} is declared in use", .{variable.token.?.getText()});
+                    self.errs += 1;
                     return;
                 }
 
@@ -174,7 +192,7 @@ const TypeChecker = struct {
                 return null;
             },
             .load => {
-                const variable = self.scopes.getLast().get(expr.token.?.getText()) orelse {
+                const variable = self.searchVariableScope(expr.getText()) orelse {
                     Logger.logLocation.err(expr.token.?.loc, "Unknown identifier in expression \"{s}\"", .{expr.token.?.getText()});
                     self.errs += 1;
 
@@ -197,13 +215,15 @@ const TypeChecker = struct {
 
                 if (a != null and b != null) {
                     const aS = a.?;
-                    const bS = a.?;
+                    const bS = b.?;
 
                     return self.inferMachine.merge(aS, bS) catch |err| switch (err) {
                         error.IncompatibleType => {
                             const tLeft = self.inferMachine.setTOvar.get(aS).?[0].?;
                             const tRight = self.inferMachine.setTOvar.get(bS).?[0].?;
                             Logger.logLocation.err(expr.token.?.loc, "To the left of this operation has {s} and to the right has {s}, they must be the same", .{ tLeft[0].token.?.tag.getName(), tRight[0].token.?.tag.getName() });
+
+                            self.errs += 1;
 
                             return null;
                         },
@@ -235,7 +255,7 @@ const TypeChecker = struct {
                 self.checkValueForType(expr.*, expectedType);
             },
             .load => {
-                const variable = self.scopes.getLast().get(expr.token.?.getText()) orelse {
+                const variable = self.searchVariableScope(expr.token.?.getText()) orelse {
                     Logger.logLocation.err(expr.token.?.loc, "Unknown identifier in expression \"{s}\"", .{expr.token.?.getText()});
                     self.errs += 1;
 
@@ -331,7 +351,7 @@ const TypeChecker = struct {
     }
 };
 
-pub fn typeCheck(p: Parser.Ast) std.mem.Allocator.Error!bool {
+pub fn typeCheck(p: *Parser.Ast) std.mem.Allocator.Error!bool {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const alloc = arena.allocator();

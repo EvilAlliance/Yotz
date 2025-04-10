@@ -120,7 +120,7 @@ pub fn main() u8 {
         return 0;
     }
 
-    const ast = parser.parse() catch |err| switch (err) {
+    var ast = parser.parse() catch |err| switch (err) {
         error.OutOfMemory => {
             Logger.log.err("Out of memory", .{});
             return 1;
@@ -135,7 +135,7 @@ pub fn main() u8 {
         Logger.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
 
     if (arguments.parse) {
-        const cont = parser.toString(gpa) catch {
+        const cont = ast.toString(gpa) catch {
             Logger.log.err("Out of memory", .{});
             return 1;
         };
@@ -150,13 +150,15 @@ pub fn main() u8 {
     if (arguments.bench)
         Logger.log.info("Type Checking", .{});
 
-    if (typeCheck(ast) catch {
+    const err = typeCheck(&ast) catch {
         Logger.log.err("out of memory", .{});
         return 1;
-    }) return 1;
+    };
+
     if (arguments.bench)
         Logger.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
 
+    if (err) return 1;
     if (parser.errors.items.len > 0) return 1;
 
     return 0;

@@ -24,3 +24,163 @@ pub fn deinit(self: @This()) void {
     self.functions.deinit();
     self.nodeList.deinit();
 }
+
+pub fn toString(self: @This(), alloc: std.mem.Allocator) std.mem.Allocator.Error!std.ArrayList(u8) {
+    var cont = std.ArrayList(u8).init(alloc);
+    if (self.nodeList.items.len == 0) return cont;
+
+    const root = self.nodeList.items[0];
+
+    var i = root.data[0];
+    const end = root.data[1];
+    while (i < end) : (i += 1) {
+        const node = self.nodeList.items[i];
+        switch (node.tag) {
+            .funcDecl => {
+                try cont.appendSlice("fn ");
+
+                try cont.appendSlice(node.token.?.getText());
+
+                try self.toStringFuncProto(&cont, 0, node.data[0]);
+
+                const scope = self.nodeList.items[node.data[1]];
+                switch (scope.tag) {
+                    .scope => try self.toStringScope(&cont, 0, node.data[1]),
+                    else => try self.toStringStatement(&cont, 0, node.data[1]),
+                }
+                i = scope.data[1];
+            },
+            else => unreachable,
+        }
+    }
+
+    return cont;
+}
+
+fn toStringFuncProto(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
+    std.debug.assert(self.nodeList.items[i].tag == .funcProto);
+    std.debug.assert(self.nodeList.items[i].data[0] == 0);
+
+    // TODO : Put arguments
+    try cont.appendSlice("() ");
+
+    try self.toStringType(cont, d, self.nodeList.items[i].data[1]);
+
+    try cont.append(' ');
+}
+
+fn toStringType(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
+    _ = d;
+    try cont.appendSlice(self.nodeList.items[i].token.?.getText());
+}
+
+fn toStringScope(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
+    const scope = self.nodeList.items[i];
+    std.debug.assert(scope.tag == .scope);
+
+    try cont.appendSlice("{ \n");
+
+    var j = scope.data[0];
+    const end = scope.data[1];
+
+    while (j < end) {
+        const node = self.nodeList.items[j];
+
+        try self.toStringStatement(cont, d + 4, j);
+
+        j = node.data[1];
+    }
+
+    try cont.appendSlice("} \n");
+}
+
+fn toStringStatement(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
+    for (0..d) |_| {
+        try cont.append(' ');
+    }
+
+    const stmt = self.nodeList.items[i];
+
+    switch (stmt.tag) {
+        .ret => {
+            try cont.appendSlice("return ");
+            try self.toStringExpression(cont, d, stmt.data[0]);
+        },
+        .variable, .constant => {
+            try self.tostringVariable(cont, d, i);
+        },
+        else => unreachable,
+    }
+
+    try cont.appendSlice(";\n");
+}
+
+fn tostringVariable(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
+    const variable = self.nodeList.items[i];
+    std.debug.assert(variable.tag == .constant or variable.tag == .variable);
+
+    try cont.appendSlice(variable.token.?.getText());
+
+    const proto = self.nodeList.items[variable.data[0]];
+    std.debug.assert(proto.tag == .VarProto);
+
+    if (proto.data[0] == 0)
+        try cont.append(' ');
+
+    try cont.append(':');
+    if (proto.data[0] != 0) {
+        try cont.append(' ');
+        try self.toStringType(cont, d, proto.data[0]);
+        try cont.append(' ');
+    }
+
+    if (proto.data[1] != 0) {
+        switch (variable.tag) {
+            .constant => try cont.appendSlice(": "),
+            .variable => try cont.appendSlice("= "),
+            else => unreachable,
+        }
+        try self.toStringExpression(cont, d, proto.data[1]);
+    }
+}
+
+fn toStringExpression(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
+    const node = self.nodeList.items[i];
+    switch (node.tag) {
+        .addition, .subtraction, .multiplication, .division, .power => {
+            try cont.append('(');
+
+            const leftIndex = node.data[0];
+            try self.toStringExpression(cont, d, leftIndex);
+
+            try cont.append(' ');
+            try cont.appendSlice(node.token.?.tag.toSymbol().?);
+            try cont.append(' ');
+
+            const rightIndex = node.data[1];
+            try self.toStringExpression(cont, d, rightIndex);
+
+            try cont.append(')');
+        },
+        .parentesis => {
+            const leftIndex = node.data[0];
+
+            try self.toStringExpression(cont, d, leftIndex);
+        },
+        .neg => {
+            try cont.appendSlice(node.token.?.tag.toSymbol().?);
+            try cont.append('(');
+            const leftIndex = node.data[0];
+
+            try self.toStringExpression(cont, d, leftIndex);
+            try cont.append(')');
+        },
+        .load => {
+            try cont.appendSlice(node.token.?.getText());
+        },
+        .lit => {
+            try cont.appendSlice(node.token.?.getText());
+        },
+        else => unreachable,
+    }
+}
