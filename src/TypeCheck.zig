@@ -6,7 +6,7 @@ const InferMachine = @import("InferMachine.zig");
 const Parser = @import("./Parser/Parser.zig");
 const nl = @import("./Parser/NodeListUtil.zig");
 
-const Scope = std.StringHashMap(*Parser.Node);
+const Scope = std.StringHashMap(Parser.Node);
 const Scopes = std.ArrayList(Scope);
 
 const TypeChecker = struct {
@@ -32,7 +32,7 @@ const TypeChecker = struct {
         var itFunc = checker.ast.functions.valueIterator();
 
         while (itFunc.next()) |func| {
-            try checker.checkFunction(&checker.ast.nodeList.items[func.*]);
+            try checker.checkFunction(checker.ast.nodeList.items[func.*]);
         }
 
         var itSet = checker.inferMachine.setTOvar.valueIterator();
@@ -47,7 +47,7 @@ const TypeChecker = struct {
                 }
             } else {
                 for (set[1].items) |variable| {
-                    Logger.logLocation.err(variable.getLocation(), "Variable has unknown type", .{});
+                    Logger.logLocation.err(variable.getLocation(), "Variable has ambiguos type", .{});
                 }
             }
         }
@@ -78,20 +78,20 @@ const TypeChecker = struct {
         return checker.errs > 0;
     }
 
-    pub fn searchVariableScope(self: *Self, name: []const u8) ?*Parser.Node {
+    pub fn searchVariableScope(self: *Self, name: []const u8) ?Parser.Node {
         var i: usize = self.scopes.items.len;
         while (i > 0) {
             i -= 1;
 
-            var dic = &self.scopes.items[i];
+            var dic = self.scopes.items[i];
             if (dic.get(name)) |n| return n;
         }
 
         return null;
     }
 
-    pub fn addVariableScope(self: *Self, name: []const u8, node: *Parser.Node) std.mem.Allocator.Error!void {
-        var scope = &self.scopes.items[self.scopes.items.len - 1];
+    pub fn addVariableScope(self: *Self, name: []const u8, node: Parser.Node) std.mem.Allocator.Error!void {
+        const scope = &self.scopes.items[self.scopes.items.len - 1];
         try scope.put(name, node);
     }
 
@@ -103,13 +103,13 @@ const TypeChecker = struct {
         self.inferMachine.deinit();
     }
 
-    fn checkFunction(self: *Self, node: *Parser.Node) std.mem.Allocator.Error!void {
+    fn checkFunction(self: *Self, node: Parser.Node) std.mem.Allocator.Error!void {
         std.debug.assert(node.tag == .funcDecl);
 
-        const proto = &self.ast.nodeList.items[node.data[0]];
+        const proto = self.ast.nodeList.items[node.data[0]];
         const t = self.ast.nodeList.items[proto.data[1]];
 
-        const stmtORscope = &self.ast.nodeList.items[node.data[1]];
+        const stmtORscope = self.ast.nodeList.items[node.data[1]];
 
         if (stmtORscope.tag == .scope) {
             try self.checkScope(stmtORscope, t);
@@ -123,7 +123,7 @@ const TypeChecker = struct {
         }
     }
 
-    fn checkScope(self: *Self, scope: *Parser.Node, retType: Parser.Node) std.mem.Allocator.Error!void {
+    fn checkScope(self: *Self, scope: Parser.Node, retType: Parser.Node) std.mem.Allocator.Error!void {
         std.debug.assert(scope.tag == .scope and retType.tag == .type);
 
         try self.scopes.append(Scope.init(self.alloc));
@@ -132,7 +132,7 @@ const TypeChecker = struct {
         const end = scope.data[1];
 
         while (i < end) {
-            const stmt = &self.ast.nodeList.items[i];
+            const stmt = self.ast.nodeList.items[i];
 
             try self.checkStatements(stmt, retType);
 
@@ -145,10 +145,10 @@ const TypeChecker = struct {
         }
     }
 
-    fn checkStatements(self: *Self, stmt: *Parser.Node, retType: Parser.Node) std.mem.Allocator.Error!void {
+    fn checkStatements(self: *Self, stmt: Parser.Node, retType: Parser.Node) std.mem.Allocator.Error!void {
         switch (stmt.tag) {
             .ret => {
-                const expr = &self.ast.nodeList.items[stmt.data[0]];
+                const expr = self.ast.nodeList.items[stmt.data[0]];
 
                 self.checkExpressionExpectedType(expr, retType);
             },
@@ -168,24 +168,25 @@ const TypeChecker = struct {
 
                 if (proto.data[0] != 0) {
                     const t = self.ast.nodeList.items[proto.data[0]];
-                    const expr = &self.ast.nodeList.items[proto.data[1]];
+                    const expr = self.ast.nodeList.items[proto.data[1]];
 
-                    self.inferMachine.found(stmt.*, t, stmt.token.?.loc);
+                    self.inferMachine.found(stmt, t, stmt.token.?.loc);
 
                     self.checkExpressionExpectedType(expr, t);
                 } else {
-                    const expr = &self.ast.nodeList.items[proto.data[1]];
-                    if (try self.checkExpressionInferType(expr)) |bS|
+                    const expr = self.ast.nodeList.items[proto.data[1]];
+                    if (try self.checkExpressionInferType(expr)) |bS| {
                         _ = self.inferMachine.merge(a, bS) catch |err| switch (err) {
                             error.IncompatibleType => unreachable,
                             error.OutOfMemory => return error.OutOfMemory,
                         };
+                    }
                 }
             },
             else => unreachable,
         }
     }
-    fn checkExpressionInferType(self: *Self, expr: *Parser.Node) std.mem.Allocator.Error!?usize {
+    fn checkExpressionInferType(self: *Self, expr: Parser.Node) std.mem.Allocator.Error!?usize {
         std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .parentesis, .power, .division, .multiplication, .subtraction, .addition }, expr.tag));
         switch (expr.tag) {
             .lit => {
@@ -202,13 +203,13 @@ const TypeChecker = struct {
                 return try self.inferMachine.add(variable);
             },
             .parentesis, .neg => {
-                const left = &self.ast.nodeList.items[expr.data[0]];
+                const left = self.ast.nodeList.items[expr.data[0]];
 
                 return try self.checkExpressionInferType(left);
             },
             .addition, .subtraction, .multiplication, .division, .power => {
-                const left = &self.ast.nodeList.items[expr.data[0]];
-                const right = &self.ast.nodeList.items[expr.data[1]];
+                const left = self.ast.nodeList.items[expr.data[0]];
+                const right = self.ast.nodeList.items[expr.data[1]];
 
                 const a = try self.checkExpressionInferType(left);
                 const b = try self.checkExpressionInferType(right);
@@ -246,16 +247,16 @@ const TypeChecker = struct {
         unreachable;
     }
 
-    fn checkExpressionExpectedType(self: *Self, expr: *Parser.Node, expectedType: Parser.Node) void {
+    fn checkExpressionExpectedType(self: *Self, expr: Parser.Node, expectedType: Parser.Node) void {
         std.debug.assert(expectedType.tag == .type);
         std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .parentesis, .power, .division, .multiplication, .subtraction, .addition }, expr.tag));
 
         switch (expr.tag) {
             .lit => {
-                self.checkValueForType(expr.*, expectedType);
+                self.checkValueForType(expr, expectedType);
             },
             .load => {
-                const variable = self.searchVariableScope(expr.token.?.getText()) orelse {
+                const variable = self.searchVariableScope(expr.getText()) orelse {
                     Logger.logLocation.err(expr.token.?.loc, "Unknown identifier in expression \"{s}\"", .{expr.token.?.getText()});
                     self.errs += 1;
 
@@ -272,17 +273,17 @@ const TypeChecker = struct {
                         self.errs += 1;
                     }
                 } else {
-                    self.inferMachine.found(variable.*, expectedType, expr.token.?.loc);
+                    self.inferMachine.found(variable, expectedType, expr.token.?.loc);
                 }
             },
             .parentesis, .neg => {
-                const left = &self.ast.nodeList.items[expr.data[0]];
+                const left = self.ast.nodeList.items[expr.data[0]];
 
                 self.checkExpressionExpectedType(left, expectedType);
             },
             .addition, .subtraction, .multiplication, .division, .power => {
-                const left = &self.ast.nodeList.items[expr.data[0]];
-                const right = &self.ast.nodeList.items[expr.data[1]];
+                const left = self.ast.nodeList.items[expr.data[0]];
+                const right = self.ast.nodeList.items[expr.data[1]];
 
                 self.checkExpressionExpectedType(left, expectedType);
                 self.checkExpressionExpectedType(right, expectedType);

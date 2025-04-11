@@ -27,7 +27,7 @@ const SetTOvar = std.AutoHashMap(
     usize,
     struct {
         ?struct { Parser.Node, Lexer.Location },
-        std.ArrayList(*Parser.Node),
+        std.ArrayList(Parser.Node),
     },
 );
 
@@ -57,20 +57,21 @@ pub fn deinit(self: *@This()) void {
     self.setTOvar.deinit();
 }
 
-pub fn add(self: *@This(), node: *Parser.Node) std.mem.Allocator.Error!usize {
-    if (self.varTOset.get(node.*)) |index| return index;
+pub fn add(self: *@This(), node: Parser.Node) std.mem.Allocator.Error!usize {
+    std.debug.assert(node.tag == .variable or node.tag == .constant);
+    if (self.varTOset.get(node)) |index| return index;
     const sets = self.reuse.pop() orelse set: {
         const index = self.sets;
         self.sets += 1;
         break :set index;
     };
 
-    try self.varTOset.put(node.*, sets);
+    try self.varTOset.put(node, sets);
 
     if (self.setTOvar.getPtr(sets)) |set| {
         try set[1].append(node);
     } else {
-        var set = std.ArrayList(*Parser.Node).init(self.alloc);
+        var set = std.ArrayList(Parser.Node).init(self.alloc);
         try set.append(node);
         try self.setTOvar.put(sets, .{ null, set });
     }
@@ -99,7 +100,7 @@ pub fn merge(self: *@This(), a: usize, b: usize) (std.mem.Allocator.Error || err
     try dest[1].appendSlice(org[1].items);
 
     for (org[1].items) |x| {
-        try self.varTOset.put(x.*, destIndex);
+        try self.varTOset.put(x, destIndex);
     }
 
     org[1].clearRetainingCapacity();
@@ -110,7 +111,8 @@ pub fn merge(self: *@This(), a: usize, b: usize) (std.mem.Allocator.Error || err
 
 pub fn found(self: *@This(), a: Parser.Node, t: Parser.Node, loc: Lexer.Location) void {
     std.debug.assert(t.tag == .type);
-    const ta = self.setTOvar.getPtr(self.varTOset.get(a).?).?;
+    const i = self.varTOset.get(a).?;
+    const ta = self.setTOvar.getPtr(i).?;
     if (ta[0]) |oldT| {
         if (oldT[0].token.?.tag != t.token.?.tag) {
             Logger.logLocation.err(a.token.?.loc, "Found this variable used in 2 different contexts (ambiguous typing)", .{});
