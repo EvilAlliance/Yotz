@@ -39,10 +39,19 @@ const TypeChecker = struct {
 
         while (itSet.next()) |set| {
             if (set[0]) |v| {
-                const t, _ = v;
+                const t, const loc = v;
                 const index = try nl.addNode(&checker.ast.nodeList, t);
                 for (set[1].items) |variable| {
                     const proto = &ast.nodeList.items[variable.data[0]];
+                    if (proto.data[0] != 0) continue;
+
+                    const errorCount = checker.errs;
+                    // CLEANUP: Check when its found instead of now
+                    checker.checkLiteralExpressionExpectedType(ast.nodeList.items[proto.data[1]], t);
+
+                    if (errorCount != checker.errs) {
+                        Logger.logLocation.info(loc, "It was found unsing type {s} here:", .{t.getName()});
+                    }
                     proto.data[0] = index;
                 }
             } else {
@@ -287,6 +296,34 @@ const TypeChecker = struct {
 
                 self.checkExpressionExpectedType(left, expectedType);
                 self.checkExpressionExpectedType(right, expectedType);
+            },
+            else => {
+                Logger.logLocation.err(expr.token.?.loc, "Node not supported {}", .{expr.tag});
+                unreachable;
+            },
+        }
+    }
+
+    fn checkLiteralExpressionExpectedType(self: *Self, expr: Parser.Node, expectedType: Parser.Node) void {
+        std.debug.assert(expectedType.tag == .type);
+        std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .parentesis, .power, .division, .multiplication, .subtraction, .addition }, expr.tag));
+
+        switch (expr.tag) {
+            .lit => {
+                self.checkValueForType(expr, expectedType);
+            },
+            .load => {},
+            .parentesis, .neg => {
+                const left = self.ast.nodeList.items[expr.data[0]];
+
+                self.checkLiteralExpressionExpectedType(left, expectedType);
+            },
+            .addition, .subtraction, .multiplication, .division, .power => {
+                const left = self.ast.nodeList.items[expr.data[0]];
+                const right = self.ast.nodeList.items[expr.data[1]];
+
+                self.checkLiteralExpressionExpectedType(left, expectedType);
+                self.checkLiteralExpressionExpectedType(right, expectedType);
             },
             else => {
                 Logger.logLocation.err(expr.token.?.loc, "Node not supported {}", .{expr.tag});
