@@ -1,0 +1,7 @@
+fn main() u8 {
+    a:: 10;
+
+    b: u16 = a;
+
+    return a;
+}
