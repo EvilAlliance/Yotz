@@ -160,6 +160,9 @@ fn advance(self: *@This()) Token {
 
                     self.loc.col = 1;
                     self.loc.row += 1;
+
+                    t.loc.start = self.index;
+
                     continue :state .start;
                 },
                 else => {
