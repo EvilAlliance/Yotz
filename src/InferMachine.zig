@@ -36,7 +36,6 @@ sets: usize = 0,
 alloc: std.mem.Allocator,
 varTOset: VarTOset,
 setTOvar: SetTOvar,
-
 pub fn init(alloc: std.mem.Allocator) @This() {
     return @This(){
         .reuse = std.BoundedArray(usize, 256).init(0) catch unreachable,
@@ -109,8 +108,9 @@ pub fn merge(self: *@This(), a: usize, b: usize) (std.mem.Allocator.Error || err
     return destIndex;
 }
 
-pub fn found(self: *@This(), a: Parser.Node, t: Parser.Node, loc: Lexer.Location) void {
+pub fn found(self: *@This(), a: Parser.Node, t: Parser.Node, loc: Lexer.Location) std.mem.Allocator.Error!void {
     std.debug.assert(t.tag == .type);
+    std.debug.assert(a.tag == .constant or a.tag == .variable);
     const i = self.varTOset.get(a).?;
     const ta = self.setTOvar.getPtr(i).?;
     if (ta[0]) |oldT| {
@@ -122,6 +122,10 @@ pub fn found(self: *@This(), a: Parser.Node, t: Parser.Node, loc: Lexer.Location
     } else {
         ta[0] = .{ t, loc };
     }
+}
+
+pub fn includes(self: @This(), a: Parser.Node) bool {
+    return self.varTOset.contains(a);
 }
 
 pub fn printState(self: @This()) void {

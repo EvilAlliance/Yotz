@@ -159,7 +159,7 @@ const TypeChecker = struct {
             .ret => {
                 const expr = self.ast.nodeList.items[stmt.data[0]];
 
-                self.checkExpressionExpectedType(expr, retType);
+                try self.checkExpressionExpectedType(expr, retType);
             },
             .variable, .constant => {
                 if (self.searchVariableScope(stmt.getText())) |variable| {
@@ -171,20 +171,21 @@ const TypeChecker = struct {
 
                 try self.addVariableScope(stmt.getText(), stmt);
 
-                const a = try self.inferMachine.add(stmt);
-
                 const proto = self.ast.nodeList.items[stmt.data[0]];
 
                 if (proto.data[0] != 0) {
                     const t = self.ast.nodeList.items[proto.data[0]];
                     const expr = self.ast.nodeList.items[proto.data[1]];
 
-                    self.inferMachine.found(stmt, t, stmt.token.?.loc);
+                    _ = try self.inferMachine.add(stmt);
+                    try self.inferMachine.found(stmt, t, stmt.token.?.loc);
 
-                    self.checkExpressionExpectedType(expr, t);
+                    try self.checkExpressionExpectedType(expr, t);
                 } else {
                     const expr = self.ast.nodeList.items[proto.data[1]];
                     if (try self.checkExpressionInferType(expr)) |bS| {
+                        const a = try self.inferMachine.add(stmt);
+
                         _ = self.inferMachine.merge(a, bS) catch |err| switch (err) {
                             error.IncompatibleType => unreachable,
                             error.OutOfMemory => return error.OutOfMemory,
@@ -208,6 +209,9 @@ const TypeChecker = struct {
 
                     return null;
                 };
+
+                if (!self.inferMachine.includes(variable))
+                    return null;
 
                 return try self.inferMachine.add(variable);
             },
@@ -256,7 +260,7 @@ const TypeChecker = struct {
         unreachable;
     }
 
-    fn checkExpressionExpectedType(self: *Self, expr: Parser.Node, expectedType: Parser.Node) void {
+    fn checkExpressionExpectedType(self: *Self, expr: Parser.Node, expectedType: Parser.Node) std.mem.Allocator.Error!void {
         std.debug.assert(expectedType.tag == .type);
         std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .parentesis, .power, .division, .multiplication, .subtraction, .addition }, expr.tag));
 
@@ -282,20 +286,28 @@ const TypeChecker = struct {
                         self.errs += 1;
                     }
                 } else {
-                    self.inferMachine.found(variable, expectedType, expr.token.?.loc);
+                    if (self.inferMachine.includes(variable)) {
+                        try self.inferMachine.found(variable, expectedType, expr.token.?.loc);
+                    } else {
+                        // CLEANUP: The Generic varialble is checked every time
+                        const prevError = self.errs;
+                        try self.checkExpressionExpectedType(self.ast.getNode(proto.data[1]), expectedType);
+                        if (prevError != self.errs)
+                            Logger.logLocation.info(expr.getLocation(), "Generic type is not compatible with: {s}", .{expectedType.getName()});
+                    }
                 }
             },
             .parentesis, .neg => {
                 const left = self.ast.nodeList.items[expr.data[0]];
 
-                self.checkExpressionExpectedType(left, expectedType);
+                try self.checkExpressionExpectedType(left, expectedType);
             },
             .addition, .subtraction, .multiplication, .division, .power => {
                 const left = self.ast.nodeList.items[expr.data[0]];
                 const right = self.ast.nodeList.items[expr.data[1]];
 
-                self.checkExpressionExpectedType(left, expectedType);
-                self.checkExpressionExpectedType(right, expectedType);
+                try self.checkExpressionExpectedType(left, expectedType);
+                try self.checkExpressionExpectedType(right, expectedType);
             },
             else => {
                 Logger.logLocation.err(expr.token.?.loc, "Node not supported {}", .{expr.tag});

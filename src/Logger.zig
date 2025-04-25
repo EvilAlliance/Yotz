@@ -45,7 +45,7 @@ pub const logLocation = struct {
             return;
         };
 
-        writer.print("\n{s}\n{s}\n", .{ location.content[beg..end], pointer.buffer }) catch return;
+        writer.print("\n{s}\n{s}\n", .{ location.content[beg..end], pointer.buffer[0..pointer.len] }) catch return;
     }
 
     fn l(comptime message_level: std.log.Level, location: Lexer.Location, comptime format: []const u8, args: anytype) void {
