@@ -311,47 +311,46 @@ fn parseReturn(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken
 }
 
 fn parseExpression(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!usize {
+    return self.parseExpr(1);
+}
+
+fn parseExpr(self: *@This(), minPrecedence: u8) (std.mem.Allocator.Error || error{UnexpectedToken})!usize {
     var nextToken = self.peek();
     if (nextToken.tag == .semicolon) @panic("Void return is not implemented");
 
-    var expr = try self.parseTerm();
+    var leftIndex = try self.parseTerm();
     nextToken = self.peek();
 
     while (nextToken.tag != .semicolon and nextToken.tag != .closeParen) : (nextToken = self.peek()) {
-        const op = self.pop();
+        const op = self.peek();
         if (!try self.expect(op, &.{ .plus, .minus, .asterik, .slash, .caret })) return error.UnexpectedToken;
 
-        var tag: Node.Tag = undefined;
-        switch (op.tag) {
-            .minus => tag = .subtraction,
-            .plus => tag = .addition,
-            .asterik => tag = .multiplication,
-            .slash => tag = .division,
-            .caret => tag = .power,
+        const tag: Node.Tag = switch (op.tag) {
+            .minus => .subtraction,
+            .plus => .addition,
+            .asterik => .multiplication,
+            .slash => .division,
+            .caret => .power,
             else => unreachable,
-        }
+        };
 
-        const right = try self.parseTerm();
+        const prec = Expression.operandPresedence(tag);
+        if (prec < minPrecedence) break;
 
-        const node = &self.temp.items[expr];
-        if (node.tag != .lit and node.tag != .parentesis and node.tag != .load and Expression.operandPresedence(node.tag) > Expression.operandPresedence(tag)) {
-            const leftRight = node.data[1];
-            node.*.data[1] = self.temp.items.len;
-            _ = try nl.addNode(&self.temp, .{
-                .tag = tag,
-                .token = op,
-                .data = .{ leftRight, right },
-            });
-        } else {
-            expr = try nl.addNode(&self.temp, .{
-                .tag = tag,
-                .token = op,
-                .data = .{ expr, right },
-            });
-        }
+        _ = self.pop();
+
+        const nextMinPrec = if (Expression.operandAssociativity(tag) == Expression.Associativity.left) prec + 1 else prec;
+
+        const right = try self.parseExpr(nextMinPrec);
+
+        leftIndex = try nl.addNode(&self.temp, Node{
+            .tag = tag,
+            .token = op,
+            .data = .{ leftIndex, right },
+        });
     }
 
-    return expr;
+    return leftIndex;
 }
 
 fn parseTerm(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!usize {

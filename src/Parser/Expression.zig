@@ -17,21 +17,38 @@ const getType = tbHelper.getType;
 
 pub fn operandPresedence(t: Parser.Node.Tag) u8 {
     return switch (t) {
-        .power => 0,
-        .multiplication => 1,
-        .division => 1,
-        .addition => 2,
-        .subtraction => 2,
+        .power => 3,
+        .multiplication => 2,
+        .division => 2,
+        .addition => 1,
+        .subtraction => 1,
         else => unreachable,
     };
 }
+
+pub const Associativity = enum {
+    left,
+    right,
+};
+
+pub fn operandAssociativity(t: Parser.Node.Tag) Associativity {
+    return switch (t) {
+        .power => Associativity.right,
+        .multiplication => Associativity.left,
+        .division => Associativity.left,
+        .addition => Associativity.left,
+        .subtraction => Associativity.left,
+        else => unreachable,
+    };
+}
+
 pub const Operand = std.AutoHashMap(Lexer.TokenType, u8).initComptime(.{
-    .{ "^", 0 },
-    .{ "%", 1 },
-    .{ "*", 1 },
-    .{ "/", 1 },
-    .{ "+", 2 },
-    .{ "-", 2 },
+    .{ "^", 3 },
+    .{ "%", 2 },
+    .{ "*", 2 },
+    .{ "/", 2 },
+    .{ "+", 1 },
+    .{ "-", 1 },
 });
 
 pub const Binary = std.StaticStringMap(*const fn (g: tb.GraphBuilder, left: *tb.Node, right: *tb.Node, usigned: bool) *tb.Node).initComptime(.{
