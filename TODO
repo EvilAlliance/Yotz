@@ -2,4 +2,4 @@ TODO: Runtime check for overflow depending of release or safe
 TODO: Jhonathan Blow Q&A Parser ver mas tarde 1:06:22
 TODO: Any scope can have a capture block
 TODO: Make any function a landa and enable assign to varaible
-TODO: Constant can have multiple types if init does not determine it
+DONE: Constant can have multiple types if init does not determine it
