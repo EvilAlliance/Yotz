@@ -10,7 +10,7 @@ pub fn addNode(arr: *std.ArrayList(Parser.Node), node: Parser.Node) std.mem.Allo
 pub fn reserveNode(arr: *std.ArrayList(Parser.Node), node: Parser.Node) std.mem.Allocator.Error!*Parser.Node {
     const index = arr.items.len;
     try arr.append(node);
-    return &arr[index];
+    return &arr.items[index];
 }
 
 pub fn reserveNodeIndex(arr: *std.ArrayList(Parser.Node), node: Parser.Node) std.mem.Allocator.Error!usize {

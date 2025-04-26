@@ -25,7 +25,7 @@ pub fn display(self: @This()) void {
     }
 
     Logger.logLocation.err(self.loc, "Expected: {s} but found: {s}{s}{s}", .{
-        arr.buffer,
+        arr.buffer[0..arr.len],
         "\'",
         self.found.getName(),
         "\'",
