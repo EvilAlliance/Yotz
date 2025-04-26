@@ -21,8 +21,6 @@ loc: Location,
 peeked: ?Token = null,
 finished: bool = false,
 
-alloc: Allocator,
-
 const Status = enum {
     start,
     identifier,
@@ -178,14 +176,7 @@ fn advance(self: *@This()) Token {
     return t;
 }
 
-pub fn peek(self: *@This()) Token {
-    if (self.peeked) |t| return t;
-    self.peeked = self.advance();
-
-    return self.peeked.?;
-}
-
-pub fn pop(self: *@This()) Token {
+fn pop(self: *@This()) Token {
     if (self.peeked) |t| {
         self.peeked = null;
         return t;
@@ -194,7 +185,7 @@ pub fn pop(self: *@This()) Token {
     return self.advance();
 }
 
-pub fn toString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Error!std.ArrayList(u8) {
+fn toString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Error!std.ArrayList(u8) {
     var cont = std.ArrayList(u8).init(alloc);
 
     try cont.appendSlice(self.absPath);
@@ -210,14 +201,27 @@ pub fn toString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Erro
     return cont;
 }
 
-pub fn init(alloc: Allocator, path: []const u8, abspath: []const u8, c: [:0]const u8) @This() {
+fn init(path: []const u8, abspath: []const u8, c: [:0]const u8) @This() {
     const l = @This(){
         .content = c,
         .absPath = abspath,
         .path = path,
-        .alloc = alloc,
         .loc = Location.init(path, c),
     };
 
     return l;
+}
+
+pub fn lex(alloc: std.mem.Allocator, path: []const u8, abspath: []const u8, c: [:0]const u8) std.mem.Allocator.Error![]Token {
+    var al = try std.ArrayList(Token).initCapacity(alloc, 100);
+
+    var lexer = init(path, abspath, c);
+    var t = lexer.pop();
+
+    while (t.tag != .EOF) : (t = lexer.pop()) {
+        try al.append(t);
+    }
+    try al.append(t);
+
+    return try al.toOwnedSlice();
 }

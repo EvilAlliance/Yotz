@@ -20,9 +20,14 @@ pub const nl = @import("./NodeListUtil.zig");
 pub const Expression = @import("Expression.zig");
 pub const Ast = @import("Ast.zig");
 
-l: Lexer,
 alloc: Allocator,
+
+index: usize = 0,
+tokens: []Lexer.Token,
 source: [:0]const u8,
+
+path: []const u8,
+absPath: []const u8,
 
 functions: Ast.Program,
 nodeList: Ast.NodeList,
@@ -45,8 +50,15 @@ pub fn init(alloc: Allocator, path: []const u8) ?@This() {
 
     return @This(){
         .alloc = alloc,
-        .l = Lexer.init(alloc, path, absPath, source),
+        .tokens = Lexer.lex(alloc, path, absPath, source) catch {
+            Logger.log.err("Out of memory", .{});
+            return null;
+        },
+
         .source = source,
+
+        .path = path,
+        .absPath = absPath,
 
         .functions = Ast.Program.init(alloc),
         .nodeList = Ast.NodeList.init(alloc),
@@ -81,16 +93,20 @@ pub fn expect(self: *@This(), token: Lexer.Token, t: []const Lexer.TokenType) st
 }
 
 fn peek(self: *@This()) Lexer.Token {
-    return self.l.peek();
+    return self.tokens[self.index];
 }
 
 fn popIf(self: *@This(), t: Lexer.TokenType) ?Lexer.Token {
-    if (self.l.peek().tag != t) return null;
-    return self.l.pop();
+    if (self.tokens[self.index].tag != t) return null;
+    const token = self.tokens[self.index];
+    self.index += 1;
+    return token;
 }
 
 fn pop(self: *@This()) Lexer.Token {
-    return self.l.pop();
+    const token = self.tokens[self.index];
+    self.index += 1;
+    return token;
 }
 
 pub fn parse(self: *@This()) (std.mem.Allocator.Error)!Ast {
@@ -109,7 +125,7 @@ fn parseRoot(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})
     try self.temp.insert(0, .{ .tag = .root, .token = null, .data = .{ 1, 0 } });
 
     var t = self.peek();
-    while (t.tag != .EOF) : (t = self.l.peek()) {
+    while (t.tag != .EOF) : (t = self.peek()) {
         if (!try self.expect(t, &.{.func})) return error.UnexpectedToken;
 
         switch (t.tag) {
@@ -413,5 +429,11 @@ fn parseTerm(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})
 }
 
 pub fn lexerToString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Error!std.ArrayList(u8) {
-    return self.l.toString(alloc);
+    var al = std.ArrayList(u8).init(alloc);
+
+    for (self.tokens) |value| {
+        try value.toString(alloc, &al, self.path);
+    }
+
+    return al;
 }
