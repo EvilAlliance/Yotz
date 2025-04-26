@@ -91,8 +91,12 @@ pub fn expect(self: *@This(), token: Lexer.Token, t: []const Lexer.TokenType) st
 
     return is;
 }
-
 fn peek(self: *@This()) Lexer.Token {
+    return self.peekMany(0);
+}
+
+fn peekMany(self: *@This(), n: usize) Lexer.Token {
+    std.debug.assert(self.index + n < self.tokens.len);
     return self.tokens[self.index];
 }
 
