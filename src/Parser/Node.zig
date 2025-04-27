@@ -1,6 +1,8 @@
 const Lexer = @import("./../Lexer/Lexer.zig");
+const Parser = @import("Parser.zig");
 
-pub const Tag = enum {
+pub const Tag = enum(Parser.NodeIndex) {
+    // Mark begining and end
     root,
 
     empty,
@@ -35,7 +37,7 @@ tag: Tag,
 token: ?Lexer.Token,
 
 // 0 is invalid beacause 0 is root
-data: struct { usize, usize },
+data: struct { Parser.NodeIndex, Parser.NodeIndex },
 
 pub fn getLocation(self: *const @This()) Lexer.Location {
     return self.token.?.loc;
