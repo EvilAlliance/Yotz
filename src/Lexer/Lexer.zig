@@ -13,13 +13,9 @@ const Allocator = std.mem.Allocator;
 const print = std.debug.print;
 const assert = std.debug.assert;
 
-path: []const u8,
-absPath: []const u8,
 content: [:0]const u8,
-index: usize = 0,
+index: u32 = 0,
 loc: Location,
-peeked: ?Token = null,
-finished: bool = false,
 
 const Status = enum {
     start,
@@ -37,14 +33,12 @@ fn advanceIndex(self: *@This()) void {
 }
 
 fn advance(self: *@This()) Token {
-    if (self.finished) @panic("This function shouldnt be called if this has finished lexing");
     var t = Token.init(undefined, self.loc.shallowCopy(self.index, undefined));
 
     state: switch (Status.start) {
         .start => switch (self.content[self.index]) {
             0 => {
                 t.tag = .EOF;
-                self.finished = true;
             },
             '\n' => {
                 self.advanceIndex();
@@ -176,49 +170,22 @@ fn advance(self: *@This()) Token {
     return t;
 }
 
-fn pop(self: *@This()) Token {
-    if (self.peeked) |t| {
-        self.peeked = null;
-        return t;
-    }
-
-    return self.advance();
-}
-
-fn toString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Error!std.ArrayList(u8) {
-    var cont = std.ArrayList(u8).init(alloc);
-
-    try cont.appendSlice(self.absPath);
-    try cont.appendSlice(":\n");
-
-    var t = self.pop();
-    while (!self.finished) : (t = self.pop()) {
-        try t.toString(alloc, &cont, self.path);
-    }
-
-    try t.toString(alloc, &cont, self.path);
-
-    return cont;
-}
-
-fn init(path: []const u8, abspath: []const u8, c: [:0]const u8) @This() {
+fn init(path: []const u8, c: [:0]const u8) @This() {
     const l = @This(){
         .content = c,
-        .absPath = abspath,
-        .path = path,
         .loc = Location.init(path, c),
     };
 
     return l;
 }
 
-pub fn lex(alloc: std.mem.Allocator, path: []const u8, abspath: []const u8, c: [:0]const u8) std.mem.Allocator.Error![]Token {
+pub fn lex(alloc: std.mem.Allocator, path: []const u8, c: [:0]const u8) std.mem.Allocator.Error![]Token {
     var al = try std.ArrayList(Token).initCapacity(alloc, 100);
 
-    var lexer = init(path, abspath, c);
-    var t = lexer.pop();
+    var lexer = init(path, c);
+    var t = lexer.advance();
 
-    while (t.tag != .EOF) : (t = lexer.pop()) {
+    while (t.tag != .EOF) : (t = lexer.advance()) {
         try al.append(t);
     }
     try al.append(t);

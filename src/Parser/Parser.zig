@@ -50,7 +50,7 @@ pub fn init(alloc: Allocator, path: []const u8) ?@This() {
 
     return @This(){
         .alloc = alloc,
-        .tokens = Lexer.lex(alloc, path, absPath, source) catch {
+        .tokens = Lexer.lex(alloc, path, source) catch {
             Logger.log.err("Out of memory", .{});
             return null;
         },

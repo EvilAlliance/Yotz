@@ -1,20 +1,20 @@
 const Lexer = @import("Lexer.zig");
 const PrettyLocation = Lexer.PrettyLocation;
 
+row: u32,
+col: u32,
+
 path: []const u8,
 content: [:0]const u8,
 
-row: usize,
-col: usize,
-
-start: usize,
-end: usize,
+start: u32,
+end: u32,
 
 pub fn getText(self: @This()) []const u8 {
     return self.content[self.start..self.end];
 }
 
-pub fn shallowCopy(self: @This(), start: usize, end: usize) @This() {
+pub fn shallowCopy(self: @This(), start: u32, end: u32) @This() {
     var new = self;
     new.start = start;
     new.end = end;
