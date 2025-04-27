@@ -34,23 +34,23 @@ pub const Tag = enum(Parser.NodeIndex) {
 };
 
 tag: Tag,
-token: ?Lexer.Token,
+tokenIndex: Parser.TokenIndex = 0,
 
 // 0 is invalid beacause 0 is root
 data: struct { Parser.NodeIndex, Parser.NodeIndex },
 
-pub fn getLocation(self: *const @This()) Lexer.Location {
-    return self.token.?.loc;
+pub fn getLocation(self: *const @This(), tl: []Lexer.Token) Lexer.Location {
+    return tl[self.tokenIndex].loc;
 }
 
-pub fn getTokenTag(self: *const @This()) Lexer.TokenType {
-    return self.token.?.tag;
+pub fn getTokenTag(self: *const @This(), tl: []Lexer.Token) Lexer.TokenType {
+    return tl[self.tokenIndex].tag;
 }
 
-pub fn getText(self: *const @This()) []const u8 {
-    return self.token.?.loc.getText();
+pub fn getText(self: *const @This(), tl: []Lexer.Token) []const u8 {
+    return tl[self.tokenIndex].getText();
 }
 
-pub fn getName(self: *const @This()) []const u8 {
-    return self.token.?.tag.getName();
+pub fn getName(self: *const @This(), tl: []Lexer.Token) []const u8 {
+    return tl[self.tokenIndex].tag.getName();
 }

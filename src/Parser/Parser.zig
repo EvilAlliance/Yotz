@@ -21,6 +21,7 @@ pub const Expression = @import("Expression.zig");
 pub const Ast = @import("Ast.zig");
 
 pub const NodeIndex = u32;
+pub const TokenIndex = u32;
 
 alloc: Allocator,
 
@@ -93,26 +94,26 @@ pub fn expect(self: *@This(), token: Lexer.Token, t: []const Lexer.TokenType) st
 
     return is;
 }
-fn peek(self: *@This()) Lexer.Token {
+fn peek(self: *@This()) struct { Lexer.Token, TokenIndex } {
     return self.peekMany(0);
 }
 
-fn peekMany(self: *@This(), n: NodeIndex) Lexer.Token {
+fn peekMany(self: *@This(), n: NodeIndex) struct { Lexer.Token, TokenIndex } {
     std.debug.assert(self.index + n < self.tokens.len);
-    return self.tokens[self.index];
+    return .{ self.tokens[self.index], self.index };
 }
 
-fn popIf(self: *@This(), t: Lexer.TokenType) ?Lexer.Token {
+fn popIf(self: *@This(), t: Lexer.TokenType) ?struct { Lexer.Token, TokenIndex } {
     if (self.tokens[self.index].tag != t) return null;
-    const token = self.tokens[self.index];
+    const tuple = .{ self.tokens[self.index], self.index };
     self.index += 1;
-    return token;
+    return tuple;
 }
 
-fn pop(self: *@This()) Lexer.Token {
-    const token = self.tokens[self.index];
+fn pop(self: *@This()) struct { Lexer.Token, TokenIndex } {
+    const tuple = .{ self.tokens[self.index], self.index };
     self.index += 1;
-    return token;
+    return tuple;
 }
 
 pub fn parse(self: *@This()) (std.mem.Allocator.Error)!Ast {
@@ -121,17 +122,17 @@ pub fn parse(self: *@This()) (std.mem.Allocator.Error)!Ast {
         else => {},
     };
 
-    return Ast.init(self.alloc, self.functions, self.nodeList, self.source);
+    return Ast.init(self.alloc, self.functions, self.nodeList, self.tokens, self.source);
 }
 
 fn parseRoot(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!void {
     const top = self.temp.items.len;
     defer self.temp.shrinkRetainingCapacity(top);
 
-    try self.temp.insert(0, .{ .tag = .root, .token = null, .data = .{ 1, 0 } });
+    try self.temp.insert(0, .{ .tag = .root, .data = .{ 1, 0 } });
 
-    var t = self.peek();
-    while (t.tag != .EOF) : (t = self.peek()) {
+    var t, _ = self.peek();
+    while (t.tag != .EOF) : (t, _ = self.peek()) {
         if (!try self.expect(t, &.{.func})) return error.UnexpectedToken;
 
         switch (t.tag) {
@@ -149,22 +150,22 @@ fn parseRoot(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})
 fn parseFuncDecl(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!void {
     _ = self.popIf(.func) orelse unreachable;
 
-    if (!try self.expect(self.peek(), &.{.iden})) return error.UnexpectedToken;
-    const mainToken = self.pop();
+    if (!try self.expect(self.peek()[0], &.{.iden})) return error.UnexpectedToken;
+    const mainToken, const mainIndex = self.pop();
 
     const nodeIndex = try nl.addNode(&self.temp, .{
-        .token = mainToken,
+        .tokenIndex = mainIndex,
         .tag = .funcDecl,
         .data = .{ 0, 0 },
     });
 
-    if (!try self.expect(self.peek(), &.{.openParen})) return error.UnexpectedToken;
+    if (!try self.expect(self.peek()[0], &.{.openParen})) return error.UnexpectedToken;
     {
         const p = try self.parseFuncProto();
         self.temp.items[nodeIndex].data[0] = p;
     }
 
-    if (self.peek().tag != .openBrace) {
+    if (self.peek()[0].tag != .openBrace) {
         self.temp.items[nodeIndex].data[1] = @intCast(self.temp.items.len);
         try self.parseStatement();
     } else {
@@ -177,15 +178,14 @@ fn parseFuncDecl(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedTok
 
 fn parseFuncProto(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
     const nodeIndex = try nl.addNode(&self.temp, .{
-        .token = null,
         .tag = .funcProto,
         .data = .{ 0, 0 },
     });
 
-    if (!try self.expect(self.peek(), &.{.openParen})) return error.UnexpectedToken;
+    if (!try self.expect(self.peek()[0], &.{.openParen})) return error.UnexpectedToken;
     _ = self.pop();
     // TODO: Parse arguments
-    if (!try self.expect(self.peek(), &.{.closeParen})) return error.UnexpectedToken;
+    if (!try self.expect(self.peek()[0], &.{.closeParen})) return error.UnexpectedToken;
     _ = self.pop();
 
     {
@@ -197,11 +197,11 @@ fn parseFuncProto(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedTo
 }
 
 fn parseType(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
-    if (!try self.expect(self.peek(), &.{ .unsigned8, .unsigned16, .unsigned32, .unsigned64, .signed8, .signed16, .signed32, .signed64 })) return error.UnexpectedToken;
-    const mainToken = self.pop();
+    if (!try self.expect(self.peek()[0], &.{ .unsigned8, .unsigned16, .unsigned32, .unsigned64, .signed8, .signed16, .signed32, .signed64 })) return error.UnexpectedToken;
+    _, const mainIndex = self.pop();
 
     const nodeIndex = try nl.addNode(&self.temp, .{
-        .token = mainToken,
+        .tokenIndex = mainIndex,
         .tag = .type,
         .data = .{ 0, 0 },
     });
@@ -213,26 +213,25 @@ fn parseScope(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken}
     _ = self.popIf(.openBrace) orelse unreachable;
 
     const nodeIndex = try nl.addNode(&self.temp, .{
-        .token = null,
         .tag = .scope,
         .data = .{ 0, 0 },
     });
 
     self.temp.items[nodeIndex].data[0] = nodeIndex + 1;
 
-    while (self.peek().tag != .closeBrace) {
+    while (self.peek()[0].tag != .closeBrace) {
         const top = self.temp.items.len;
         self.parseStatement() catch |err| switch (err) {
             error.UnexpectedToken => {
                 self.temp.shrinkRetainingCapacity(top);
-                while (self.peek().tag != .semicolon) : (_ = self.pop()) {}
+                while (self.peek()[0].tag != .semicolon) : (_ = self.pop()) {}
                 _ = self.pop();
             },
             error.OutOfMemory => return error.OutOfMemory,
         };
     }
 
-    if (!try self.expect(self.peek(), &.{.closeBrace})) return error.UnexpectedToken;
+    if (!try self.expect(self.peek()[0], &.{.closeBrace})) return error.UnexpectedToken;
     _ = self.pop();
 
     self.temp.items[nodeIndex].data[1] = @intCast(self.temp.items.len);
@@ -241,15 +240,15 @@ fn parseScope(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken}
 }
 
 fn parseStatement(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!void {
-    if (!try self.expect(self.peek(), &.{ .ret, .iden })) return error.UnexpectedToken;
+    if (!try self.expect(self.peek()[0], &.{ .ret, .iden })) return error.UnexpectedToken;
 
-    const nodeIndex = switch (self.peek().tag) {
+    const nodeIndex = switch (self.peek()[0].tag) {
         .ret => try self.parseReturn(),
         .iden => try self.parseVariableDecl(),
         else => unreachable,
     };
 
-    if (!try self.expect(self.peek(), &.{.semicolon})) return error.UnexpectedToken;
+    if (!try self.expect(self.peek()[0], &.{.semicolon})) return error.UnexpectedToken;
     _ = self.pop();
 
     self.temp.items[nodeIndex].data[1] = @intCast(self.temp.items.len);
@@ -257,13 +256,13 @@ fn parseStatement(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedTo
 }
 
 fn parseVariableDecl(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
-    const name = self.popIf(.iden) orelse unreachable;
+    _, const nameIndex = self.popIf(.iden) orelse unreachable;
 
-    if (!try self.expect(self.peek(), &.{.colon})) return error.UnexpectedToken;
+    if (!try self.expect(self.peek()[0], &.{.colon})) return error.UnexpectedToken;
 
     const variable = try nl.addNode(&self.temp, .{
         .tag = Node.Tag.variable,
-        .token = name,
+        .tokenIndex = nameIndex,
         .data = .{ 0, 0 },
     });
 
@@ -281,43 +280,42 @@ fn parseVariableProto(self: *@This()) (std.mem.Allocator.Error || error{Unexpect
 
     const proto = try nl.addNode(&self.temp, .{
         .tag = .VarProto,
-        .token = null,
         .data = .{ 0, 0 },
     });
 
-    if (!try self.expect(self.peek(), &.{.colon})) return error.UnexpectedToken;
+    if (!try self.expect(self.peek()[0], &.{.colon})) return error.UnexpectedToken;
     _ = self.pop();
 
-    const possibleType = self.peek();
+    const possibleType = self.peek()[0];
 
     if (possibleType.tag != .colon and possibleType.tag != .equal) {
         const p = try self.parseType();
         self.temp.items[proto].data[0] = p;
     }
 
-    if (!try self.expect(self.peek(), &.{ .colon, .equal, .semicolon })) return error.UnexpectedToken;
+    if (!try self.expect(self.peek()[0], &.{ .colon, .equal, .semicolon })) return error.UnexpectedToken;
 
-    const possibleExpr = self.peek();
+    const possibleExpr = self.peek()[0];
 
     if (possibleExpr.tag == .colon or possibleExpr.tag == .equal) {
-        if (self.pop().tag == .colon)
+        if (self.pop()[0].tag == .colon)
             constant = .constant;
 
         const p = try self.parseExpression();
         self.temp.items[proto].data[1] = p;
     }
 
-    if (!try self.expect(self.peek(), &.{.semicolon})) return error.UnexpectedToken;
+    if (!try self.expect(self.peek()[0], &.{.semicolon})) return error.UnexpectedToken;
 
     return .{ proto, constant };
 }
 
 fn parseReturn(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
-    const ret = self.popIf(.ret) orelse unreachable;
+    _, const retIndex = self.popIf(.ret) orelse unreachable;
 
     const nodeIndex = try nl.addNode(&self.temp, .{
         .tag = .ret,
-        .token = ret,
+        .tokenIndex = retIndex,
         .data = .{ 0, 0 },
     });
 
@@ -327,7 +325,7 @@ fn parseReturn(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken
 
     self.temp.items[nodeIndex].data[0] = exp;
 
-    if (!try self.expect(self.peek(), &.{.semicolon})) return error.UnexpectedToken;
+    if (!try self.expect(self.peek()[0], &.{.semicolon})) return error.UnexpectedToken;
 
     return nodeIndex;
 }
@@ -337,14 +335,14 @@ fn parseExpression(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedT
 }
 
 fn parseExpr(self: *@This(), minPrecedence: u8) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
-    var nextToken = self.peek();
+    var nextToken = self.peek()[0];
     if (nextToken.tag == .semicolon) @panic("Void return is not implemented");
 
     var leftIndex = try self.parseTerm();
-    nextToken = self.peek();
+    nextToken = self.peek()[0];
 
-    while (nextToken.tag != .semicolon and nextToken.tag != .closeParen) : (nextToken = self.peek()) {
-        const op = self.peek();
+    while (nextToken.tag != .semicolon and nextToken.tag != .closeParen) : (nextToken = self.peek()[0]) {
+        const op, const opIndex = self.peek();
         if (!try self.expect(op, &.{ .plus, .minus, .asterik, .slash, .caret })) return error.UnexpectedToken;
 
         const tag: Node.Tag = switch (op.tag) {
@@ -367,7 +365,7 @@ fn parseExpr(self: *@This(), minPrecedence: u8) (std.mem.Allocator.Error || erro
 
         leftIndex = try nl.addNode(&self.temp, Node{
             .tag = tag,
-            .token = op,
+            .tokenIndex = opIndex,
             .data = .{ leftIndex, right },
         });
     }
@@ -376,7 +374,7 @@ fn parseExpr(self: *@This(), minPrecedence: u8) (std.mem.Allocator.Error || erro
 }
 
 fn parseTerm(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
-    const nextToken = self.peek();
+    const nextToken = self.peek()[0];
 
     if (!try self.expect(nextToken, &[_]Lexer.TokenType{ .numberLiteral, .openParen, .minus, .iden })) return error.UnexpectedToken;
 
@@ -384,19 +382,19 @@ fn parseTerm(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})
         .numberLiteral => {
             return try nl.addNode(&self.temp, .{
                 .tag = .lit,
-                .token = self.pop(),
+                .tokenIndex = self.pop()[1],
                 .data = .{ 0, 0 },
             });
         },
         .iden => {
             return try nl.addNode(&self.temp, .{
                 .tag = .load,
-                .token = self.pop(),
+                .tokenIndex = self.pop()[1],
                 .data = .{ 0, 0 },
             });
         },
         .minus => {
-            const op = self.pop();
+            const op, const opIndex = self.pop();
 
             const expr = try self.parseTerm();
 
@@ -405,7 +403,7 @@ fn parseTerm(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})
                     .minus => .neg,
                     else => unreachable,
                 },
-                .token = op,
+                .tokenIndex = opIndex,
                 .data = .{ expr, 0 },
             });
         },
@@ -415,7 +413,7 @@ fn parseTerm(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})
             _ = self.pop();
 
             const expr = try self.parseExpression();
-            if (!try self.expect(self.peek(), &.{.closeParen})) return error.UnexpectedToken;
+            if (!try self.expect(self.peek()[0], &.{.closeParen})) return error.UnexpectedToken;
 
             _ = self.pop();
 
@@ -424,7 +422,6 @@ fn parseTerm(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})
 
             return try nl.addNode(&self.temp, .{
                 .tag = .parentesis,
-                .token = null,
                 .data = .{ expr, 0 },
             });
         },

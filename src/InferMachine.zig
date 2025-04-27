@@ -10,14 +10,11 @@ const VarTOset = std.HashMap(
     struct {
         pub fn hash(self: @This(), a: Parser.Node) u64 {
             _ = self;
-            const col = std.hash.int(a.token.?.loc.col);
-            const row = std.hash.int(a.token.?.loc.row);
-
-            return col ^ row;
+            return std.hash.int(a.tokenIndex);
         }
         pub fn eql(self: @This(), a: Parser.Node, b: Parser.Node) bool {
             _ = self;
-            return a.token.?.loc.col == b.token.?.loc.col and a.token.?.loc.row == b.token.?.loc.row;
+            return a.tokenIndex == b.tokenIndex;
         }
     },
     70,
@@ -31,15 +28,18 @@ const SetTOvar = std.AutoHashMap(
     },
 );
 
+tokens: []Lexer.Token,
+
 reuse: std.BoundedArray(usize, 256),
 sets: usize = 0,
 alloc: std.mem.Allocator,
 varTOset: VarTOset,
 setTOvar: SetTOvar,
-pub fn init(alloc: std.mem.Allocator) @This() {
+pub fn init(alloc: std.mem.Allocator, tokens: []Lexer.Token) @This() {
     return @This(){
         .reuse = std.BoundedArray(usize, 256).init(0) catch unreachable,
         .alloc = alloc,
+        .tokens = tokens,
         .varTOset = VarTOset.init(alloc),
         .setTOvar = SetTOvar.init(alloc),
     };
@@ -84,7 +84,7 @@ pub fn merge(self: *@This(), a: usize, b: usize) (std.mem.Allocator.Error || err
     const tb = self.setTOvar.getPtr(b).?;
 
     if (ta[0]) |aType| if (tb[0]) |bType| {
-        if (aType[0].getTokenTag() != bType[0].getTokenTag()) return error.IncompatibleType;
+        if (aType[0].getTokenTag(self.tokens) != bType[0].getTokenTag(self.tokens)) return error.IncompatibleType;
     };
 
     const dest = if (ta[0] != null) ta else tb;
@@ -114,10 +114,10 @@ pub fn found(self: *@This(), a: Parser.Node, t: Parser.Node, loc: Lexer.Location
     const i = self.varTOset.get(a).?;
     const ta = self.setTOvar.getPtr(i).?;
     if (ta[0]) |oldT| {
-        if (oldT[0].token.?.tag != t.token.?.tag) {
-            Logger.logLocation.err(a.token.?.loc, "Found this variable used in 2 different contexts (ambiguous typing)", .{});
-            Logger.logLocation.info(oldT[1], "Type inferred is: {s}, found here", .{oldT[0].token.?.tag.getName()});
-            Logger.logLocation.info(loc, "But later found here used in an other context: {s}", .{t.token.?.tag.getName()});
+        if (oldT[0].getTokenTag(self.tokens) != t.getTokenTag(self.tokens)) {
+            Logger.logLocation.err(a.getLocation(self.tokens), "Found this variable used in 2 different contexts (ambiguous typing)", .{});
+            Logger.logLocation.info(oldT[1], "Type inferred is: {s}, found here", .{oldT[0].getName(self.tokens)});
+            Logger.logLocation.info(loc, "But later found here used in an other context: {s}", .{t.getName(self.tokens)});
         }
     } else {
         ta[0] = .{ t, loc };

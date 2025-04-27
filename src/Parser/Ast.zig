@@ -1,26 +1,34 @@
 const std = @import("std");
+const Lexer = @import("../Lexer/Lexer.zig");
 const Parser = @import("Parser.zig");
 
 pub const Program = std.StringHashMap(usize);
 pub const NodeList = std.ArrayList(Parser.Node);
 
 alloc: std.mem.Allocator,
+
 source: [:0]const u8,
+tokens: []Lexer.Token,
 
 functions: Program,
 nodeList: NodeList,
 
-pub fn init(alloc: std.mem.Allocator, funcs: Program, nl: NodeList, source: [:0]const u8) @This() {
+pub fn init(alloc: std.mem.Allocator, funcs: Program, nl: NodeList, tl: []Lexer.Token, source: [:0]const u8) @This() {
     return @This(){
         .alloc = alloc,
+
         .source = source,
+        .tokens = tl,
+
         .functions = funcs,
         .nodeList = nl,
     };
 }
 
-pub fn deinit(self: @This()) void {
+pub fn deinit(self: *@This()) void {
     self.source.deinit();
+    self.alloc.free(self.tokens);
+
     self.functions.deinit();
     self.nodeList.deinit();
 }
@@ -47,7 +55,7 @@ pub fn toString(self: @This(), alloc: std.mem.Allocator) std.mem.Allocator.Error
             .funcDecl => {
                 try cont.appendSlice("fn ");
 
-                try cont.appendSlice(node.token.?.getText());
+                try cont.appendSlice(node.getText(self.tokens));
 
                 try self.toStringFuncProto(&cont, 0, node.data[0]);
 
@@ -79,7 +87,7 @@ fn toStringFuncProto(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) 
 
 fn toStringType(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
     _ = d;
-    try cont.appendSlice(self.nodeList.items[i].token.?.getText());
+    try cont.appendSlice(self.nodeList.items[i].getText(self.tokens));
 }
 
 fn toStringScope(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
@@ -127,7 +135,7 @@ fn tostringVariable(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) s
     const variable = self.nodeList.items[i];
     std.debug.assert(variable.tag == .constant or variable.tag == .variable);
 
-    try cont.appendSlice(variable.token.?.getText());
+    try cont.appendSlice(variable.getText(self.tokens));
 
     const proto = self.nodeList.items[variable.data[0]];
     std.debug.assert(proto.tag == .VarProto);
@@ -162,7 +170,7 @@ fn toStringExpression(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize)
             try self.toStringExpression(cont, d, leftIndex);
 
             try cont.append(' ');
-            try cont.appendSlice(node.token.?.tag.toSymbol().?);
+            try cont.appendSlice(node.getTokenTag(self.tokens).toSymbol().?);
             try cont.append(' ');
 
             const rightIndex = node.data[1];
@@ -176,7 +184,7 @@ fn toStringExpression(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize)
             try self.toStringExpression(cont, d, leftIndex);
         },
         .neg => {
-            try cont.appendSlice(node.token.?.tag.toSymbol().?);
+            try cont.appendSlice(node.getTokenTag(self.tokens).toSymbol().?);
             try cont.append('(');
             const leftIndex = node.data[0];
 
@@ -184,10 +192,10 @@ fn toStringExpression(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize)
             try cont.append(')');
         },
         .load => {
-            try cont.appendSlice(node.token.?.getText());
+            try cont.appendSlice(node.getText(self.tokens));
         },
         .lit => {
-            try cont.appendSlice(node.token.?.getText());
+            try cont.appendSlice(node.getText(self.tokens));
         },
         else => unreachable,
     }
