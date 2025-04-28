@@ -26,6 +26,11 @@ pub fn placeSlice(location: Lexer.Location, content: [:0]const u8) []const u8 {
         return buffPlace.constSlice();
     };
 
+    buffPlace.append(' ') catch {
+        log.err("Line is larger than {} caracters", .{10 * 1024});
+        return buffPlace.constSlice();
+    };
+
     buffPlace.appendSlice(content[beg..end]) catch {
         log.err("Line is larger than {} caracters", .{10 * 1024});
         return buffPlace.constSlice();
@@ -36,7 +41,7 @@ pub fn placeSlice(location: Lexer.Location, content: [:0]const u8) []const u8 {
         return buffPlace.constSlice();
     };
 
-    buffPlace.appendNTimes(' ', location.col - 1) catch {
+    buffPlace.appendNTimes(' ', location.col) catch {
         log.err("Line is larger than {} caracters", .{10 * 1024});
         return buffPlace.constSlice();
     };
