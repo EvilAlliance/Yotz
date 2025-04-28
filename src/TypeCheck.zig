@@ -35,7 +35,10 @@ const TypeChecker = struct {
         var funcIndex = ast.getNode(0).data[0];
         while (funcIndex != ast.getNode(0).data[1]) : (funcIndex = ast.getNode(funcIndex).next) {
             const func = ast.getNode(funcIndex);
-            try checker.checkFunction(func);
+            const varProto = ast.getNode(func.data[0]);
+            const funcProto = ast.getNode(varProto.data[1]);
+
+            try checker.checkFunction(funcProto);
         }
 
         var itSet = checker.inferMachine.setTOvar.valueIterator();
@@ -67,9 +70,10 @@ const TypeChecker = struct {
 
         // TODO: Pass this to the new format
 
-        if (checker.foundMain) |main| {
-            const proto = ast.nodeList.items[main.data[0]];
-            const t = ast.nodeList.items[proto.data[1]];
+        if (checker.foundMain) |mainProto| {
+            std.debug.assert(mainProto.tag == .funcProto);
+            const t = ast.nodeList.items[mainProto.data[1]];
+            std.debug.assert(t.tag == .type);
 
             if (t.getTokenTag(ast.tokens) != .unsigned8) {
                 const loc = t.getLocation(ast.tokens);
@@ -114,34 +118,30 @@ const TypeChecker = struct {
     }
 
     fn checkFunction(self: *Self, node: Parser.Node) std.mem.Allocator.Error!void {
-        _ = self;
-        _ = node;
-        unreachable;
-        // std.debug.assert(node.tag == .funcDecl);
-        //
-        // const name = node.getText(self.ast.tokens, self.ast.source);
-        //
-        // if (std.mem.eql(u8, name, "_start")) {
-        //     const loc = node.getLocation(self.ast.tokens);
-        //     Logger.logLocation.err(self.ast.path, loc, "_start is an identifier not available {s}", .{Logger.placeSlice(loc, self.ast.source)});
-        //     self.errs += 1;
-        // } else if (self.foundMain == null and std.mem.eql(u8, name, "main")) self.foundMain = node;
-        //
-        // const proto = self.ast.nodeList.items[node.data[0]];
-        // const t = self.ast.nodeList.items[proto.data[1]];
-        //
-        // const stmtORscope = self.ast.nodeList.items[node.data[1]];
-        //
-        // if (stmtORscope.tag == .scope) {
-        //     try self.checkScope(stmtORscope, t);
-        // } else {
-        //     try self.scopes.append(Scope.init(self.alloc));
-        //     try self.checkStatements(stmtORscope, t);
-        //     {
-        //         var x = self.scopes.pop().?;
-        //         x.deinit();
-        //     }
-        // }
+        std.debug.assert(node.tag == .funcProto);
+
+        const name = node.getText(self.ast.tokens, self.ast.source);
+
+        if (std.mem.eql(u8, name, "_start")) {
+            const loc = node.getLocation(self.ast.tokens);
+            Logger.logLocation.err(self.ast.path, loc, "_start is an identifier not available {s}", .{Logger.placeSlice(loc, self.ast.source)});
+            self.errs += 1;
+        } else if (self.foundMain == null and std.mem.eql(u8, name, "main")) self.foundMain = node;
+
+        const t = self.ast.nodeList.items[node.data[1]];
+
+        const stmtORscope = self.ast.nodeList.items[node.next];
+
+        if (stmtORscope.tag == .scope) {
+            try self.checkScope(stmtORscope, t);
+        } else {
+            try self.scopes.append(Scope.init(self.alloc));
+            try self.checkStatements(stmtORscope, t);
+            {
+                var x = self.scopes.pop().?;
+                x.deinit();
+            }
+        }
     }
 
     fn checkScope(self: *Self, scope: Parser.Node, retType: Parser.Node) std.mem.Allocator.Error!void {
@@ -157,7 +157,7 @@ const TypeChecker = struct {
 
             try self.checkStatements(stmt, retType);
 
-            i = stmt.data[1];
+            i = stmt.next;
         }
 
         {
