@@ -53,7 +53,7 @@ pub fn init(alloc: Allocator, path: []const u8) ?@This() {
 
     return @This(){
         .alloc = alloc,
-        .tokens = Lexer.lex(alloc, path, source) catch {
+        .tokens = Lexer.lex(alloc, source) catch {
             Logger.log.err("Out of memory", .{});
             return null;
         },
@@ -122,7 +122,7 @@ pub fn parse(self: *@This()) (std.mem.Allocator.Error)!Ast {
         else => {},
     };
 
-    return Ast.init(self.alloc, self.functions, self.nodeList, self.tokens, self.source);
+    return Ast.init(self.alloc, self.functions, self.nodeList, self.tokens, self.path, self.source);
 }
 
 fn parseRoot(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!void {
@@ -173,7 +173,7 @@ fn parseFuncDecl(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedTok
         self.temp.items[nodeIndex].data[1] = p;
     }
 
-    try self.functions.put(mainToken.getText(), nodeIndex);
+    try self.functions.put(mainToken.getText(self.source), nodeIndex);
 }
 
 fn parseFuncProto(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
@@ -433,7 +433,7 @@ pub fn lexerToString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator
     var al = std.ArrayList(u8).init(alloc);
 
     for (self.tokens) |value| {
-        try value.toString(alloc, &al, self.path);
+        try value.toString(alloc, &al, self.path, self.source);
     }
 
     return al;

@@ -23,7 +23,7 @@ const TypeChecker = struct {
     pub fn init(alloc: std.mem.Allocator, ast: *Parser.Ast) std.mem.Allocator.Error!bool {
         var checker = @This(){
             .alloc = alloc,
-            .inferMachine = InferMachine.init(alloc, ast.tokens),
+            .inferMachine = InferMachine.init(alloc, ast.tokens, ast.getInfo()),
             .ast = ast,
             .scopes = Scopes.init(alloc),
         };
@@ -50,13 +50,14 @@ const TypeChecker = struct {
                     checker.checkLiteralExpressionExpectedType(ast.nodeList.items[proto.data[1]], t);
 
                     if (errorCount != checker.errs) {
-                        Logger.logLocation.info(loc, "It was found unsing type {s} here:", .{t.getName(ast.tokens)});
+                        Logger.logLocation.info(ast.path, loc, "It was found unsing type {s} here: {s}", .{ t.getName(ast.tokens), Logger.placeSlice(loc, ast.source) });
                     }
                     proto.data[0] = index;
                 }
             } else {
                 for (set[1].items) |variable| {
-                    Logger.logLocation.err(variable.getLocation(ast.tokens), "Variable has ambiguos type", .{});
+                    const loc = variable.getLocation(ast.tokens);
+                    Logger.logLocation.err(ast.path, loc, "Variable has ambiguos type {s}", .{Logger.placeSlice(loc, ast.source)});
                 }
             }
         }
@@ -67,7 +68,8 @@ const TypeChecker = struct {
             const t = ast.nodeList.items[proto.data[1]];
 
             if (t.getTokenTag(ast.tokens) != .unsigned8) {
-                Logger.logLocation.err(t.getLocation(ast.tokens), "Main must return u8 instead of {s}", .{t.getName(ast.tokens)});
+                const loc = t.getLocation(ast.tokens);
+                Logger.logLocation.err(ast.path, loc, "Main must return u8 instead of {s} {s}", .{ t.getName(ast.tokens), Logger.placeSlice(loc, ast.source) });
                 checker.errs += 1;
             }
         } else {
@@ -80,7 +82,8 @@ const TypeChecker = struct {
         }
 
         if (ast.functions.get("_start")) |start| {
-            Logger.logLocation.err(ast.nodeList.items[start].getLocation(ast.tokens), "_start is an identifier not available", .{});
+            const loc = ast.nodeList.items[start].getLocation(ast.tokens);
+            Logger.logLocation.err(ast.path, loc, "_start is an identifier not available {s}", .{Logger.placeSlice(loc, ast.source)});
             checker.errs += 1;
         }
 
@@ -162,14 +165,16 @@ const TypeChecker = struct {
                 try self.checkExpressionExpectedType(expr, retType);
             },
             .variable, .constant => {
-                if (self.searchVariableScope(stmt.getText(self.ast.tokens))) |variable| {
-                    Logger.logLocation.err(stmt.getLocation(self.ast.tokens), "Identifier {s} is already in use", .{variable.getText(self.ast.tokens)});
-                    Logger.logLocation.err(variable.getLocation(self.ast.tokens), "{s} is declared in use", .{variable.getText(self.ast.tokens)});
+                if (self.searchVariableScope(stmt.getText(self.ast.tokens, self.ast.source))) |variable| {
+                    const locStmt = stmt.getLocation(self.ast.tokens);
+                    Logger.logLocation.err(self.ast.path, locStmt, "Identifier {s} is already in use {s}", .{ variable.getText(self.ast.tokens, self.ast.source), Logger.placeSlice(locStmt, self.ast.source) });
+                    const locVar = variable.getLocation(self.ast.tokens);
+                    Logger.logLocation.err(self.ast.path, locVar, "{s} is declared in use {s}", .{ variable.getText(self.ast.tokens, self.ast.source), Logger.placeSlice(locVar, self.ast.source) });
                     self.errs += 1;
                     return;
                 }
 
-                try self.addVariableScope(stmt.getText(self.ast.tokens), stmt);
+                try self.addVariableScope(stmt.getText(self.ast.tokens, self.ast.source), stmt);
 
                 const proto = self.ast.nodeList.items[stmt.data[0]];
 
@@ -203,8 +208,9 @@ const TypeChecker = struct {
                 return null;
             },
             .load => {
-                const variable = self.searchVariableScope(expr.getText(self.ast.tokens)) orelse {
-                    Logger.logLocation.err(expr.getLocation(self.ast.tokens), "Unknown identifier in expression \"{s}\"", .{expr.getName(self.ast.tokens)});
+                const variable = self.searchVariableScope(expr.getText(self.ast.tokens, self.ast.source)) orelse {
+                    const loc = expr.getLocation(self.ast.tokens);
+                    Logger.logLocation.err(self.ast.path, loc, "Unknown identifier in expression \'{s}\' {s}", .{ expr.getName(self.ast.tokens), Logger.placeSlice(loc, self.ast.source) });
                     self.errs += 1;
 
                     return null;
@@ -235,7 +241,13 @@ const TypeChecker = struct {
                         error.IncompatibleType => {
                             const tLeft = self.inferMachine.setTOvar.get(aS).?[0].?;
                             const tRight = self.inferMachine.setTOvar.get(bS).?[0].?;
-                            Logger.logLocation.err(expr.getLocation(self.ast.tokens), "To the left of this operation has {s} and to the right has {s}, they must be the same", .{ tLeft[0].getName(self.ast.tokens), tRight[0].getName(self.ast.tokens) });
+                            const loc = expr.getLocation(self.ast.tokens);
+                            Logger.logLocation.err(
+                                self.ast.path,
+                                loc,
+                                "To the left of this operation has {s} and to the right has {s}, they must be the same {s}",
+                                .{ tLeft[0].getName(self.ast.tokens), tRight[0].getName(self.ast.tokens), Logger.placeSlice(loc, self.ast.source) },
+                            );
 
                             self.errs += 1;
 
@@ -252,7 +264,13 @@ const TypeChecker = struct {
                 }
             },
             else => {
-                Logger.logLocation.err(expr.getLocation(self.ast.tokens), "Node not supported {}", .{expr.tag});
+                const loc = expr.getLocation(self.ast.tokens);
+                Logger.logLocation.err(
+                    self.ast.path,
+                    loc,
+                    "Node not supported {} {s}",
+                    .{ expr.tag, Logger.placeSlice(loc, self.ast.source) },
+                );
                 unreachable;
             },
         }
@@ -269,8 +287,9 @@ const TypeChecker = struct {
                 self.checkValueForType(expr, expectedType);
             },
             .load => {
-                const variable = self.searchVariableScope(expr.getText(self.ast.tokens)) orelse {
-                    Logger.logLocation.err(expr.getLocation(self.ast.tokens), "Unknown identifier in expression \"{s}\"", .{expr.getText(self.ast.tokens)});
+                const variable = self.searchVariableScope(expr.getText(self.ast.tokens, self.ast.source)) orelse {
+                    const loc = expr.getLocation(self.ast.tokens);
+                    Logger.logLocation.err(self.ast.path, loc, "Unknown identifier in expression \'{s}\' {s}", .{ expr.getText(self.ast.tokens, self.ast.source), Logger.placeSlice(loc, self.ast.source) });
                     self.errs += 1;
 
                     return;
@@ -281,8 +300,20 @@ const TypeChecker = struct {
                     const t = self.ast.nodeList.items[proto.data[0]];
 
                     if (t.getTokenTag(self.ast.tokens) != expectedType.getTokenTag(self.ast.tokens)) {
-                        Logger.logLocation.err(variable.getLocation(self.ast.tokens), "This variable declared here with type {s}", .{t.getName(self.ast.tokens)});
-                        Logger.logLocation.err(expr.getLocation(self.ast.tokens), "Is use here with another type {s}, these types are incompatible", .{expectedType.getName(self.ast.tokens)});
+                        const locVar = variable.getLocation(self.ast.tokens);
+                        Logger.logLocation.err(
+                            self.ast.path,
+                            locVar,
+                            "This variable declared here with type {s} {s}",
+                            .{ t.getName(self.ast.tokens), Logger.placeSlice(locVar, self.ast.source) },
+                        );
+                        const locExpr = expr.getLocation(self.ast.tokens);
+                        Logger.logLocation.err(
+                            self.ast.path,
+                            locExpr,
+                            "Is use here with another type {s}, these types are incompatible {s}",
+                            .{ expectedType.getName(self.ast.tokens), Logger.placeSlice(locExpr, self.ast.source) },
+                        );
                         self.errs += 1;
                     }
                 } else {
@@ -292,8 +323,15 @@ const TypeChecker = struct {
                         // CLEANUP: The Generic varialble is checked every time
                         const prevError = self.errs;
                         try self.checkExpressionExpectedType(self.ast.getNode(proto.data[1]), expectedType);
-                        if (prevError != self.errs)
-                            Logger.logLocation.info(expr.getLocation(self.ast.tokens), "Generic type is not compatible with: {s}", .{expectedType.getName(self.ast.tokens)});
+                        if (prevError != self.errs) {
+                            const loc = expr.getLocation(self.ast.tokens);
+                            Logger.logLocation.info(
+                                self.ast.path,
+                                loc,
+                                "Generic type is not compatible with: {s} {s}",
+                                .{ expectedType.getName(self.ast.tokens), Logger.placeSlice(loc, self.ast.source) },
+                            );
+                        }
                     }
                 }
             },
@@ -310,7 +348,13 @@ const TypeChecker = struct {
                 try self.checkExpressionExpectedType(right, expectedType);
             },
             else => {
-                Logger.logLocation.err(expr.getLocation(self.ast.tokens), "Node not supported {}", .{expr.tag});
+                const loc = expr.getLocation(self.ast.tokens);
+                Logger.logLocation.err(
+                    self.ast.path,
+                    loc,
+                    "Node not supported {} {s}",
+                    .{ expr.tag, Logger.placeSlice(loc, self.ast.source) },
+                );
                 unreachable;
             },
         }
@@ -338,61 +382,75 @@ const TypeChecker = struct {
                 self.checkLiteralExpressionExpectedType(right, expectedType);
             },
             else => {
-                Logger.logLocation.err(expr.getLocation(self.ast.tokens), "Node not supported {}", .{expr.tag});
+                const loc = expr.getLocation(self.ast.tokens);
+                Logger.logLocation.err(self.ast.path, loc, "Node not supported {} {s}", .{ expr.tag, Logger.placeSlice(loc, self.ast.source) });
                 unreachable;
             },
         }
     }
 
     fn checkValueForType(self: *Self, expr: Parser.Node, expectedType: Parser.Node) void {
-        const text = expr.getText(self.ast.tokens);
+        const text = expr.getText(self.ast.tokens, self.ast.source);
         switch (expectedType.getTokenTag(self.ast.tokens)) {
             .unsigned8 => {
                 _ = std.fmt.parseUnsigned(u8, text, 10) catch {
-                    Logger.logLocation.err(expr.getLocation(self.ast.tokens), "Number literal is too large for the expected type {s}", .{expectedType.getName(self.ast.tokens)});
+                    const loc = expr.getLocation(self.ast.tokens);
+                    Logger.logLocation.err(self.ast.path, loc, "Number literal is too large for the expected type {s} {s}", .{ expectedType.getName(self.ast.tokens), Logger.placeSlice(loc, self.ast.source) });
                     self.errs += 1;
                 };
             },
             .unsigned16 => {
                 _ = std.fmt.parseUnsigned(u16, text, 10) catch {
-                    Logger.logLocation.err(expr.getLocation(self.ast.tokens), "Number literal is too large for the expected type {s}", .{expectedType.getName(self.ast.tokens)});
+                    const loc = expr.getLocation(self.ast.tokens);
+                    Logger.logLocation.err(
+                        self.ast.path,
+                        loc,
+                        "Number literal is too large for the expected type {s} {s}",
+                        .{ expectedType.getName(self.ast.tokens), Logger.placeSlice(loc, self.ast.source) },
+                    );
                     self.errs += 1;
                 };
             },
             .unsigned32 => {
                 _ = std.fmt.parseUnsigned(u32, text, 10) catch {
-                    Logger.logLocation.err(expr.getLocation(self.ast.tokens), "Number literal is too large for the expected type {s}", .{expectedType.getName(self.ast.tokens)});
+                    const loc = expr.getLocation(self.ast.tokens);
+                    Logger.logLocation.err(self.ast.path, loc, "Number literal is too large for the expected type {s} {s}", .{ expectedType.getName(self.ast.tokens), Logger.placeSlice(loc, self.ast.source) });
                     self.errs += 1;
                 };
             },
             .unsigned64 => {
                 _ = std.fmt.parseUnsigned(u64, text, 10) catch {
-                    Logger.logLocation.err(expr.getLocation(self.ast.tokens), "Number literal is too large for the expected type {s}", .{expectedType.getName(self.ast.tokens)});
+                    const loc = expr.getLocation(self.ast.tokens);
+                    Logger.logLocation.err(self.ast.path, loc, "Number literal is too large for the expected type {s} {s}", .{ expectedType.getName(self.ast.tokens), Logger.placeSlice(loc, self.ast.source) });
                     self.errs += 1;
                 };
             },
 
             .signed8 => {
                 _ = std.fmt.parseInt(i8, text, 10) catch {
-                    Logger.logLocation.err(expr.getLocation(self.ast.tokens), "Number literal is too large for the expected type {s}", .{expectedType.getName(self.ast.tokens)});
+                    const loc = expr.getLocation(self.ast.tokens);
+                    Logger.logLocation.err(self.ast.path, loc, "Number literal is too large for the expected type {s} {s}", .{ expectedType.getName(self.ast.tokens), Logger.placeSlice(loc, self.ast.source) });
                     self.errs += 1;
                 };
             },
             .signed16 => {
                 _ = std.fmt.parseInt(i16, text, 10) catch {
-                    Logger.logLocation.err(expr.getLocation(self.ast.tokens), "Number literal is too large for the expected type {s}", .{expectedType.getName(self.ast.tokens)});
+                    const loc = expr.getLocation(self.ast.tokens);
+                    Logger.logLocation.err(self.ast.path, loc, "Number literal is too large for the expected type {s} {s}", .{ expectedType.getName(self.ast.tokens), Logger.placeSlice(loc, self.ast.source) });
                     self.errs += 1;
                 };
             },
             .signed32 => {
                 _ = std.fmt.parseInt(i32, text, 10) catch {
-                    Logger.logLocation.err(expr.getLocation(self.ast.tokens), "Number literal is too large for the expected type {s}", .{expectedType.getName(self.ast.tokens)});
+                    const loc = expr.getLocation(self.ast.tokens);
+                    Logger.logLocation.err(self.ast.path, loc, "Number literal is too large for the expected type {s} {s}", .{ expectedType.getName(self.ast.tokens), Logger.placeSlice(loc, self.ast.source) });
                     self.errs += 1;
                 };
             },
             .signed64 => {
                 _ = std.fmt.parseInt(i64, text, 10) catch {
-                    Logger.logLocation.err(expr.getLocation(self.ast.tokens), "Number literal is too large for the expected type {s}", .{expectedType.getName(self.ast.tokens)});
+                    const loc = expr.getLocation(self.ast.tokens);
+                    Logger.logLocation.err(self.ast.path, loc, "Number literal is too large for the expected type {s} {s}", .{ expectedType.getName(self.ast.tokens), Logger.placeSlice(loc, self.ast.source) });
                     self.errs += 1;
                 };
             },

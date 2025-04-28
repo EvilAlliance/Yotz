@@ -39,6 +39,10 @@ tokenIndex: Parser.TokenIndex = 0,
 // 0 is invalid beacause 0 is root
 data: struct { Parser.NodeIndex, Parser.NodeIndex },
 
+pub fn getToken(self: *const @This(), tl: []Lexer.Token) Lexer.Token {
+    return tl[self.tokenIndex];
+}
+
 pub fn getLocation(self: *const @This(), tl: []Lexer.Token) Lexer.Location {
     return tl[self.tokenIndex].loc;
 }
@@ -47,8 +51,8 @@ pub fn getTokenTag(self: *const @This(), tl: []Lexer.Token) Lexer.TokenType {
     return tl[self.tokenIndex].tag;
 }
 
-pub fn getText(self: *const @This(), tl: []Lexer.Token) []const u8 {
-    return tl[self.tokenIndex].getText();
+pub fn getText(self: *const @This(), tl: []Lexer.Token, content: [:0]const u8) []const u8 {
+    return tl[self.tokenIndex].getText(content);
 }
 
 pub fn getName(self: *const @This(), tl: []Lexer.Token) []const u8 {

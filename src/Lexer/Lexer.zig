@@ -170,19 +170,19 @@ fn advance(self: *@This()) Token {
     return t;
 }
 
-fn init(path: []const u8, c: [:0]const u8) @This() {
+fn init(c: [:0]const u8) @This() {
     const l = @This(){
         .content = c,
-        .loc = Location.init(path, c),
+        .loc = Location.init(),
     };
 
     return l;
 }
 
-pub fn lex(alloc: std.mem.Allocator, path: []const u8, c: [:0]const u8) std.mem.Allocator.Error![]Token {
+pub fn lex(alloc: std.mem.Allocator, c: [:0]const u8) std.mem.Allocator.Error![]Token {
     var al = try std.ArrayList(Token).initCapacity(alloc, 100);
 
-    var lexer = init(path, c);
+    var lexer = init(c);
     var t = lexer.advance();
 
     while (t.tag != .EOF) : (t = lexer.advance()) {

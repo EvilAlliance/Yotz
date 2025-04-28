@@ -128,7 +128,7 @@ pub fn main() u8 {
     };
 
     for (parser.errors.items) |e| {
-        e.display();
+        e.display(ast.getInfo());
     }
 
     if (arguments.bench)

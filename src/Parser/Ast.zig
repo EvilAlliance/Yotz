@@ -4,19 +4,23 @@ const Parser = @import("Parser.zig");
 
 pub const Program = std.StringHashMap(usize);
 pub const NodeList = std.ArrayList(Parser.Node);
+pub const FileInfo = struct { []const u8, [:0]const u8 };
 
 alloc: std.mem.Allocator,
 
 source: [:0]const u8,
+path: []const u8,
+
 tokens: []Lexer.Token,
 
 functions: Program,
 nodeList: NodeList,
 
-pub fn init(alloc: std.mem.Allocator, funcs: Program, nl: NodeList, tl: []Lexer.Token, source: [:0]const u8) @This() {
+pub fn init(alloc: std.mem.Allocator, funcs: Program, nl: NodeList, tl: []Lexer.Token, path: []const u8, source: [:0]const u8) @This() {
     return @This(){
         .alloc = alloc,
 
+        .path = path,
         .source = source,
         .tokens = tl,
 
@@ -55,7 +59,7 @@ pub fn toString(self: @This(), alloc: std.mem.Allocator) std.mem.Allocator.Error
             .funcDecl => {
                 try cont.appendSlice("fn ");
 
-                try cont.appendSlice(node.getText(self.tokens));
+                try cont.appendSlice(node.getText(self.tokens, self.source));
 
                 try self.toStringFuncProto(&cont, 0, node.data[0]);
 
@@ -87,7 +91,7 @@ fn toStringFuncProto(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) 
 
 fn toStringType(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
     _ = d;
-    try cont.appendSlice(self.nodeList.items[i].getText(self.tokens));
+    try cont.appendSlice(self.nodeList.items[i].getText(self.tokens, self.source));
 }
 
 fn toStringScope(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
@@ -135,7 +139,7 @@ fn tostringVariable(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) s
     const variable = self.nodeList.items[i];
     std.debug.assert(variable.tag == .constant or variable.tag == .variable);
 
-    try cont.appendSlice(variable.getText(self.tokens));
+    try cont.appendSlice(variable.getText(self.tokens, self.source));
 
     const proto = self.nodeList.items[variable.data[0]];
     std.debug.assert(proto.tag == .VarProto);
@@ -192,11 +196,15 @@ fn toStringExpression(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize)
             try cont.append(')');
         },
         .load => {
-            try cont.appendSlice(node.getText(self.tokens));
+            try cont.appendSlice(node.getText(self.tokens, self.source));
         },
         .lit => {
-            try cont.appendSlice(node.getText(self.tokens));
+            try cont.appendSlice(node.getText(self.tokens, self.source));
         },
         else => unreachable,
     }
+}
+
+pub fn getInfo(self: *@This()) FileInfo {
+    return .{ self.path, self.source };
 }

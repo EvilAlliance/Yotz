@@ -29,17 +29,23 @@ const SetTOvar = std.AutoHashMap(
 );
 
 tokens: []Lexer.Token,
+source: [:0]const u8,
+path: []const u8,
 
 reuse: std.BoundedArray(usize, 256),
 sets: usize = 0,
 alloc: std.mem.Allocator,
 varTOset: VarTOset,
 setTOvar: SetTOvar,
-pub fn init(alloc: std.mem.Allocator, tokens: []Lexer.Token) @This() {
+pub fn init(alloc: std.mem.Allocator, tokens: []Lexer.Token, fileInfo: Parser.Ast.FileInfo) @This() {
     return @This(){
         .reuse = std.BoundedArray(usize, 256).init(0) catch unreachable,
         .alloc = alloc,
+
         .tokens = tokens,
+        .path = fileInfo[0],
+        .source = fileInfo[1],
+
         .varTOset = VarTOset.init(alloc),
         .setTOvar = SetTOvar.init(alloc),
     };
@@ -115,9 +121,9 @@ pub fn found(self: *@This(), a: Parser.Node, t: Parser.Node, loc: Lexer.Location
     const ta = self.setTOvar.getPtr(i).?;
     if (ta[0]) |oldT| {
         if (oldT[0].getTokenTag(self.tokens) != t.getTokenTag(self.tokens)) {
-            Logger.logLocation.err(a.getLocation(self.tokens), "Found this variable used in 2 different contexts (ambiguous typing)", .{});
-            Logger.logLocation.info(oldT[1], "Type inferred is: {s}, found here", .{oldT[0].getName(self.tokens)});
-            Logger.logLocation.info(loc, "But later found here used in an other context: {s}", .{t.getName(self.tokens)});
+            Logger.logLocation.err(self.path, a.getLocation(self.tokens), "Found this variable used in 2 different contexts (ambiguous typing) {s}", .{Logger.placeSlice(loc, self.source)});
+            Logger.logLocation.info(self.path, oldT[1], "Type inferred is: {s}, found here {s}", .{ oldT[0].getName(self.tokens), Logger.placeSlice(loc, self.source) });
+            Logger.logLocation.info(self.path, loc, "But later found here used in an other context: {s} {s}", .{ t.getName(self.tokens), Logger.placeSlice(loc, self.source) });
         }
     } else {
         ta[0] = .{ t, loc };
@@ -138,11 +144,11 @@ pub fn printState(self: @This()) void {
 
         if (set[0]) |t| {
             Logger.log.info("{s}", .{t[0].token.?.tag.getName()});
-            Logger.logLocation.info(t[1], "Found here", .{});
+            Logger.logLocation.info(t[1], "Found here: {s}", .{Logger.placeSlice(t[1], self.source)});
         }
 
         for (set[1].items) |value| {
-            Logger.logLocation.info(value.token.?.loc, "", .{});
+            Logger.logLocation.info(self.path, value.getLocation(self.tokens), "{s}", .{Logger.placeSlice(value.getLocation(self.tokens), self.source)});
         }
     }
 }
