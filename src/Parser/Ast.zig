@@ -2,7 +2,6 @@ const std = @import("std");
 const Lexer = @import("../Lexer/Lexer.zig");
 const Parser = @import("Parser.zig");
 
-pub const Program = std.StringHashMap(usize);
 pub const NodeList = std.ArrayList(Parser.Node);
 pub const FileInfo = struct { []const u8, [:0]const u8 };
 
@@ -46,7 +45,7 @@ pub fn getNodePTR(self: *@This(), i: usize) Parser.Node {
     return &self.nodeList.items[i];
 }
 
-pub fn toString(self: @This(), alloc: std.mem.Allocator) std.mem.Allocator.Error!std.ArrayList(u8) {
+pub fn toString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Error!std.ArrayList(u8) {
     var cont = std.ArrayList(u8).init(alloc);
     if (self.nodeList.items.len == 0) return cont;
 
@@ -54,31 +53,14 @@ pub fn toString(self: @This(), alloc: std.mem.Allocator) std.mem.Allocator.Error
 
     var i = root.data[0];
     const end = root.data[1];
-    while (i < end) : (i += 1) {
-        const node = self.nodeList.items[i];
-        switch (node.tag) {
-            .funcDecl => {
-                try cont.appendSlice("fn ");
-
-                try cont.appendSlice(node.getText(self.tokens, self.source));
-
-                try self.toStringFuncProto(&cont, 0, node.data[0]);
-
-                const scope = self.nodeList.items[node.data[1]];
-                switch (scope.tag) {
-                    .scope => try self.toStringScope(&cont, 0, node.data[1]),
-                    else => try self.toStringStatement(&cont, 0, node.data[1]),
-                }
-                i = scope.data[1];
-            },
-            else => unreachable,
-        }
+    while (i < end) : (i = self.getNode(i).next) {
+        try self.tostringVariable(&cont, 0, i);
     }
 
     return cont;
 }
 
-fn toStringFuncProto(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
+fn toStringFuncProto(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
     std.debug.assert(self.nodeList.items[i].tag == .funcProto);
     std.debug.assert(self.nodeList.items[i].data[0] == 0);
 
@@ -88,14 +70,19 @@ fn toStringFuncProto(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) 
     try self.toStringType(cont, d, self.nodeList.items[i].data[1]);
 
     try cont.append(' ');
+
+    const proto = self.getNode(i);
+    if (self.getNode(proto.next).tag == .scope) return try self.toStringScope(cont, d, proto.next);
+
+    try self.toStringStatement(cont, d, proto.next);
 }
 
-fn toStringType(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
+fn toStringType(self: @This(), cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
     _ = d;
     try cont.appendSlice(self.nodeList.items[i].getText(self.tokens, self.source));
 }
 
-fn toStringScope(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
+fn toStringScope(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
     const scope = self.nodeList.items[i];
     std.debug.assert(scope.tag == .scope);
 
@@ -109,13 +96,13 @@ fn toStringScope(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.
 
         try self.toStringStatement(cont, d + 4, j);
 
-        j = node.data[1];
+        j = node.next;
     }
 
     try cont.appendSlice("} \n");
 }
 
-fn toStringStatement(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
+fn toStringStatement(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
     for (0..d) |_| {
         try cont.append(' ');
     }
@@ -136,7 +123,7 @@ fn toStringStatement(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) 
     try cont.appendSlice(";\n");
 }
 
-fn tostringVariable(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
+fn tostringVariable(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
     const variable = self.nodeList.items[i];
     std.debug.assert(variable.tag == .constant or variable.tag == .variable);
 
@@ -165,9 +152,10 @@ fn tostringVariable(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) s
     }
 }
 
-fn toStringExpression(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
+fn toStringExpression(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
     const node = self.nodeList.items[i];
     switch (node.tag) {
+        .funcProto => try self.toStringFuncProto(cont, d, i),
         .addition, .subtraction, .multiplication, .division, .power => {
             try cont.append('(');
 

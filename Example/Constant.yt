@@ -1,4 +1,4 @@
-fn main() u8 {
+main :: () u8 {
     a:: 2;
 
     b: u16 = a;

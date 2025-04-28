@@ -1,5 +1,5 @@
 // This must fail
-fn main () u8 {
+main :: () u8 {
     a :: 1000;
     b ::  10;
     c :: a + 10;

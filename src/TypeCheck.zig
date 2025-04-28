@@ -114,31 +114,34 @@ const TypeChecker = struct {
     }
 
     fn checkFunction(self: *Self, node: Parser.Node) std.mem.Allocator.Error!void {
-        std.debug.assert(node.tag == .funcDecl);
-
-        const name = node.getText(self.ast.tokens, self.ast.source);
-
-        if (std.mem.eql(u8, name, "_start")) {
-            const loc = node.getLocation(self.ast.tokens);
-            Logger.logLocation.err(self.ast.path, loc, "_start is an identifier not available {s}", .{Logger.placeSlice(loc, self.ast.source)});
-            self.errs += 1;
-        } else if (self.foundMain == null and std.mem.eql(u8, name, "main")) self.foundMain = node;
-
-        const proto = self.ast.nodeList.items[node.data[0]];
-        const t = self.ast.nodeList.items[proto.data[1]];
-
-        const stmtORscope = self.ast.nodeList.items[node.data[1]];
-
-        if (stmtORscope.tag == .scope) {
-            try self.checkScope(stmtORscope, t);
-        } else {
-            try self.scopes.append(Scope.init(self.alloc));
-            try self.checkStatements(stmtORscope, t);
-            {
-                var x = self.scopes.pop().?;
-                x.deinit();
-            }
-        }
+        _ = self;
+        _ = node;
+        unreachable;
+        // std.debug.assert(node.tag == .funcDecl);
+        //
+        // const name = node.getText(self.ast.tokens, self.ast.source);
+        //
+        // if (std.mem.eql(u8, name, "_start")) {
+        //     const loc = node.getLocation(self.ast.tokens);
+        //     Logger.logLocation.err(self.ast.path, loc, "_start is an identifier not available {s}", .{Logger.placeSlice(loc, self.ast.source)});
+        //     self.errs += 1;
+        // } else if (self.foundMain == null and std.mem.eql(u8, name, "main")) self.foundMain = node;
+        //
+        // const proto = self.ast.nodeList.items[node.data[0]];
+        // const t = self.ast.nodeList.items[proto.data[1]];
+        //
+        // const stmtORscope = self.ast.nodeList.items[node.data[1]];
+        //
+        // if (stmtORscope.tag == .scope) {
+        //     try self.checkScope(stmtORscope, t);
+        // } else {
+        //     try self.scopes.append(Scope.init(self.alloc));
+        //     try self.checkStatements(stmtORscope, t);
+        //     {
+        //         var x = self.scopes.pop().?;
+        //         x.deinit();
+        //     }
+        // }
     }
 
     fn checkScope(self: *Self, scope: Parser.Node, retType: Parser.Node) std.mem.Allocator.Error!void {

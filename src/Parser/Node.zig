@@ -7,8 +7,7 @@ pub const Tag = enum(Parser.NodeIndex) {
 
     empty,
 
-    funcDecl,
-    funcProto,
+    funcProto, // data[0] args data[1] retutn type next scope
     args,
     type,
 

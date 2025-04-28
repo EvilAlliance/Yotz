@@ -147,6 +147,8 @@ pub fn main() u8 {
         return 0;
     }
 
+    if (ast.nodeList.items.len == 0) return 1;
+
     if (arguments.bench)
         Logger.log.info("Type Checking", .{});
 
