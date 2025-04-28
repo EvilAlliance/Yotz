@@ -129,26 +129,23 @@ fn tostringVariable(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser.
 
     try cont.appendSlice(variable.getText(self.tokens, self.source));
 
-    const proto = self.nodeList.items[variable.data[0]];
-    std.debug.assert(proto.tag == .VarProto);
-
-    if (proto.data[0] == 0)
+    if (variable.data[0] == 0)
         try cont.append(' ');
 
     try cont.append(':');
-    if (proto.data[0] != 0) {
+    if (variable.data[0] != 0) {
         try cont.append(' ');
-        try self.toStringType(cont, d, proto.data[0]);
+        try self.toStringType(cont, d, variable.data[0]);
         try cont.append(' ');
     }
 
-    if (proto.data[1] != 0) {
+    if (variable.data[1] != 0) {
         switch (variable.tag) {
             .constant => try cont.appendSlice(": "),
             .variable => try cont.appendSlice("= "),
             else => unreachable,
         }
-        try self.toStringExpression(cont, d, proto.data[1]);
+        try self.toStringExpression(cont, d, variable.data[1]);
     }
 }
 

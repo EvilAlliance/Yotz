@@ -35,8 +35,7 @@ const TypeChecker = struct {
         var funcIndex = ast.getNode(0).data[0];
         while (funcIndex != ast.getNode(0).data[1]) : (funcIndex = ast.getNode(funcIndex).next) {
             const func = ast.getNode(funcIndex);
-            const varProto = ast.getNode(func.data[0]);
-            const funcProto = ast.getNode(varProto.data[1]);
+            const funcProto = ast.getNode(func.data[1]);
 
             try checker.checkFunction(funcProto);
         }

@@ -14,9 +14,8 @@ pub const Tag = enum(Parser.NodeIndex) {
     scope,
 
     ret, // left expression
-    variable, // left variable Prot
-    constant, // left variable Proto
-    VarProto, //left type, right expr
+    variable, // left type, right expr
+    constant, // left type, right expr
 
     //expresion
     addition,

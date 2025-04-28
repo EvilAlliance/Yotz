@@ -242,28 +242,9 @@ fn parseStatement(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedTo
 fn parseVariableDecl(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
     _, const nameIndex = self.popIf(.iden) orelse unreachable;
 
-    if (!try self.expect(self.peek()[0], &.{.colon})) return error.UnexpectedToken;
-
-    const variable = try nl.addNode(&self.temp, .{
+    const index = try nl.reserveNode(&self.temp, .{
         .tag = Node.Tag.variable,
         .tokenIndex = nameIndex,
-        .data = .{ 0, 0 },
-    });
-
-    {
-        const p, const v = try self.parseVariableProto();
-        self.temp.items[variable].tag = v;
-        self.temp.items[variable].data[0] = p;
-    }
-
-    return variable;
-}
-
-fn parseVariableProto(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!struct { NodeIndex, Node.Tag } {
-    var constant: Node.Tag = .variable;
-
-    const proto = try nl.addNode(&self.temp, .{
-        .tag = .VarProto,
         .data = .{ 0, 0 },
     });
 
@@ -273,27 +254,30 @@ fn parseVariableProto(self: *@This()) (std.mem.Allocator.Error || error{Unexpect
     const possibleType = self.peek()[0];
 
     if (possibleType.tag != .colon and possibleType.tag != .equal) {
-        const p = try self.parseType();
-        self.temp.items[proto].data[0] = p;
+        {
+            const p = try self.parseType();
+            self.temp.items[index].data[0] = p;
+        }
     }
 
-    if (!try self.expect(self.peek()[0], &.{ .colon, .equal, .semicolon })) return error.UnexpectedToken;
-
     const possibleExpr = self.peek()[0];
-
     var func = false;
+
     if (possibleExpr.tag == .colon or possibleExpr.tag == .equal) {
         if (self.pop()[0].tag == .colon)
-            constant = .constant;
+            self.temp.items[index].tag = .constant;
 
-        const p = try self.parseExpression();
-        func = self.temp.items[p].tag == .funcProto;
-        self.temp.items[proto].data[1] = p;
+        {
+            const p = try self.parseExpression();
+            self.temp.items[index].data[1] = p;
+        }
+
+        func = self.temp.items[self.temp.items[index].data[1]].tag == .funcProto;
     }
 
     if (!func and !try self.expect(self.peek()[0], &.{.semicolon})) return error.UnexpectedToken;
 
-    return .{ proto, constant };
+    return index;
 }
 
 fn parseReturn(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
