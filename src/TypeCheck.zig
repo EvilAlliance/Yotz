@@ -20,6 +20,9 @@ const TypeChecker = struct {
 
     ast: *Parser.Ast,
     scopes: Scopes,
+
+    foundMain: ?Parser.Node = null,
+
     pub fn init(alloc: std.mem.Allocator, ast: *Parser.Ast) std.mem.Allocator.Error!bool {
         var checker = @This(){
             .alloc = alloc,
@@ -29,10 +32,10 @@ const TypeChecker = struct {
         };
         defer checker.deinit();
 
-        var itFunc = checker.ast.functions.valueIterator();
-
-        while (itFunc.next()) |func| {
-            try checker.checkFunction(checker.ast.nodeList.items[func.*]);
+        var funcIndex = ast.getNode(0).data[0];
+        while (funcIndex != ast.getNode(0).data[1]) : (funcIndex = ast.getNode(funcIndex).next) {
+            const func = ast.getNode(funcIndex);
+            try checker.checkFunction(func);
         }
 
         var itSet = checker.inferMachine.setTOvar.valueIterator();
@@ -62,9 +65,10 @@ const TypeChecker = struct {
             }
         }
 
-        if (ast.functions.get("main")) |main| {
-            const func = ast.nodeList.items[main];
-            const proto = ast.nodeList.items[func.data[0]];
+        // TODO: Pass this to the new format
+
+        if (checker.foundMain) |main| {
+            const proto = ast.nodeList.items[main.data[0]];
             const t = ast.nodeList.items[proto.data[1]];
 
             if (t.getTokenTag(ast.tokens) != .unsigned8) {
@@ -78,12 +82,6 @@ const TypeChecker = struct {
                 \\     return 0;
                 \\ }
             });
-            checker.errs += 1;
-        }
-
-        if (ast.functions.get("_start")) |start| {
-            const loc = ast.nodeList.items[start].getLocation(ast.tokens);
-            Logger.logLocation.err(ast.path, loc, "_start is an identifier not available {s}", .{Logger.placeSlice(loc, ast.source)});
             checker.errs += 1;
         }
 
@@ -117,6 +115,14 @@ const TypeChecker = struct {
 
     fn checkFunction(self: *Self, node: Parser.Node) std.mem.Allocator.Error!void {
         std.debug.assert(node.tag == .funcDecl);
+
+        const name = node.getText(self.ast.tokens, self.ast.source);
+
+        if (std.mem.eql(u8, name, "_start")) {
+            const loc = node.getLocation(self.ast.tokens);
+            Logger.logLocation.err(self.ast.path, loc, "_start is an identifier not available {s}", .{Logger.placeSlice(loc, self.ast.source)});
+            self.errs += 1;
+        } else if (self.foundMain == null and std.mem.eql(u8, name, "main")) self.foundMain = node;
 
         const proto = self.ast.nodeList.items[node.data[0]];
         const t = self.ast.nodeList.items[proto.data[1]];

@@ -25,14 +25,13 @@ pub const TokenIndex = u32;
 
 alloc: Allocator,
 
-index: NodeIndex = 0,
+index: TokenIndex = 0,
 tokens: []Lexer.Token,
 source: [:0]const u8,
 
 path: []const u8,
 absPath: []const u8,
 
-functions: Ast.Program,
 nodeList: Ast.NodeList,
 temp: Ast.NodeList,
 
@@ -63,7 +62,6 @@ pub fn init(alloc: Allocator, path: []const u8) ?@This() {
         .path = path,
         .absPath = absPath,
 
-        .functions = Ast.Program.init(alloc),
         .nodeList = Ast.NodeList.init(alloc),
         .temp = Ast.NodeList.init(alloc),
 
@@ -122,7 +120,7 @@ pub fn parse(self: *@This()) (std.mem.Allocator.Error)!Ast {
         else => {},
     };
 
-    return Ast.init(self.alloc, self.functions, self.nodeList, self.tokens, self.path, self.source);
+    return Ast.init(self.alloc, self.nodeList, self.tokens, self.absPath, self.path, self.source);
 }
 
 fn parseRoot(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!void {
@@ -135,11 +133,12 @@ fn parseRoot(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})
     while (t.tag != .EOF) : (t, _ = self.peek()) {
         if (!try self.expect(t, &.{.func})) return error.UnexpectedToken;
 
-        switch (t.tag) {
+        const nodeIndex = switch (t.tag) {
             .func => try self.parseFuncDecl(),
             // .let => unreachable,
             else => unreachable,
-        }
+        };
+        self.temp.items[nodeIndex].next = @intCast(self.temp.items.len);
     }
 
     self.temp.items[0].data[1] = @intCast(self.temp.items.len);
@@ -147,11 +146,11 @@ fn parseRoot(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})
     try self.nodeList.appendSlice(self.temp.items);
 }
 
-fn parseFuncDecl(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!void {
+fn parseFuncDecl(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
     _ = self.popIf(.func) orelse unreachable;
 
     if (!try self.expect(self.peek()[0], &.{.iden})) return error.UnexpectedToken;
-    const mainToken, const mainIndex = self.pop();
+    _, const mainIndex = self.pop();
 
     const nodeIndex = try nl.addNode(&self.temp, .{
         .tokenIndex = mainIndex,
@@ -173,7 +172,7 @@ fn parseFuncDecl(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedTok
         self.temp.items[nodeIndex].data[1] = p;
     }
 
-    try self.functions.put(mainToken.getText(self.source), nodeIndex);
+    return nodeIndex;
 }
 
 fn parseFuncProto(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
@@ -234,7 +233,7 @@ fn parseScope(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken}
     if (!try self.expect(self.peek()[0], &.{.closeBrace})) return error.UnexpectedToken;
     _ = self.pop();
 
-    self.temp.items[nodeIndex].data[1] = @intCast(self.temp.items.len);
+    self.temp.items[nodeIndex].next = @intCast(self.temp.items.len);
 
     return nodeIndex;
 }
