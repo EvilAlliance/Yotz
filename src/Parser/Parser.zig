@@ -139,6 +139,8 @@ fn parseRoot(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})
             else => unreachable,
         };
         self.temp.items[nodeIndex].next = @intCast(self.temp.items.len);
+
+        _ = self.popIf(.semicolon);
     }
 
     self.temp.items[0].data[1] = @intCast(self.temp.items.len);
