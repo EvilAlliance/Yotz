@@ -1,22 +1,16 @@
 const std = @import("std");
 const Logger = @import("Logger.zig");
 
-const Util = @import("Util.zig");
-const Lexer = @import("./Lexer/Lexer.zig");
 const ParseArguments = @import("ParseArgs.zig");
 const typeCheck = @import("TypeCheck.zig").typeCheck;
 
 const usage = @import("General.zig").usage;
 
-const Commnad = @import("./Util/Command.zig");
-
 const getArguments = ParseArguments.getArguments;
 const Arguments = ParseArguments.Arguments;
-const lex = Lexer.lex;
-const Parser = @import("./Parser/Parser.zig");
-const IR = @import("IR/IR.zig");
 
-const tb = @import("./libs/tb/tb.zig");
+// TODO: Do not exopse the parse, only afunction parse
+const Parser = @import("./Parser/Parser.zig");
 
 fn getName(absPath: []const u8, extName: []const u8) []u8 {
     var buf: [5 * 1024]u8 = undefined;

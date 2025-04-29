@@ -318,15 +318,7 @@ fn parseExpr(self: *@This(), minPrecedence: u8) (std.mem.Allocator.Error || erro
         const op, const opIndex = self.peek();
         if (!try self.expect(op, &.{ .plus, .minus, .asterik, .slash, .caret })) return error.UnexpectedToken;
 
-        const tag: Node.Tag = switch (op.tag) {
-            .minus => .subtraction,
-            .plus => .addition,
-            .asterik => .multiplication,
-            .slash => .division,
-            .caret => .power,
-            else => unreachable,
-        };
-
+        const tag: Node.Tag = Expression.tokenTagToNodeTag(op.tag);
         const prec = Expression.operandPresedence(tag);
         if (prec < minPrecedence) break;
 

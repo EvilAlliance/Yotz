@@ -4,7 +4,6 @@ const Parser = @import("../Parser/Parser.zig");
 
 const Lexer = @import("../Lexer/Lexer.zig");
 const TokenType = Lexer.TokenType;
-const Token = Lexer.Token;
 const Location = Lexer.Location;
 
 expected: []TokenType,
