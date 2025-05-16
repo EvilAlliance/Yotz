@@ -46,18 +46,17 @@ const TypeChecker = struct {
             if (set[0]) |v| {
                 const t, const loc = v;
                 const index = try nl.addNode(&checker.ast.nodeList, t);
-                for (set[1].items) |variable| {
-                    const proto = &ast.nodeList.items[variable.data[0]];
-                    if (proto.data[0] != 0) continue;
+                for (set[1].items) |*variable| {
+                    if (variable.data[0] != 0) continue;
 
                     const errorCount = checker.errs;
                     // CLEANUP: Check when its found instead of now
-                    checker.checkLiteralExpressionExpectedType(ast.nodeList.items[proto.data[1]], t);
+                    checker.checkLiteralExpressionExpectedType(ast.nodeList.items[variable.data[1]], t);
 
                     if (errorCount != checker.errs) {
                         Logger.logLocation.info(ast.path, loc, "It was found unsing type {s} here: {s}", .{ t.getName(ast.tokens), Logger.placeSlice(loc, ast.source) });
                     }
-                    proto.data[0] = index;
+                    variable.data[0] = index;
                 }
             } else {
                 for (set[1].items) |variable| {
@@ -184,18 +183,16 @@ const TypeChecker = struct {
 
                 try self.addVariableScope(stmt.getText(self.ast.tokens, self.ast.source), stmt);
 
-                const proto = self.ast.nodeList.items[stmt.data[0]];
-
-                if (proto.data[0] != 0) {
-                    const t = self.ast.nodeList.items[proto.data[0]];
-                    const expr = self.ast.nodeList.items[proto.data[1]];
+                if (stmt.data[0] != 0) {
+                    const t = self.ast.nodeList.items[stmt.data[0]];
+                    const expr = self.ast.nodeList.items[stmt.data[1]];
 
                     _ = try self.inferMachine.add(stmt);
                     try self.inferMachine.found(stmt, t, stmt.getLocation(self.ast.tokens));
 
                     try self.checkExpressionExpectedType(expr, t);
                 } else {
-                    const expr = self.ast.nodeList.items[proto.data[1]];
+                    const expr = self.ast.nodeList.items[stmt.data[1]];
                     if (try self.checkExpressionInferType(expr)) |bS| {
                         const a = try self.inferMachine.add(stmt);
 
@@ -303,9 +300,8 @@ const TypeChecker = struct {
                     return;
                 };
 
-                const proto = self.ast.nodeList.items[variable.data[0]];
-                if (proto.data[0] != 0) {
-                    const t = self.ast.nodeList.items[proto.data[0]];
+                if (variable.data[0] != 0) {
+                    const t = self.ast.nodeList.items[variable.data[0]];
 
                     if (t.getTokenTag(self.ast.tokens) != expectedType.getTokenTag(self.ast.tokens)) {
                         const locVar = variable.getLocation(self.ast.tokens);
@@ -330,7 +326,7 @@ const TypeChecker = struct {
                     } else {
                         // CLEANUP: The Generic varialble is checked every time
                         const prevError = self.errs;
-                        try self.checkExpressionExpectedType(self.ast.getNode(proto.data[1]), expectedType);
+                        try self.checkExpressionExpectedType(self.ast.getNode(variable.data[1]), expectedType);
                         if (prevError != self.errs) {
                             const loc = expr.getLocation(self.ast.tokens);
                             Logger.logLocation.info(
