@@ -108,7 +108,7 @@ pub fn main() u8 {
         };
         defer lexContent.deinit();
 
-        const name = getName(arguments.path, "lex");
+        const name = getName(parser.absPath, "lex");
         writeAll(lexContent.items, arguments, name);
 
         return 0;
@@ -135,7 +135,7 @@ pub fn main() u8 {
         };
         defer cont.deinit();
 
-        const name = getName(arguments.path, "parse");
+        const name = getName(parser.absPath, "parse");
         writeAll(cont.items, arguments, name);
 
         return 0;
@@ -161,7 +161,7 @@ pub fn main() u8 {
         };
         defer cont.deinit();
 
-        const name = getName(arguments.path, "check");
+        const name = getName(parser.absPath, "check");
         writeAll(cont.items, arguments, name);
 
         return if (err or (parser.errors.items.len > 1)) 1 else 0;
