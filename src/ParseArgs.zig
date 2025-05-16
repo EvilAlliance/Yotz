@@ -9,6 +9,7 @@ pub const Arguments = struct {
     simulation: bool = false,
     lex: bool = false,
     parse: bool = false,
+    check: bool = false,
     ir: bool = false,
     silence: bool = false,
     bench: bool = false,
@@ -90,6 +91,8 @@ fn parseSubcommand(subcommand: []const u8, args: *Arguments) !void {
         args.lex = true;
     } else if (std.mem.eql(u8, subcommand, "parse")) {
         args.parse = true;
+    } else if (std.mem.eql(u8, subcommand, "check")) {
+        args.check = true;
     } else if (std.mem.eql(u8, subcommand, "ir")) {
         args.ir = true;
     } else {

@@ -1,8 +1,0 @@
-// This must fail
-fn main () u8 {
-    a :: 1000;
-
-    b: u8 = a;
-
-    return a;
-}

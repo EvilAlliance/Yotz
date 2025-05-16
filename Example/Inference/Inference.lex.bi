@@ -1,0 +1,42 @@
+:i argc 0
+:b stdin 0
+
+:i returncode 0
+:b stdout 1694
+./Example/Inference/Inference.yt:1:1 main (iden)
+./Example/Inference/Inference.yt:1:6 : (colon)
+./Example/Inference/Inference.yt:1:7 : (colon)
+./Example/Inference/Inference.yt:1:9 ( (openParen)
+./Example/Inference/Inference.yt:1:10 ) (closeParen)
+./Example/Inference/Inference.yt:1:12 u8 (unsigned8)
+./Example/Inference/Inference.yt:1:15 { (openBrace)
+./Example/Inference/Inference.yt:2:5 a (iden)
+./Example/Inference/Inference.yt:2:7 : (colon)
+./Example/Inference/Inference.yt:2:8 : (colon)
+./Example/Inference/Inference.yt:2:10 10 (numberLiteral)
+./Example/Inference/Inference.yt:2:12 ; (semicolon)
+./Example/Inference/Inference.yt:3:5 b (iden)
+./Example/Inference/Inference.yt:3:7 : (colon)
+./Example/Inference/Inference.yt:3:8 u16 (unsigned16)
+./Example/Inference/Inference.yt:3:11 = (equal)
+./Example/Inference/Inference.yt:3:13 30 (numberLiteral)
+./Example/Inference/Inference.yt:3:15 ; (semicolon)
+./Example/Inference/Inference.yt:4:5 c (iden)
+./Example/Inference/Inference.yt:4:7 : (colon)
+./Example/Inference/Inference.yt:4:8 = (equal)
+./Example/Inference/Inference.yt:4:10 a (iden)
+./Example/Inference/Inference.yt:4:12 + (plus)
+./Example/Inference/Inference.yt:4:14 b (iden)
+./Example/Inference/Inference.yt:4:16 + (plus)
+./Example/Inference/Inference.yt:4:18 30 (numberLiteral)
+./Example/Inference/Inference.yt:4:20 ; (semicolon)
+./Example/Inference/Inference.yt:5:5 return (ret)
+./Example/Inference/Inference.yt:5:12 a (iden)
+./Example/Inference/Inference.yt:5:14 + (plus)
+./Example/Inference/Inference.yt:5:16 10 (numberLiteral)
+./Example/Inference/Inference.yt:5:18 ; (semicolon)
+./Example/Inference/Inference.yt:6:1 } (closeBrace)
+./Example/Inference/Inference.yt:9:1 EOF (EOF)
+
+:b stderr 0
+

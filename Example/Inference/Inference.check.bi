@@ -1,0 +1,14 @@
+:i argc 0
+:b stdin 0
+
+:i returncode 0
+:b stdout 96
+main :: () u8 { 
+    a :: 10;
+    b: u16 = 30;
+    c := ((a + b) + 30);
+    return (a + 10);
+} 
+
+:b stderr 0
+

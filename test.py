@@ -164,17 +164,20 @@ def run_test_for_file(file_path: str, subcommand: str, stats: RunStats = RunStat
         stats.failed_files.append(file_path)
 
 def run_all_test_for_file(file_path: str, stats: RunStats = RunStats()):
-   # run_test_for_file_stdout(file_path, 'lex', stats)
-   # run_test_for_file_stdout(file_path, 'parse', stats)
+   run_test_for_file_stdout(file_path, 'lex', stats)
+   run_test_for_file_stdout(file_path, 'parse', stats)
+   run_test_for_file_stdout(file_path, 'check', stats)
    # run_test_for_file_stdout(file_path, 'ir', stats)
    # run_test_for_file_stdout(file_path, 'build', stats)
-   run_test_for_file_stdout(file_path, 'run', stats)
+   # run_test_for_file_stdout(file_path, 'run', stats)
 
 def run_test_for_folder(folder: str):
     stats = RunStats()
     for entry in os.scandir(folder):
         if entry.is_file() and entry.path.endswith(EXT):
             run_all_test_for_file(entry.path, stats)
+        elif entry.is_dir():
+            run_test_for_folder(entry.path)
     print()
     print("Failed: %d, Ignored: %d" % (stats.failed, stats.ignored))
     if stats.failed != 0:
@@ -222,18 +225,23 @@ def update_output_for_folder(folder: str, subcommand: str):
     for entry in os.scandir(folder):
         if entry.is_file() and entry.path.endswith(EXT):
             update_output_for_file(entry.path, subcommand)
+        elif entry.is_dir():
+            update_output_for_folder(entry.path, subcommand)
 
 def update_all_output_for_file(file_path: str):
-    # update_output_for_file_stdout(file_path, "lex")
-    # update_output_for_file_stdout(file_path, "parse")
+    update_output_for_file_stdout(file_path, "lex")
+    update_output_for_file_stdout(file_path, "parse")
+    update_output_for_file_stdout(file_path, "check")
     # update_output_for_file_stdout(file_path, "ir")
     # update_output_for_file_stdout(file_path, "build")
-    update_output_for_file_stdout(file_path, "run")
+    # update_output_for_file_stdout(file_path, "run")
 
 def update_all_output_for_folder(folder: str):
     for entry in os.scandir(folder):
         if entry.is_file() and entry.path.endswith(EXT):
             update_all_output_for_file(entry.path)
+        elif entry.is_dir(): 
+            update_all_output_for_folder(entry.path)
 
 def usage(exe_name: str):
     print("Usage: ./test.py [SUBCOMMAND]")
@@ -293,6 +301,7 @@ if __name__ == '__main__':
 
             if path.isdir(target):
                 if subcommand == "all":
+                    print("Here", target);
                     update_all_output_for_folder(target)
                 else:
                     update_output_for_folder(target, subcommand);

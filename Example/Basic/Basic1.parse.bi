@@ -2,7 +2,8 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 0
+:b stdout 24
+main :: () u8 return 1;
 
 :b stderr 0
 

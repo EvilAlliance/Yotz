@@ -154,6 +154,19 @@ pub fn main() u8 {
     if (arguments.bench)
         Logger.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
 
+    if (arguments.check and arguments.stdout) {
+        const cont = ast.toString(gpa) catch {
+            Logger.log.err("Out of memory", .{});
+            return 1;
+        };
+        defer cont.deinit();
+
+        const name = getName(arguments.path, "check");
+        writeAll(cont.items, arguments, name);
+
+        return if (err or (parser.errors.items.len > 1)) 1 else 0;
+    }
+
     if (err) return 1;
     if (parser.errors.items.len > 0) return 1;
 

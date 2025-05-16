@@ -1,0 +1,11 @@
+:i argc 0
+:b stdin 0
+
+:i returncode 0
+:b stdout 54
+main :: () u8 { 
+    return (74 - (-(-(2)) * 10));
+} 
+
+:b stderr 0
+
