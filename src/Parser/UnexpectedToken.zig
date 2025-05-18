@@ -31,6 +31,8 @@ pub fn display(self: @This(), fileInfo: Parser.Ast.FileInfo) void {
         self.found.getName(),
         Logger.placeSlice(self.loc, content),
     });
+
+    self.deinit();
 }
 
 pub fn deinit(self: @This()) void {

@@ -40,8 +40,9 @@ errors: std.ArrayList(UnexpectedToken),
 depth: NodeIndex = 0,
 
 pub fn init(alloc: Allocator, path: []const u8) ?@This() {
-    const absPath, const source = Util.readEntireFile(alloc, path) catch |err| {
+    const absPath, const resolvedPath, const source = Util.readEntireFile(alloc, path) catch |err| {
         switch (err) {
+            error.couldNotResolvePath => Logger.log.err("Could not resolve path: {s}\n", .{path}),
             error.couldNotOpenFile => Logger.log.err("Could not open file: {s}\n", .{path}),
             error.couldNotReadFile => Logger.log.err("Could not read file: {s}]n", .{path}),
             error.couldNotGetFileSize => Logger.log.err("Could not get file ({s}) size\n", .{path}),
@@ -59,7 +60,7 @@ pub fn init(alloc: Allocator, path: []const u8) ?@This() {
 
         .source = source,
 
-        .path = path,
+        .path = resolvedPath,
         .absPath = absPath,
 
         .nodeList = Ast.NodeList.init(alloc),
@@ -70,18 +71,21 @@ pub fn init(alloc: Allocator, path: []const u8) ?@This() {
 }
 
 pub fn deinit(self: *@This()) void {
-    for (self.errors.items) |value| {
-        value.deinit();
-    }
+    self.alloc.free(self.source);
+    self.alloc.free(self.tokens);
+    self.alloc.free(self.absPath);
+    self.alloc.free(self.path);
+
+    self.nodeList.deinit();
 
     self.errors.deinit();
     self.temp.deinit();
 }
 
 pub fn expect(self: *@This(), token: Lexer.Token, t: []const Lexer.TokenType) std.mem.Allocator.Error!bool {
-    const ex = try self.alloc.dupe(Lexer.TokenType, t);
-    const is = Util.listContains(Lexer.TokenType, ex, token.tag);
+    const is = Util.listContains(Lexer.TokenType, t, token.tag);
     if (!is) {
+        const ex = try self.alloc.dupe(Lexer.TokenType, t);
         try self.errors.append(UnexpectedToken{
             .expected = ex,
             .found = token.tag,

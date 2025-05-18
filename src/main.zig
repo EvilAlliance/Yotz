@@ -83,6 +83,7 @@ pub fn main() u8 {
 
     var generalPurpose: std.heap.GeneralPurposeAllocator(.{}) = .init;
     const gpa = generalPurpose.allocator();
+    defer _ = generalPurpose.deinit();
 
     const arguments = getArguments() orelse {
         usage();
@@ -120,7 +121,6 @@ pub fn main() u8 {
             return 1;
         },
     };
-
     for (parser.errors.items) |e| {
         e.display(ast.getInfo());
     }

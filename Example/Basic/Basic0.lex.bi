@@ -2,19 +2,19 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 525
-./Example/Basic/Basic0.yt:1:1 main (iden)
-./Example/Basic/Basic0.yt:1:6 : (colon)
-./Example/Basic/Basic0.yt:1:7 : (colon)
-./Example/Basic/Basic0.yt:1:9 ( (openParen)
-./Example/Basic/Basic0.yt:1:10 ) (closeParen)
-./Example/Basic/Basic0.yt:1:12 u8 (unsigned8)
-./Example/Basic/Basic0.yt:1:15 { (openBrace)
-./Example/Basic/Basic0.yt:2:5 return (ret)
-./Example/Basic/Basic0.yt:2:12 1 (numberLiteral)
-./Example/Basic/Basic0.yt:2:13 ; (semicolon)
-./Example/Basic/Basic0.yt:3:1 } (closeBrace)
-./Example/Basic/Basic0.yt:4:1 EOF (EOF)
+:b stdout 501
+Example/Basic/Basic0.yt:1:1 main (iden)
+Example/Basic/Basic0.yt:1:6 : (colon)
+Example/Basic/Basic0.yt:1:7 : (colon)
+Example/Basic/Basic0.yt:1:9 ( (openParen)
+Example/Basic/Basic0.yt:1:10 ) (closeParen)
+Example/Basic/Basic0.yt:1:12 u8 (unsigned8)
+Example/Basic/Basic0.yt:1:15 { (openBrace)
+Example/Basic/Basic0.yt:2:5 return (ret)
+Example/Basic/Basic0.yt:2:12 1 (numberLiteral)
+Example/Basic/Basic0.yt:2:13 ; (semicolon)
+Example/Basic/Basic0.yt:3:1 } (closeBrace)
+Example/Basic/Basic0.yt:4:1 EOF (EOF)
 
 :b stderr 0
 

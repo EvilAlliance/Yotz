@@ -2,25 +2,25 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 870
-./Example/Expression/Expr9.yt:1:1 main (iden)
-./Example/Expression/Expr9.yt:1:6 : (colon)
-./Example/Expression/Expr9.yt:1:7 : (colon)
-./Example/Expression/Expr9.yt:1:9 ( (openParen)
-./Example/Expression/Expr9.yt:1:10 ) (closeParen)
-./Example/Expression/Expr9.yt:1:12 u8 (unsigned8)
-./Example/Expression/Expr9.yt:1:15 { (openBrace)
-./Example/Expression/Expr9.yt:2:5 return (ret)
-./Example/Expression/Expr9.yt:2:12 7 (numberLiteral)
-./Example/Expression/Expr9.yt:2:14 / (slash)
-./Example/Expression/Expr9.yt:2:16 ( (openParen)
-./Example/Expression/Expr9.yt:2:17 35 (numberLiteral)
-./Example/Expression/Expr9.yt:2:20 - (minus)
-./Example/Expression/Expr9.yt:2:22 49 (numberLiteral)
-./Example/Expression/Expr9.yt:2:24 ) (closeParen)
-./Example/Expression/Expr9.yt:2:25 ; (semicolon)
-./Example/Expression/Expr9.yt:3:1 } (closeBrace)
-./Example/Expression/Expr9.yt:4:1 EOF (EOF)
+:b stdout 834
+Example/Expression/Expr9.yt:1:1 main (iden)
+Example/Expression/Expr9.yt:1:6 : (colon)
+Example/Expression/Expr9.yt:1:7 : (colon)
+Example/Expression/Expr9.yt:1:9 ( (openParen)
+Example/Expression/Expr9.yt:1:10 ) (closeParen)
+Example/Expression/Expr9.yt:1:12 u8 (unsigned8)
+Example/Expression/Expr9.yt:1:15 { (openBrace)
+Example/Expression/Expr9.yt:2:5 return (ret)
+Example/Expression/Expr9.yt:2:12 7 (numberLiteral)
+Example/Expression/Expr9.yt:2:14 / (slash)
+Example/Expression/Expr9.yt:2:16 ( (openParen)
+Example/Expression/Expr9.yt:2:17 35 (numberLiteral)
+Example/Expression/Expr9.yt:2:20 - (minus)
+Example/Expression/Expr9.yt:2:22 49 (numberLiteral)
+Example/Expression/Expr9.yt:2:24 ) (closeParen)
+Example/Expression/Expr9.yt:2:25 ; (semicolon)
+Example/Expression/Expr9.yt:3:1 } (closeBrace)
+Example/Expression/Expr9.yt:4:1 EOF (EOF)
 
 :b stderr 0
 

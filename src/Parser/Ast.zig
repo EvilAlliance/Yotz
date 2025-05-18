@@ -28,13 +28,8 @@ pub fn init(alloc: std.mem.Allocator, nl: NodeList, tl: []Lexer.Token, absPath: 
     };
 }
 
-pub fn deinit(self: *@This()) void {
-    self.source.deinit();
-    self.alloc.free(self.tokens);
-    self.alloc.free(self.absPath);
-
-    self.functions.deinit();
-    self.nodeList.deinit();
+pub fn getToken(self: *@This(), i: usize) Lexer.Token {
+    return self.tokens[i];
 }
 
 pub fn getNode(self: *@This(), i: usize) Parser.Node {
