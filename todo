@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "data": {
+    "tasks": [
+      {
+        "id": "HzbXbEYd",
+        "title": "Add node type to variables with no type",
+        "desc": "Do not add to constant",
+        "time_created": "2025-05-22 09:42:57.967946019 -03:00:00"
+      },
+      {
+        "id": "LkUCVh9s",
+        "title": "Merge constant multiple types into the InferMachine",
+        "desc": "",
+        "time_created": "2025-05-22 09:44:42.224202473 -03:00:00",
+        "tags": [
+          "Feat"
+        ]
+      },
+      {
+        "dependencies": [
+          "LkUCVh9s",
+          "HzbXbEYd"
+        ],
+        "id": "9Jjo6Lxk",
+        "title": "Add possible more than one type into node",
+        "desc": "",
+        "time_created": "2025-05-22 09:45:19.992480372 -03:00:00"
+      },
+      {
+        "id": "LtQFbPgP",
+        "title": "Add to typecheck dependency so it can access global variable or other function declared later on the program",
+        "desc": "",
+        "time_created": "2025-05-22 09:46:41.536941311 -03:00:00"
+      },
+      {
+        "dependencies": [
+          "LtQFbPgP"
+        ],
+        "id": "KBWhHPNk",
+        "title": "Make typecheck parallel",
+        "desc": "",
+        "time_created": "2025-05-22 09:46:56.086539 -03:00:00"
+      },
+      {
+        "dependencies": [
+          "LtQFbPgP"
+        ],
+        "id": "t83KaQZh",
+        "title": "Make parser parallel",
+        "desc": "",
+        "time_created": "2025-05-22 09:47:03.222463911 -03:00:00"
+      },
+      {
+        "dependencies": [
+          "t83KaQZh",
+          "KBWhHPNk"
+        ],
+        "id": "d3oGBsNm",
+        "title": "Make translation units, each will be resposable for a small part of the code",
+        "desc": "",
+        "time_created": "2025-05-22 09:48:30.418908665 -03:00:00"
+      }
+    ]
+  }
+}
