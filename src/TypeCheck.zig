@@ -39,34 +39,35 @@ const TypeChecker = struct {
             try checker.checkFunction(func.data[1]);
         }
 
-        // var itSet = checker.inferMachine.setTOvar.valueIterator();
+        var itSet = checker.inferMachine.setTOvar.valueIterator();
 
-        // TODO: This check if everything is compatible but does not inserts it in the program
+        while (itSet.next()) |set| {
+            if (set[0]) |v| {
+                const index, const loc = v;
+                for (set[1].items) |variableIndex| {
+                    const variable = ast.getNodePtr(variableIndex);
+                    if (variable.data[0] != 0) continue;
 
-        // while (itSet.next()) |set| {
-        //     if (set[0]) |v| {
-        //         const t, const loc = v;
-        //         const index = try nl.addNode(&checker.ast.nodeList, t);
-        //         for (set[1].items) |*variable| {
-        //             if (variable.data[0] != 0) continue;
-        //
-        //             const errorCount = checker.errs;
-        //             // CLEANUP: Check when its found instead of now
-        //             checker.checkLiteralExpressionExpectedType(ast.nodeList.items[variable.data[1]], t);
-        //
-        //             if (errorCount != checker.errs) {
-        //                 Logger.logLocation.info(ast.path, loc, "It was found unsing type {s} here: {s}", .{ t.getName(ast.tokens), Logger.placeSlice(loc, ast.source) });
-        //             }
-        //             variable.data[0] = index;
-        //         }
-        //     } else {
-        //         for (set[1].items) |variable| {
-        //             const loc = variable.getLocation(ast.tokens);
-        //             Logger.logLocation.err(ast.path, loc, "Variable has ambiguos type {s}", .{Logger.placeSlice(loc, ast.source)});
-        //         }
-        //     }
-        // }
-        //
+                    const errorCount = checker.errs;
+                    // CLEANUP: Check when its found instead of now
+                    checker.checkLiteralExpressionExpectedType(variable.data[1], index);
+
+                    if (errorCount != checker.errs) {
+                        const t = ast.getNode(index);
+                        Logger.logLocation.info(ast.path, loc, "It was found unsing type {s} here: {s}", .{ t.getName(ast.tokens), Logger.placeSlice(loc, ast.source) });
+                    }
+                    Logger.log.info("Variable {s}: type {s}", .{ variable.getText(ast.tokens, ast.source), ast.getNode(index).getName(ast.tokens) });
+                    variable.data[0] = index;
+                }
+            } else {
+                for (set[1].items) |variableIndex| {
+                    const variable = ast.getNode(variableIndex);
+                    const loc = variable.getLocation(ast.tokens);
+                    Logger.logLocation.err(ast.path, loc, "Variable has ambiguos type {s}", .{Logger.placeSlice(loc, ast.source)});
+                }
+            }
+        }
+
         // TODO: Pass this to the new format
 
         if (checker.foundMain) |mainProto| {
@@ -390,20 +391,20 @@ const TypeChecker = struct {
 
         switch (expr.tag) {
             .lit => {
-                self.checkValueForType(expr, expectedType);
+                self.checkValueForType(exprI, expectedTypeI);
             },
             .load => {},
             .parentesis, .neg => {
-                const left = self.ast.nodeList.items[expr.data[0]];
+                const left = expr.data[0];
 
-                self.checkLiteralExpressionExpectedType(left, expectedType);
+                self.checkLiteralExpressionExpectedType(left, expectedTypeI);
             },
             .addition, .subtraction, .multiplication, .division, .power => {
-                const left = self.ast.nodeList.items[expr.data[0]];
-                const right = self.ast.nodeList.items[expr.data[1]];
+                const left = expr.data[0];
+                const right = expr.data[1];
 
-                self.checkLiteralExpressionExpectedType(left, expectedType);
-                self.checkLiteralExpressionExpectedType(right, expectedType);
+                self.checkLiteralExpressionExpectedType(left, expectedTypeI);
+                self.checkLiteralExpressionExpectedType(right, expectedTypeI);
             },
             else => {
                 const loc = expr.getLocation(self.ast.tokens);

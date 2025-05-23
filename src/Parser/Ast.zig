@@ -36,6 +36,10 @@ pub fn getNode(self: *@This(), i: usize) Parser.Node {
     return self.nodeList.items[i];
 }
 
+pub fn getNodePtr(self: *@This(), i: usize) *Parser.Node {
+    return &self.nodeList.items[i];
+}
+
 pub fn toString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Error!std.ArrayList(u8) {
     var cont = std.ArrayList(u8).init(alloc);
     if (self.nodeList.items.len == 0) return cont;

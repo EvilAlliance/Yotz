@@ -6,7 +6,9 @@
         "id": "HzbXbEYd",
         "title": "Add node type to variables with no type",
         "desc": "Do not add to constant",
-        "time_created": "2025-05-22 09:42:57.967946019 -03:00:00"
+        "time_created": "2025-05-22 09:42:57.967946019 -03:00:00",
+        "time_started": "2025-05-23 08:09:13.654261322 -03:00:00"
+        "time_completed": "2025-05-23 08:31:18.851637204 -03:00:00"
       },
       {
         "id": "LkUCVh9s",
@@ -60,6 +62,12 @@
         "title": "Make translation units, each will be resposable for a small part of the code",
         "desc": "",
         "time_created": "2025-05-22 09:48:30.418908665 -03:00:00"
+      },
+      {
+        "id": "qHWGKNaH",
+        "title": "Store global scope in the TypeChecker",
+        "desc": "",
+        "time_created": "2025-05-23 08:10:16.162232316 -03:00:00"
       }
     ]
   }

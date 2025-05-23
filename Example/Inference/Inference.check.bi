@@ -2,11 +2,11 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 96
+:b stdout 100
 main :: () u8 { 
     a :: 10;
     b: u16 = 30;
-    c := ((a + b) + 30);
+    c: u16 = ((a + b) + 30);
     return (a + 10);
 } 
 
