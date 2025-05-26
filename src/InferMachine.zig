@@ -1,68 +1,112 @@
 const std = @import("std");
+const Set = @import("ziglangSet");
 const Logger = @import("./Logger.zig");
 const Util = @import("./Util.zig");
 const Lexer = @import("Lexer/Lexer.zig");
 const Parser = @import("Parser/Parser.zig");
 
-const VarTOset = std.AutoHashMap(
-    Parser.NodeIndex,
-    usize,
-);
+const Variable = struct {
+    const VarTOset = std.AutoHashMap(
+        Parser.NodeIndex,
+        usize,
+    );
 
-const SetTOvar = std.AutoHashMap(
-    usize,
-    struct {
-        ?struct { Parser.NodeIndex, Lexer.Location },
-        std.ArrayList(Parser.NodeIndex),
-    },
-);
+    const SetTOvar = std.AutoArrayHashMap(
+        usize,
+        struct {
+            ?TypeLocation,
+            std.ArrayList(Parser.NodeIndex),
+        },
+    );
+
+    const TypeLocation = struct { Parser.NodeIndex, Lexer.Location };
+
+    varTOset: VarTOset,
+    setTOvar: SetTOvar,
+};
+
+const Constant = struct {
+    const VarTOset = std.AutoHashMap(
+        Parser.NodeIndex,
+        usize,
+    );
+
+    const SetTOvar = std.AutoArrayHashMap(
+        usize,
+        Set.ArraySetManaged(TypeLocation),
+    );
+
+    const TypeLocation = struct { Parser.NodeIndex, Lexer.Location };
+
+    varTOset: VarTOset,
+    setTOvar: SetTOvar,
+};
 
 ast: *Parser.Ast,
 
 reuse: std.BoundedArray(usize, 256),
 sets: usize = 0,
 alloc: std.mem.Allocator,
-varTOset: VarTOset,
-setTOvar: SetTOvar,
+variable: Variable,
+constant: Constant,
+
 pub fn init(alloc: std.mem.Allocator, ast: *Parser.Ast) @This() {
     return @This(){
         .reuse = std.BoundedArray(usize, 256).init(0) catch unreachable,
         .alloc = alloc,
-
         .ast = ast,
-
-        .varTOset = VarTOset.init(alloc),
-        .setTOvar = SetTOvar.init(alloc),
+        .variable = .{
+            .varTOset = Variable.VarTOset.init(alloc),
+            .setTOvar = Variable.SetTOvar.init(alloc),
+        },
+        .constant = .{
+            .varTOset = Constant.VarTOset.init(alloc),
+            .setTOvar = Constant.SetTOvar.init(alloc),
+        },
     };
 }
 
 pub fn deinit(self: *@This()) void {
-    var it = self.setTOvar.valueIterator();
+    {
+        var it = self.variable.setTOvar.iterator();
 
-    while (it.next()) |tuple| {
-        tuple[1].deinit();
+        while (it.next()) |entry| {
+            const tuple = entry.value_ptr;
+            tuple[1].deinit();
+        }
+
+        self.variable.varTOset.deinit();
+        self.variable.setTOvar.deinit();
     }
+    {
+        var it = self.constant.setTOvar.iterator();
 
-    self.varTOset.deinit();
-    self.setTOvar.deinit();
+        while (it.next()) |entry| {
+            const tuple = entry.value_ptr;
+            tuple.deinit();
+        }
+
+        self.constant.varTOset.deinit();
+        self.constant.setTOvar.deinit();
+    }
 }
 
 pub fn add(self: *@This(), node: Parser.NodeIndex) std.mem.Allocator.Error!usize {
-    if (self.varTOset.get(node)) |index| return index;
+    if (self.variable.varTOset.get(node)) |index| return index;
     const sets = self.reuse.pop() orelse set: {
         const index = self.sets;
         self.sets += 1;
         break :set index;
     };
 
-    try self.varTOset.put(node, sets);
+    try self.variable.varTOset.put(node, sets);
 
-    if (self.setTOvar.getPtr(sets)) |set| {
+    if (self.variable.setTOvar.getPtr(sets)) |set| {
         try set[1].append(node);
     } else {
         var set = std.ArrayList(Parser.NodeIndex).init(self.alloc);
         try set.append(node);
-        try self.setTOvar.put(sets, .{ null, set });
+        try self.variable.setTOvar.put(sets, .{ null, set });
     }
 
     return sets;
@@ -70,8 +114,8 @@ pub fn add(self: *@This(), node: Parser.NodeIndex) std.mem.Allocator.Error!usize
 
 pub fn merge(self: *@This(), a: usize, b: usize) (std.mem.Allocator.Error || error{IncompatibleType})!usize {
     if (a == b) return a;
-    const ta = self.setTOvar.getPtr(a).?;
-    const tb = self.setTOvar.getPtr(b).?;
+    const ta = self.variable.setTOvar.getPtr(a).?;
+    const tb = self.variable.setTOvar.getPtr(b).?;
 
     if (ta[0]) |aTypeI| if (tb[0]) |bTypeI| {
         const aType = self.ast.getNode(aTypeI[0]);
@@ -91,7 +135,7 @@ pub fn merge(self: *@This(), a: usize, b: usize) (std.mem.Allocator.Error || err
     try dest[1].appendSlice(org[1].items);
 
     for (org[1].items) |x| {
-        try self.varTOset.put(x, destIndex);
+        try self.variable.varTOset.put(x, destIndex);
     }
 
     org[1].clearRetainingCapacity();
@@ -101,8 +145,8 @@ pub fn merge(self: *@This(), a: usize, b: usize) (std.mem.Allocator.Error || err
 }
 
 pub fn found(self: *@This(), aI: Parser.NodeIndex, tI: Parser.NodeIndex, loc: Lexer.Location) std.mem.Allocator.Error!void {
-    const i = self.varTOset.get(aI).?;
-    const ta = self.setTOvar.getPtr(i).?;
+    const i = self.variable.varTOset.get(aI).?;
+    const ta = self.variable.setTOvar.getPtr(i).?;
     if (ta[0]) |oldTI| {
         const oldT = self.ast.getNode(oldTI[0]);
         const t = self.ast.getNode(tI);
@@ -118,16 +162,16 @@ pub fn found(self: *@This(), aI: Parser.NodeIndex, tI: Parser.NodeIndex, loc: Le
 }
 
 pub fn includes(self: @This(), a: Parser.NodeIndex) bool {
-    return self.varTOset.contains(a);
+    return self.variable.varTOset.contains(a);
 }
 
 pub fn printState(self: @This()) void {
-    var it = self.setTOvar.keyIterator();
+    var it = self.variable.setTOvar.keyIterator();
 
     while (it.next()) |setIndex| {
         if (Util.listContains(usize, self.reuse.buffer[0..self.reuse.len], setIndex.*)) continue;
         Logger.log.info("{}:", .{setIndex.*});
-        const set = self.setTOvar.get(setIndex.*).?;
+        const set = self.variable.setTOvar.get(setIndex.*).?;
 
         if (set[0]) |t| {
             Logger.log.info("{s}", .{self.ast.getNode(t[0]).getName(self.ast.tokens)});

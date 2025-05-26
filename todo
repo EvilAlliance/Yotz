@@ -15,6 +15,7 @@
         "title": "Merge constant multiple types into the InferMachine",
         "desc": "",
         "time_created": "2025-05-22 09:44:42.224202473 -03:00:00",
+        "time_started": "2025-05-26 18:32:09.394160648 -03:00:00",
         "tags": [
           "Feat"
         ]
@@ -71,9 +72,10 @@
       },
       {
         "id": "Q9jty8N8",
-        "title": "Take out arratlisy of SetToVar, Use a set",
-        "desc": "",
-        "time_created": "2025-05-23 09:30:21.076389449 -03:00:00"
+        "title": "Take out arratlisy of SetToVar",
+        "desc": "Take out arraylist, when mergin change the to have the same set",
+        "time_created": "2025-05-23 09:30:21.076389449 -03:00:00",
+        "time_started": "2025-05-26 18:35:31.801002099 -03:00:00"
       }
     ]
   }

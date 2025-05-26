@@ -39,9 +39,10 @@ const TypeChecker = struct {
             try checker.checkFunction(func.data[1]);
         }
 
-        var itSet = checker.inferMachine.setTOvar.valueIterator();
+        var itSet = checker.inferMachine.variable.setTOvar.iterator();
 
-        while (itSet.next()) |set| {
+        while (itSet.next()) |entry| {
+            const set = entry.value_ptr;
             if (set[0]) |v| {
                 const index, const loc = v;
                 for (set[1].items) |variableIndex| {

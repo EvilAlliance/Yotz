@@ -22,6 +22,9 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const ziglangSet = b.dependency("ziglangSet", .{});
+    exe.root_module.addImport("ziglangSet", ziglangSet.module("ziglangSet"));
+
     exe.addIncludePath(b.path("./src/libs"));
     exe.addObjectFile(b.path("./src/libs/tb.a")); // Adjust the path and filename
     exe.linkLibC();
