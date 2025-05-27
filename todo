@@ -75,7 +75,32 @@
         "title": "Take out arratlisy of SetToVar",
         "desc": "Take out arraylist, when mergin change the to have the same set",
         "time_created": "2025-05-23 09:30:21.076389449 -03:00:00",
-        "time_started": "2025-05-26 18:35:31.801002099 -03:00:00"
+        "time_started": "2025-05-27 08:24:50.855946306 -03:00:00",
+        "time_completed": "2025-05-27 08:24:51.656513373 -03:00:00"
+      },
+      {
+        "id": "CeFhWUkS",
+        "title": "InferMachine use TokenIndex for Location which is smaller",
+        "desc": "",
+        "time_created": "2025-05-26 21:36:46.846556361 -03:00:00"
+      },
+      {
+        "id": "xTCDTnyV",
+        "title": "Try to rebuild TypeCheck and InferMachine so it is more clear and not so compolluted",
+        "desc": "",
+        "time_created": "2025-05-26 23:08:03.86878455 -03:00:00"
+      },
+      {
+        "id": "myhFkW5e",
+        "title": "Node recieves ast instead of all of it components",
+        "desc": "",
+        "time_created": "2025-05-26 23:09:37.346259407 -03:00:00"
+      },
+      {
+        "id": "tUBGD6hV",
+        "title": "When implementing removal of variables in InferMachine, it si possible to remove in both end parens, but if root only delete one end",
+        "desc": "Make possible to reuse the number set which is use in a set",
+        "time_created": "2025-05-27 08:24:13.775966182 -03:00:00"
       }
     ]
   }

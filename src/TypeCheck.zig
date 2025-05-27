@@ -39,34 +39,35 @@ const TypeChecker = struct {
             try checker.checkFunction(func.data[1]);
         }
 
-        var itSet = checker.inferMachine.variable.setTOvar.iterator();
+        var itSet = checker.inferMachine.variable.varTOset.iterator();
 
         while (itSet.next()) |entry| {
+            const nodeIndex = entry.key_ptr;
             const set = entry.value_ptr;
-            if (set[0]) |v| {
-                const index, const loc = v;
-                for (set[1].items) |variableIndex| {
-                    const variable = ast.getNodePtr(variableIndex);
-                    if (variable.data[0] != 0) continue;
 
-                    const errorCount = checker.errs;
-                    // CLEANUP: Check when its found instead of now
-                    checker.checkLiteralExpressionExpectedType(variable.data[1], index);
+            const variable = ast.getNodePtr(nodeIndex.*);
+            if (variable.data[0] != 0) continue;
 
-                    if (errorCount != checker.errs) {
-                        const t = ast.getNode(index);
-                        Logger.logLocation.info(ast.path, loc, "It was found unsing type {s} here: {s}", .{ t.getName(ast.tokens), Logger.placeSlice(loc, ast.source) });
-                    }
-                    Logger.log.info("Variable {s}: type {s}", .{ variable.getText(ast.tokens, ast.source), ast.getNode(index).getName(ast.tokens) });
-                    variable.data[0] = index;
+            const typelocOP = checker.inferMachine.variable.setTOType.getPtr(set.*).?;
+
+            if (typelocOP.*) |_| {
+                const index, const loc = checker.inferMachine.getRoot(typelocOP).?;
+
+                const errorCount = checker.errs;
+                // CLEANUP: Check when its found instead of now
+                checker.checkLiteralExpressionExpectedType(variable.data[1], index);
+
+                if (errorCount != checker.errs) {
+                    const t = ast.getNode(index);
+                    Logger.logLocation.info(ast.path, loc, "It was found unsing type {s} here: {s}", .{ t.getName(ast.tokens), Logger.placeSlice(loc, ast.source) });
                 }
-            } else {
-                for (set[1].items) |variableIndex| {
-                    const variable = ast.getNode(variableIndex);
-                    const loc = variable.getLocation(ast.tokens);
-                    Logger.logLocation.err(ast.path, loc, "Variable has ambiguos type {s}", .{Logger.placeSlice(loc, ast.source)});
-                }
+                variable.data[0] = index;
+
+                continue;
             }
+
+            const loc = variable.getLocation(ast.tokens);
+            Logger.logLocation.err(ast.path, loc, "Variable has ambiguos type {s}", .{Logger.placeSlice(loc, ast.source)});
         }
 
         // TODO: Pass this to the new format
@@ -205,9 +206,9 @@ const TypeChecker = struct {
                     const exprI = stmt.data[1];
                     if (stmt.tag == .variable) _ = try self.inferMachine.add(stmtI);
                     if (try self.checkExpressionInferType(exprI)) |bS| {
-                        const a = try self.inferMachine.add(stmtI);
+                        _ = try self.inferMachine.add(stmtI);
 
-                        _ = self.inferMachine.merge(a, bS) catch |err| switch (err) {
+                        _ = self.inferMachine.merge(stmtI, bS) catch |err| switch (err) {
                             error.IncompatibleType => unreachable,
                             error.OutOfMemory => return error.OutOfMemory,
                         };
@@ -217,7 +218,7 @@ const TypeChecker = struct {
             else => unreachable,
         }
     }
-    fn checkExpressionInferType(self: *Self, exprI: Parser.NodeIndex) std.mem.Allocator.Error!?usize {
+    fn checkExpressionInferType(self: *Self, exprI: Parser.NodeIndex) std.mem.Allocator.Error!?Parser.NodeIndex {
         const expr = self.ast.getNode(exprI);
 
         std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .parentesis, .power, .division, .multiplication, .subtraction, .addition }, expr.tag));
@@ -237,7 +238,7 @@ const TypeChecker = struct {
                 if (!self.inferMachine.includes(variable))
                     return null;
 
-                return try self.inferMachine.add(variable);
+                return variable;
             },
             .parentesis, .neg => {
                 const leftI = expr.data[0];

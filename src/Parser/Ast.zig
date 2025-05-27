@@ -28,15 +28,15 @@ pub fn init(alloc: std.mem.Allocator, nl: NodeList, tl: []Lexer.Token, absPath: 
     };
 }
 
-pub fn getToken(self: *@This(), i: usize) Lexer.Token {
+pub fn getToken(self: *@This(), i: Lexer.TokenIndex) Lexer.Token {
     return self.tokens[i];
 }
 
-pub fn getNode(self: *@This(), i: usize) Parser.Node {
+pub fn getNode(self: *@This(), i: Parser.NodeIndex) Parser.Node {
     return self.nodeList.items[i];
 }
 
-pub fn getNodePtr(self: *@This(), i: usize) *Parser.Node {
+pub fn getNodePtr(self: *@This(), i: Parser.NodeIndex) *Parser.Node {
     return &self.nodeList.items[i];
 }
 
