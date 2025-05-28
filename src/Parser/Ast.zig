@@ -28,7 +28,7 @@ pub fn init(alloc: std.mem.Allocator, nl: NodeList, tl: []Lexer.Token, absPath: 
     };
 }
 
-pub fn getToken(self: *@This(), i: Lexer.TokenIndex) Lexer.Token {
+pub fn getToken(self: *@This(), i: Parser.TokenIndex) Lexer.Token {
     return self.tokens[i];
 }
 
@@ -73,8 +73,19 @@ fn toStringFuncProto(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser
 }
 
 fn toStringType(self: @This(), cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
-    _ = d;
-    try cont.appendSlice(self.nodeList.items[i].getText(self.tokens, self.source));
+    const t = self.nodeList.items[i];
+    switch (t.tag) {
+        .type => try cont.appendSlice(t.getText(self.tokens, self.source)),
+        .typeGroup => {
+            const start = t.data[0];
+            const end = t.data[1];
+            for (start..end) |iNode| {
+                try self.toStringType(cont, d, @intCast(iNode));
+                if (iNode < end - 1) try cont.appendSlice(", ");
+            }
+        },
+        else => unreachable,
+    }
 }
 
 fn toStringScope(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {

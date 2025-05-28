@@ -23,7 +23,7 @@ pub fn build(b: *std.Build) void {
     });
 
     const ziglangSet = b.dependency("ziglangSet", .{});
-    exe.root_module.addImport("ziglangSet", ziglangSet.module("ziglangSet"));
+    exe.root_module.addImport("Set", ziglangSet.module("ziglangSet"));
 
     exe.addIncludePath(b.path("./src/libs"));
     exe.addObjectFile(b.path("./src/libs/tb.a")); // Adjust the path and filename

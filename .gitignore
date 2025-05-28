@@ -2,3 +2,4 @@
 zig-out
 *.lex
 *.parse
+Coverage

@@ -2,9 +2,9 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 46
+:b stdout 49
 main :: () u8 { 
-    a :: 1;
+    a: u8 : 1;
     return a;
 } 
 

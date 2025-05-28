@@ -9,6 +9,7 @@ pub const Tag = enum(Parser.NodeIndex) {
 
     funcProto, // data[0] args data[1] retutn type next scope
     args,
+    typeGroup, // data[0] first type data[1] last type, must be continuos
     type,
 
     scope,

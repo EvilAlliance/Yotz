@@ -4,7 +4,7 @@ main :: () u8 {
     b ::  10;
     c :: a + 10;
 
-    d: u8 = b;
+    d :u16= b;
 
     return b;
 }

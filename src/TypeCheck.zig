@@ -2,6 +2,7 @@ const std = @import("std");
 const Util = @import("Util.zig");
 const Logger = @import("Logger.zig");
 const InferMachine = @import("InferMachine.zig");
+const Lexer = @import("Lexer/Lexer.zig");
 
 const Parser = @import("./Parser/Parser.zig");
 const nl = @import("./Parser/NodeListUtil.zig");
@@ -60,6 +61,7 @@ const TypeChecker = struct {
                 if (errorCount != checker.errs) {
                     const t = ast.getNode(index);
                     Logger.logLocation.info(ast.path, loc, "It was found unsing type {s} here: {s}", .{ t.getName(ast.tokens), Logger.placeSlice(loc, ast.source) });
+                    continue;
                 }
                 variable.data[0] = index;
 
@@ -67,7 +69,67 @@ const TypeChecker = struct {
             }
 
             const loc = variable.getLocation(ast.tokens);
-            Logger.logLocation.err(ast.path, loc, "Variable has ambiguos type {s}", .{Logger.placeSlice(loc, ast.source)});
+            Logger.logLocation.warn(ast.path, loc, "Variable has ambiguos type {s}", .{Logger.placeSlice(loc, ast.source)});
+        }
+
+        var itConstant = checker.inferMachine.constant.varTOset.iterator();
+
+        while (itConstant.next()) |entry| {
+            const nodeIndex = entry.key_ptr;
+            const set = entry.value_ptr;
+
+            const variable = ast.getNode(nodeIndex.*);
+            if (variable.data[0] != 0) continue;
+
+            const setTypeLoc = checker.inferMachine.constant.setTOvar.get(set.*).?;
+
+            var typeLoc = std.AutoArrayHashMap(Lexer.Token.TokenType, InferMachine.TypeLocation).init(alloc);
+            // typeLoc.deinit();
+
+            var itTypeLoc = setTypeLoc.iterator();
+
+            while (itTypeLoc.next()) |entry1| {
+                const typelocIndex = entry1.key_ptr;
+                const typeloc = checker.inferMachine.variable.setTOType.getPtr(typelocIndex.*).?;
+                const root = checker.inferMachine.getRoot(typeloc).?;
+                const typeNode = ast.getNode(root[0]);
+                const t = ast.getToken(typeNode.tokenIndex);
+
+                try typeLoc.put(t.tag, root);
+            }
+
+            var uniqueIt = typeLoc.iterator();
+
+            const start = ast.nodeList.items.len;
+
+            while (uniqueIt.next()) |entry1| {
+                const index, const loc = entry1.value_ptr.*;
+
+                const errorCount = checker.errs;
+                // CLEANUP: Check when its found instead of now
+                checker.checkLiteralExpressionExpectedType(variable.data[1], index);
+
+                if (errorCount != checker.errs) {
+                    const t = ast.getNode(index);
+                    Logger.logLocation.info(ast.path, loc, "It was found unsing type {s} here: {s}", .{ t.getName(ast.tokens), Logger.placeSlice(loc, ast.source) });
+                    continue;
+                }
+
+                _ = try nl.addNode(&ast.nodeList, ast.getNode(index));
+            }
+
+            const end = ast.nodeList.items.len;
+
+            if (start == end) {
+                const loc = variable.getLocation(ast.tokens);
+                Logger.logLocation.warn(ast.path, loc, "Variable has ambiguos type {s}", .{Logger.placeSlice(loc, ast.source)});
+            }
+
+            const p = try nl.addNode(&ast.nodeList, .{
+                .tag = .typeGroup,
+                .data = .{ @intCast(start), @intCast(end) },
+            });
+            ast.getNodePtr(nodeIndex.*).data[0] = p;
         }
 
         // TODO: Pass this to the new format
@@ -194,20 +256,19 @@ const TypeChecker = struct {
 
                 try self.addVariableScope(stmt.getText(self.ast.tokens, self.ast.source), stmtI);
 
+                _ = try self.inferMachine.add(stmtI);
+
                 if (stmt.data[0] != 0) {
                     const tI = stmt.data[0];
                     const exprI = stmt.data[1];
 
-                    _ = try self.inferMachine.add(stmtI);
                     try self.inferMachine.found(stmtI, tI, stmt.getLocation(self.ast.tokens));
 
                     try self.checkExpressionExpectedType(exprI, tI);
                 } else {
                     const exprI = stmt.data[1];
-                    if (stmt.tag == .variable) _ = try self.inferMachine.add(stmtI);
+                    if (stmt.tag == .constant) _ = try self.inferMachine.toConstant(stmtI);
                     if (try self.checkExpressionInferType(exprI)) |bS| {
-                        _ = try self.inferMachine.add(stmtI);
-
                         _ = self.inferMachine.merge(stmtI, bS) catch |err| switch (err) {
                             error.IncompatibleType => unreachable,
                             error.OutOfMemory => return error.OutOfMemory,
@@ -234,9 +295,6 @@ const TypeChecker = struct {
 
                     return null;
                 };
-
-                if (!self.inferMachine.includes(variable))
-                    return null;
 
                 return variable;
             },

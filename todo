@@ -16,6 +16,7 @@
         "desc": "",
         "time_created": "2025-05-22 09:44:42.224202473 -03:00:00",
         "time_started": "2025-05-26 18:32:09.394160648 -03:00:00",
+        "time_completed": "2025-05-28 11:14:38.249238972 -03:00:00",
         "tags": [
           "Feat"
         ]
@@ -28,7 +29,9 @@
         "id": "9Jjo6Lxk",
         "title": "Add possible more than one type into node",
         "desc": "",
-        "time_created": "2025-05-22 09:45:19.992480372 -03:00:00"
+        "time_created": "2025-05-22 09:45:19.992480372 -03:00:00",
+        "time_started": "2025-05-28 11:14:43.459836272 -03:00:00",
+        "time_completed": "2025-05-28 11:14:44.426213157 -03:00:00"
       },
       {
         "id": "LtQFbPgP",
@@ -101,6 +104,12 @@
         "title": "When implementing removal of variables in InferMachine, it si possible to remove in both end parens, but if root only delete one end",
         "desc": "Make possible to reuse the number set which is use in a set",
         "time_created": "2025-05-27 08:24:13.775966182 -03:00:00"
+      },
+      {
+        "id": "z4j8Cbhb",
+        "title": "Remove Node.Tag: Parentesis",
+        "desc": "",
+        "time_created": "2025-05-28 09:24:53.922692656 -03:00:00"
       }
     ]
   }

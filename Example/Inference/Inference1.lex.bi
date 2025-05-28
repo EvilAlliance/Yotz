@@ -2,7 +2,7 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 1702
+:b stdout 1704
 Example/Inference/Inference1.yt:1:1 main (iden)
 Example/Inference/Inference1.yt:2:6 : (colon)
 Example/Inference/Inference1.yt:2:7 : (colon)
@@ -28,8 +28,8 @@ Example/Inference/Inference1.yt:5:12 + (plus)
 Example/Inference/Inference1.yt:5:14 10 (numberLiteral)
 Example/Inference/Inference1.yt:5:16 ; (semicolon)
 Example/Inference/Inference1.yt:7:5 d (iden)
-Example/Inference/Inference1.yt:7:6 : (colon)
-Example/Inference/Inference1.yt:7:8 u8 (unsigned8)
+Example/Inference/Inference1.yt:7:7 : (colon)
+Example/Inference/Inference1.yt:7:8 u16 (unsigned16)
 Example/Inference/Inference1.yt:7:11 = (equal)
 Example/Inference/Inference1.yt:7:13 b (iden)
 Example/Inference/Inference1.yt:7:14 ; (semicolon)

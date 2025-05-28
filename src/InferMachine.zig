@@ -1,9 +1,11 @@
 const std = @import("std");
-const Set = @import("ziglangSet");
+const Set = @import("Set");
 const Logger = @import("./Logger.zig");
 const Util = @import("./Util.zig");
 const Lexer = @import("Lexer/Lexer.zig");
 const Parser = @import("Parser/Parser.zig");
+
+pub const TypeLocation = struct { Parser.NodeIndex, Lexer.Location };
 
 const Variable = struct {
     const VarTOset = std.AutoHashMap(
@@ -21,8 +23,6 @@ const Variable = struct {
         paren: usize,
     };
 
-    const TypeLocation = struct { Parser.NodeIndex, Lexer.Location };
-
     varTOset: VarTOset,
     setTOType: SetTOvar,
 };
@@ -35,10 +35,8 @@ const Constant = struct {
 
     const SetTOvar = std.AutoArrayHashMap(
         usize,
-        Set.ArraySetManaged(TypeLocation),
+        Set.ArraySetManaged(usize),
     );
-
-    const TypeLocation = struct { Parser.NodeIndex, Lexer.Location };
 
     varTOset: VarTOset,
     setTOvar: SetTOvar,
@@ -96,7 +94,19 @@ pub fn add(self: *@This(), node: Parser.NodeIndex) std.mem.Allocator.Error!usize
     return sets;
 }
 
-pub fn setRoot(self: *@This(), t: *?Variable.Tree, typeloc: Variable.TypeLocation) void {
+pub fn toConstant(self: *@This(), node: Parser.NodeIndex) std.mem.Allocator.Error!?usize {
+    if (self.variable.varTOset.get(node)) |index| {
+        try self.constant.varTOset.put(node, index);
+        try self.constant.setTOvar.put(index, Set.ArraySetManaged(usize).init(self.alloc));
+        _ = self.variable.varTOset.remove(node);
+
+        return index;
+    }
+
+    return null;
+}
+
+pub fn setRoot(self: *@This(), t: *?Variable.Tree, typeloc: TypeLocation) void {
     if (t.* == null) {
         t.* = .{
             .root = typeloc,
@@ -111,7 +121,7 @@ pub fn setRoot(self: *@This(), t: *?Variable.Tree, typeloc: Variable.TypeLocatio
     };
 }
 
-pub fn getRoot(self: *@This(), t: *?Variable.Tree) ?Variable.TypeLocation {
+pub fn getRoot(self: *@This(), t: *?Variable.Tree) ?TypeLocation {
     if (t.* == null) return null;
 
     return switch (t.*.?) {
@@ -130,7 +140,42 @@ pub fn getRoot(self: *@This(), t: *?Variable.Tree) ?Variable.TypeLocation {
     };
 }
 
+fn mergeWithConstant(self: *@This(), aN: Parser.NodeIndex, bN: Parser.NodeIndex) (std.mem.Allocator.Error || error{IncompatibleType})!Parser.NodeIndex {
+    if (self.includesConstant(aN) and self.includesConstant(bN)) {
+        const a = self.constant.varTOset.get(aN).?;
+        const b = self.constant.varTOset.get(bN).?;
+
+        const setA = self.constant.setTOvar.getPtr(a).?;
+        const setB = self.constant.setTOvar.getPtr(b).?;
+
+        try setA.unionUpdate(setB.*);
+        try setB.unionUpdate(setA.*);
+
+        return aN;
+    }
+
+    const cN = if (self.includesConstant(aN)) aN else bN;
+    const vN = if (self.includesVariable(bN)) bN else aN;
+
+    const c = self.constant.varTOset.get(cN).?;
+    const v = self.variable.varTOset.get(vN).?;
+
+    const set = self.constant.setTOvar.getPtr(c).?;
+    const tree = self.variable.setTOType.getPtr(v).?;
+
+    _ = self.getRoot(tree);
+
+    _ = try set.add(if (tree.*) |_| switch (tree.*.?) {
+        .root => v,
+        .paren => |i| i,
+    } else v);
+
+    return vN;
+}
+
 pub fn merge(self: *@This(), aN: Parser.NodeIndex, bN: Parser.NodeIndex) (std.mem.Allocator.Error || error{IncompatibleType})!Parser.NodeIndex {
+    if (self.includesConstant(aN) or self.includesConstant(bN)) return self.mergeWithConstant(aN, bN);
+
     const a = self.variable.varTOset.get(aN).?;
     const b = self.variable.varTOset.get(bN).?;
     if (a == b) return aN;
@@ -158,7 +203,24 @@ pub fn merge(self: *@This(), aN: Parser.NodeIndex, bN: Parser.NodeIndex) (std.me
     }
 }
 
+fn foundConstant(self: *@This(), aI: Parser.NodeIndex, tI: Parser.NodeIndex, loc: Lexer.Location) std.mem.Allocator.Error!void {
+    const i = self.constant.varTOset.get(aI).?;
+    const ta = self.constant.setTOvar.getPtr(i).?;
+
+    const set = self.sets;
+    self.sets += 1;
+
+    try self.variable.setTOType.put(set, .{
+        .root = .{
+            tI,
+            loc,
+        },
+    });
+    _ = try ta.add(set);
+}
+
 pub fn found(self: *@This(), aI: Parser.NodeIndex, tI: Parser.NodeIndex, loc: Lexer.Location) std.mem.Allocator.Error!void {
+    if (self.includesConstant(aI)) return self.foundConstant(aI, tI, loc);
     const i = self.variable.varTOset.get(aI).?;
     const ta = self.variable.setTOType.getPtr(i).?;
     if (ta.*) |_| {
@@ -188,18 +250,25 @@ pub fn found(self: *@This(), aI: Parser.NodeIndex, tI: Parser.NodeIndex, loc: Le
     }
 }
 
-pub fn includes(self: @This(), a: Parser.NodeIndex) bool {
+pub fn includesVariable(self: @This(), a: Parser.NodeIndex) bool {
     return self.variable.varTOset.contains(a);
 }
 
+pub fn includesConstant(self: @This(), a: Parser.NodeIndex) bool {
+    return self.constant.varTOset.contains(a);
+}
+
+pub fn includes(self: @This(), a: Parser.NodeIndex) bool {
+    return self.includesConstant(a) or self.includesVariable(a);
+}
+
 pub fn printState(self: *@This()) void {
-    Logger.log.info("{}", .{self.variable.varTOset.count()});
     var it = self.variable.varTOset.iterator();
 
     while (it.next()) |entry| {
         const setIndex = entry.value_ptr;
         Logger.log.info("Set {}:", .{setIndex.*});
-        const set = self.variable.setTOType.get(setIndex.*).?;
+        const set = self.variable.setTOType.getPtr(setIndex.*).?;
 
         if (self.getRoot(set)) |t| {
             Logger.log.info("{s}", .{self.ast.getNode(t[0]).getName(self.ast.tokens)});
@@ -208,5 +277,25 @@ pub fn printState(self: *@This()) void {
 
         const value = entry.key_ptr.*;
         Logger.logLocation.info(self.ast.path, self.ast.getNode(value).getLocation(self.ast.tokens), "{}: {s}", .{ value, Logger.placeSlice(self.ast.getNode(value).getLocation(self.ast.tokens), self.ast.source) });
+    }
+
+    var itConstant = self.constant.varTOset.iterator();
+
+    while (itConstant.next()) |entry| {
+        const setIndex = entry.value_ptr;
+        Logger.log.info("Set {}:", .{setIndex.*});
+        const set = self.constant.setTOvar.get(setIndex.*).?;
+        var setIt = set.iterator();
+
+        while (setIt.next()) |indexTypeLoc| {
+            const r = self.variable.setTOType.getPtr(indexTypeLoc.key_ptr.*).?;
+            if (self.getRoot(r)) |t| {
+                Logger.log.info("{s}", .{self.ast.getNode(t[0]).getName(self.ast.tokens)});
+                Logger.logLocation.info(self.ast.path, t[1], "Found here: {s}", .{Logger.placeSlice(t[1], self.ast.source)});
+            }
+
+            const value = entry.key_ptr.*;
+            Logger.logLocation.info(self.ast.path, self.ast.getNode(value).getLocation(self.ast.tokens), "{}: {s}", .{ value, Logger.placeSlice(self.ast.getNode(value).getLocation(self.ast.tokens), self.ast.source) });
+        }
     }
 }
