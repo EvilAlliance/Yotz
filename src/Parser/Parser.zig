@@ -389,10 +389,7 @@ fn parseTerm(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})
             std.debug.assert(self.depth != 0);
             self.depth -= 1;
 
-            return try nl.addNode(&self.temp, .{
-                .tag = .parentesis,
-                .data = .{ expr, 0 },
-            });
+            return expr;
         },
         else => unreachable,
     }

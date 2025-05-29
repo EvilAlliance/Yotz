@@ -24,7 +24,6 @@ pub const Tag = enum(Parser.NodeIndex) {
     multiplication,
     division,
     power,
-    parentesis,
     neg,
     load,
 

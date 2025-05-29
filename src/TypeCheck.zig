@@ -282,7 +282,7 @@ const TypeChecker = struct {
     fn checkExpressionInferType(self: *Self, exprI: Parser.NodeIndex) std.mem.Allocator.Error!?Parser.NodeIndex {
         const expr = self.ast.getNode(exprI);
 
-        std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .parentesis, .power, .division, .multiplication, .subtraction, .addition }, expr.tag));
+        std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, expr.tag));
         switch (expr.tag) {
             .lit => {
                 return null;
@@ -298,7 +298,7 @@ const TypeChecker = struct {
 
                 return variable;
             },
-            .parentesis, .neg => {
+            .neg => {
                 const leftI = expr.data[0];
 
                 return try self.checkExpressionInferType(leftI);
@@ -361,7 +361,7 @@ const TypeChecker = struct {
         const expectedType = self.ast.getNode(expectedTypeI);
 
         std.debug.assert(expectedType.tag == .type);
-        std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .parentesis, .power, .division, .multiplication, .subtraction, .addition }, expr.tag));
+        std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, expr.tag));
 
         switch (expr.tag) {
             .lit => {
@@ -417,7 +417,7 @@ const TypeChecker = struct {
                     }
                 }
             },
-            .parentesis, .neg => {
+            .neg => {
                 const leftI = expr.data[0];
 
                 try self.checkExpressionExpectedType(leftI, expectedTypeI);
@@ -447,14 +447,14 @@ const TypeChecker = struct {
         const expectedType = self.ast.getNode(expectedTypeI);
 
         std.debug.assert(expectedType.tag == .type);
-        std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .parentesis, .power, .division, .multiplication, .subtraction, .addition }, expr.tag));
+        std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, expr.tag));
 
         switch (expr.tag) {
             .lit => {
                 self.checkValueForType(exprI, expectedTypeI);
             },
             .load => {},
-            .parentesis, .neg => {
+            .neg => {
                 const left = expr.data[0];
 
                 self.checkLiteralExpressionExpectedType(left, expectedTypeI);

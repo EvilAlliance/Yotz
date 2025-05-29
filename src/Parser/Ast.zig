@@ -174,11 +174,6 @@ fn toStringExpression(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parse
 
             try cont.append(')');
         },
-        .parentesis => {
-            const leftIndex = node.data[0];
-
-            try self.toStringExpression(cont, d, leftIndex);
-        },
         .neg => {
             try cont.appendSlice(node.getTokenTag(self.tokens).toSymbol().?);
             try cont.append('(');

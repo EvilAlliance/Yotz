@@ -34,19 +34,13 @@
         "time_completed": "2025-05-28 11:14:44.426213157 -03:00:00"
       },
       {
+        "dependencies": [
+          "qHWGKNaH"
+        ],
         "id": "LtQFbPgP",
         "title": "Add to typecheck dependency so it can access global variable or other function declared later on the program",
         "desc": "",
         "time_created": "2025-05-22 09:46:41.536941311 -03:00:00"
-      },
-      {
-        "dependencies": [
-          "LtQFbPgP"
-        ],
-        "id": "KBWhHPNk",
-        "title": "Make typecheck parallel",
-        "desc": "",
-        "time_created": "2025-05-22 09:46:56.086539 -03:00:00"
       },
       {
         "dependencies": [
@@ -59,8 +53,7 @@
       },
       {
         "dependencies": [
-          "t83KaQZh",
-          "KBWhHPNk"
+          "t83KaQZh"
         ],
         "id": "d3oGBsNm",
         "title": "Make translation units, each will be resposable for a small part of the code",
@@ -85,7 +78,8 @@
         "id": "CeFhWUkS",
         "title": "InferMachine use TokenIndex for Location which is smaller",
         "desc": "",
-        "time_created": "2025-05-26 21:36:46.846556361 -03:00:00"
+        "time_created": "2025-05-26 21:36:46.846556361 -03:00:00",
+        "time_started": "2025-05-28 11:17:22.00959995 -03:00:00"
       },
       {
         "id": "xTCDTnyV",
@@ -97,7 +91,8 @@
         "id": "myhFkW5e",
         "title": "Node recieves ast instead of all of it components",
         "desc": "",
-        "time_created": "2025-05-26 23:09:37.346259407 -03:00:00"
+        "time_created": "2025-05-26 23:09:37.346259407 -03:00:00",
+        "time_started": "2025-05-28 11:17:10.729824487 -03:00:00"
       },
       {
         "id": "tUBGD6hV",
@@ -109,7 +104,9 @@
         "id": "z4j8Cbhb",
         "title": "Remove Node.Tag: Parentesis",
         "desc": "",
-        "time_created": "2025-05-28 09:24:53.922692656 -03:00:00"
+        "time_created": "2025-05-28 09:24:53.922692656 -03:00:00",
+        "time_started": "2025-05-28 11:17:16.732117687 -03:00:00",
+        "time_completed": "2025-05-29 11:06:22.714401094 -03:00:00"
       }
     ]
   }
