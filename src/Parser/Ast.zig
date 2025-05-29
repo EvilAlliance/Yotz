@@ -72,10 +72,10 @@ fn toStringFuncProto(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser
     try self.toStringStatement(cont, d, proto.next);
 }
 
-fn toStringType(self: @This(), cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
+fn toStringType(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
     const t = self.nodeList.items[i];
     switch (t.tag) {
-        .type => try cont.appendSlice(t.getText(self.tokens, self.source)),
+        .type => try cont.appendSlice(t.getTextAst(self.*)),
         .typeGroup => {
             const start = t.data[0];
             const end = t.data[1];
@@ -133,7 +133,7 @@ fn tostringVariable(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser.
     const variable = self.nodeList.items[i];
     std.debug.assert(variable.tag == .constant or variable.tag == .variable);
 
-    try cont.appendSlice(variable.getText(self.tokens, self.source));
+    try cont.appendSlice(variable.getTextAst(self.*));
 
     if (variable.data[0] == 0)
         try cont.append(' ');
@@ -166,7 +166,7 @@ fn toStringExpression(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parse
             try self.toStringExpression(cont, d, leftIndex);
 
             try cont.append(' ');
-            try cont.appendSlice(node.getTokenTag(self.tokens).toSymbol().?);
+            try cont.appendSlice(node.getTokenTagAst(self.*).toSymbol().?);
             try cont.append(' ');
 
             const rightIndex = node.data[1];
@@ -175,7 +175,7 @@ fn toStringExpression(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parse
             try cont.append(')');
         },
         .neg => {
-            try cont.appendSlice(node.getTokenTag(self.tokens).toSymbol().?);
+            try cont.appendSlice(node.getTokenTagAst(self.*).toSymbol().?);
             try cont.append('(');
             const leftIndex = node.data[0];
 
@@ -183,10 +183,10 @@ fn toStringExpression(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parse
             try cont.append(')');
         },
         .load => {
-            try cont.appendSlice(node.getText(self.tokens, self.source));
+            try cont.appendSlice(node.getTextAst(self.*));
         },
         .lit => {
-            try cont.appendSlice(node.getText(self.tokens, self.source));
+            try cont.appendSlice(node.getTextAst(self.*));
         },
         else => unreachable,
     }

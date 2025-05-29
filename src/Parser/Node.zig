@@ -36,22 +36,22 @@ tokenIndex: Parser.TokenIndex = 0,
 data: struct { Parser.NodeIndex, Parser.NodeIndex } = .{ 0, 0 },
 next: Parser.NodeIndex = 0,
 
-pub fn getToken(self: *const @This(), tl: []Lexer.Token) Lexer.Token {
-    return tl[self.tokenIndex];
+pub fn getTokenAst(self: *const @This(), ast: Parser.Ast) Lexer.Token {
+    return ast.tokens[self.tokenIndex];
 }
 
-pub fn getLocation(self: *const @This(), tl: []Lexer.Token) Lexer.Location {
-    return tl[self.tokenIndex].loc;
+pub fn getLocationAst(self: *const @This(), ast: Parser.Ast) Lexer.Location {
+    return ast.tokens[self.tokenIndex].loc;
 }
 
-pub fn getTokenTag(self: *const @This(), tl: []Lexer.Token) Lexer.TokenType {
-    return tl[self.tokenIndex].tag;
+pub fn getTokenTagAst(self: *const @This(), ast: Parser.Ast) Lexer.TokenType {
+    return ast.tokens[self.tokenIndex].tag;
 }
 
-pub fn getText(self: *const @This(), tl: []Lexer.Token, content: [:0]const u8) []const u8 {
-    return tl[self.tokenIndex].getText(content);
+pub fn getTextAst(self: *const @This(), ast: Parser.Ast) []const u8 {
+    return ast.tokens[self.tokenIndex].getText(ast.source);
 }
 
-pub fn getName(self: *const @This(), tl: []Lexer.Token) []const u8 {
-    return tl[self.tokenIndex].tag.getName();
+pub fn getNameAst(self: *const @This(), ast: Parser.Ast) []const u8 {
+    return ast.tokens[self.tokenIndex].tag.getName();
 }

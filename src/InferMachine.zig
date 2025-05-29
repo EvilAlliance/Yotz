@@ -185,7 +185,7 @@ pub fn merge(self: *@This(), aN: Parser.NodeIndex, bN: Parser.NodeIndex) (std.me
     if (ta.*) |_| if (tb.*) |_| {
         const aType = self.ast.getNode(self.getRoot(ta).?[0]);
         const bType = self.ast.getNode(self.getRoot(tb).?[0]);
-        if (aType.getTokenTag(self.ast.tokens) != bType.getTokenTag(self.ast.tokens)) return error.IncompatibleType;
+        if (aType.getTokenTagAst(self.ast.*) != bType.getTokenTagAst(self.ast.*)) return error.IncompatibleType;
         return aN;
     };
 
@@ -228,11 +228,11 @@ pub fn found(self: *@This(), aI: Parser.NodeIndex, tI: Parser.NodeIndex, loc: Le
         if (oldTuOP) |oldTu| {
             const oldT = self.ast.getNode(oldTu[0]);
             const t = self.ast.getNode(tI);
-            if (oldT.getTokenTag(self.ast.tokens) != t.getTokenTag(self.ast.tokens)) {
+            if (oldT.getTokenTagAst(self.ast.*) != t.getTokenTagAst(self.ast.*)) {
                 const a = self.ast.getNode(aI);
-                Logger.logLocation.err(self.ast.path, a.getLocation(self.ast.tokens), "Found this variable used in 2 different contexts (ambiguous typing) {s}", .{Logger.placeSlice(a.getLocation(self.ast.tokens), self.ast.source)});
-                Logger.logLocation.info(self.ast.path, oldTu[1], "Type inferred is: {s}, found here {s}", .{ oldT.getName(self.ast.tokens), Logger.placeSlice(oldTu[1], self.ast.source) });
-                Logger.logLocation.info(self.ast.path, loc, "But later found here used in an other context: {s} {s}", .{ t.getName(self.ast.tokens), Logger.placeSlice(loc, self.ast.source) });
+                Logger.logLocation.err(self.ast.path, a.getLocationAst(self.ast.*), "Found this variable used in 2 different contexts (ambiguous typing) {s}", .{Logger.placeSlice(a.getLocationAst(self.ast.*), self.ast.source)});
+                Logger.logLocation.info(self.ast.path, oldTu[1], "Type inferred is: {s}, found here {s}", .{ oldT.getNameAst(self.ast.*), Logger.placeSlice(oldTu[1], self.ast.source) });
+                Logger.logLocation.info(self.ast.path, loc, "But later found here used in an other context: {s} {s}", .{ t.getNameAst(self.ast.*), Logger.placeSlice(loc, self.ast.source) });
             }
         } else {
             self.setRoot(ta, .{
@@ -271,12 +271,12 @@ pub fn printState(self: *@This()) void {
         const set = self.variable.setTOType.getPtr(setIndex.*).?;
 
         if (self.getRoot(set)) |t| {
-            Logger.log.info("{s}", .{self.ast.getNode(t[0]).getName(self.ast.tokens)});
+            Logger.log.info("{s}", .{self.ast.getNode(t[0]).getNameAst(self.ast.tokens)});
             Logger.logLocation.info(self.ast.path, t[1], "Found here: {s}", .{Logger.placeSlice(t[1], self.ast.source)});
         }
 
         const value = entry.key_ptr.*;
-        Logger.logLocation.info(self.ast.path, self.ast.getNode(value).getLocation(self.ast.tokens), "{}: {s}", .{ value, Logger.placeSlice(self.ast.getNode(value).getLocation(self.ast.tokens), self.ast.source) });
+        Logger.logLocation.info(self.ast.path, self.ast.getNode(value).getLocationAst(self.ast.tokens), "{}: {s}", .{ value, Logger.placeSlice(self.ast.getNode(value).getLocationAst(self.ast.tokens), self.ast.source) });
     }
 
     var itConstant = self.constant.varTOset.iterator();
@@ -290,12 +290,12 @@ pub fn printState(self: *@This()) void {
         while (setIt.next()) |indexTypeLoc| {
             const r = self.variable.setTOType.getPtr(indexTypeLoc.key_ptr.*).?;
             if (self.getRoot(r)) |t| {
-                Logger.log.info("{s}", .{self.ast.getNode(t[0]).getName(self.ast.tokens)});
+                Logger.log.info("{s}", .{self.ast.getNode(t[0]).getNameAst(self.ast.tokens)});
                 Logger.logLocation.info(self.ast.path, t[1], "Found here: {s}", .{Logger.placeSlice(t[1], self.ast.source)});
             }
 
             const value = entry.key_ptr.*;
-            Logger.logLocation.info(self.ast.path, self.ast.getNode(value).getLocation(self.ast.tokens), "{}: {s}", .{ value, Logger.placeSlice(self.ast.getNode(value).getLocation(self.ast.tokens), self.ast.source) });
+            Logger.logLocation.info(self.ast.path, self.ast.getNode(value).getLocationAst(self.ast.tokens), "{}: {s}", .{ value, Logger.placeSlice(self.ast.getNode(value).getLocationAst(self.ast.tokens), self.ast.source) });
         }
     }
 }
