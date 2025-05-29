@@ -5,7 +5,7 @@ const Util = @import("./Util.zig");
 const Lexer = @import("Lexer/Lexer.zig");
 const Parser = @import("Parser/Parser.zig");
 
-pub const TypeLocation = struct { Parser.NodeIndex, Lexer.Location };
+pub const TypeLocation = struct { Parser.NodeIndex, Parser.NodeIndex };
 
 const Variable = struct {
     const VarTOset = std.AutoHashMap(
@@ -203,7 +203,7 @@ pub fn merge(self: *@This(), aN: Parser.NodeIndex, bN: Parser.NodeIndex) (std.me
     }
 }
 
-fn foundConstant(self: *@This(), aI: Parser.NodeIndex, tI: Parser.NodeIndex, loc: Lexer.Location) std.mem.Allocator.Error!void {
+fn foundConstant(self: *@This(), aI: Parser.NodeIndex, tI: Parser.NodeIndex, locIndex: Parser.NodeIndex) std.mem.Allocator.Error!void {
     const i = self.constant.varTOset.get(aI).?;
     const ta = self.constant.setTOvar.getPtr(i).?;
 
@@ -213,14 +213,14 @@ fn foundConstant(self: *@This(), aI: Parser.NodeIndex, tI: Parser.NodeIndex, loc
     try self.variable.setTOType.put(set, .{
         .root = .{
             tI,
-            loc,
+            locIndex,
         },
     });
     _ = try ta.add(set);
 }
 
-pub fn found(self: *@This(), aI: Parser.NodeIndex, tI: Parser.NodeIndex, loc: Lexer.Location) std.mem.Allocator.Error!void {
-    if (self.includesConstant(aI)) return self.foundConstant(aI, tI, loc);
+pub fn found(self: *@This(), aI: Parser.NodeIndex, tI: Parser.NodeIndex, locIndex: Parser.NodeIndex) std.mem.Allocator.Error!void {
+    if (self.includesConstant(aI)) return self.foundConstant(aI, tI, locIndex);
     const i = self.variable.varTOset.get(aI).?;
     const ta = self.variable.setTOType.getPtr(i).?;
     if (ta.*) |_| {
@@ -231,20 +231,20 @@ pub fn found(self: *@This(), aI: Parser.NodeIndex, tI: Parser.NodeIndex, loc: Le
             if (oldT.getTokenTagAst(self.ast.*) != t.getTokenTagAst(self.ast.*)) {
                 const a = self.ast.getNode(aI);
                 Logger.logLocation.err(self.ast.path, a.getLocationAst(self.ast.*), "Found this variable used in 2 different contexts (ambiguous typing) {s}", .{Logger.placeSlice(a.getLocationAst(self.ast.*), self.ast.source)});
-                Logger.logLocation.info(self.ast.path, oldTu[1], "Type inferred is: {s}, found here {s}", .{ oldT.getNameAst(self.ast.*), Logger.placeSlice(oldTu[1], self.ast.source) });
-                Logger.logLocation.info(self.ast.path, loc, "But later found here used in an other context: {s} {s}", .{ t.getNameAst(self.ast.*), Logger.placeSlice(loc, self.ast.source) });
+                Logger.logLocation.info(self.ast.path, self.ast.getNodeLocation(oldTu[1]), "Type inferred is: {s}, found here {s}", .{ oldT.getNameAst(self.ast.*), Logger.placeSlice(self.ast.getNodeLocation(oldTu[1]), self.ast.source) });
+                Logger.logLocation.info(self.ast.path, self.ast.getNodeLocation(locIndex), "But later found here used in an other context: {s} {s}", .{ t.getNameAst(self.ast.*), Logger.placeSlice(self.ast.getNodeLocation(locIndex), self.ast.source) });
             }
         } else {
             self.setRoot(ta, .{
                 tI,
-                loc,
+                locIndex,
             });
         }
     } else {
         ta.* = .{
             .root = .{
                 tI,
-                loc,
+                locIndex,
             },
         };
     }

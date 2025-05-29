@@ -32,6 +32,10 @@ pub fn getToken(self: *@This(), i: Parser.TokenIndex) Lexer.Token {
     return self.tokens[i];
 }
 
+pub fn getNodeLocation(self: *@This(), i: Parser.NodeIndex) Lexer.Location {
+    return self.nodeList.items[i].getLocationAst(self.*);
+}
+
 pub fn getNode(self: *@This(), i: Parser.NodeIndex) Parser.Node {
     return self.nodeList.items[i];
 }

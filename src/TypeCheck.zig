@@ -52,7 +52,7 @@ const TypeChecker = struct {
             const typelocOP = checker.inferMachine.variable.setTOType.getPtr(set.*).?;
 
             if (typelocOP.*) |_| {
-                const index, const loc = checker.inferMachine.getRoot(typelocOP).?;
+                const index, const locIndex = checker.inferMachine.getRoot(typelocOP).?;
 
                 const errorCount = checker.errs;
                 // CLEANUP: Check when its found instead of now
@@ -60,7 +60,7 @@ const TypeChecker = struct {
 
                 if (errorCount != checker.errs) {
                     const t = ast.getNode(index);
-                    Logger.logLocation.info(ast.path, loc, "It was found unsing type {s} here: {s}", .{ t.getNameAst(ast.*), Logger.placeSlice(loc, ast.source) });
+                    Logger.logLocation.info(ast.path, ast.getNodeLocation(locIndex), "It was found unsing type {s} here: {s}", .{ t.getNameAst(ast.*), Logger.placeSlice(ast.getNodeLocation(locIndex), ast.source) });
                     continue;
                 }
                 variable.data[0] = index;
@@ -103,7 +103,7 @@ const TypeChecker = struct {
             const start = ast.nodeList.items.len;
 
             while (uniqueIt.next()) |entry1| {
-                const index, const loc = entry1.value_ptr.*;
+                const index, const locIndex = entry1.value_ptr.*;
 
                 const errorCount = checker.errs;
                 // CLEANUP: Check when its found instead of now
@@ -111,7 +111,7 @@ const TypeChecker = struct {
 
                 if (errorCount != checker.errs) {
                     const t = ast.getNode(index);
-                    Logger.logLocation.info(ast.path, loc, "It was found unsing type {s} here: {s}", .{ t.getNameAst(ast.*), Logger.placeSlice(loc, ast.source) });
+                    Logger.logLocation.info(ast.path, ast.getNodeLocation(locIndex), "It was found unsing type {s} here: {s}", .{ t.getNameAst(ast.*), Logger.placeSlice(ast.getNodeLocation(locIndex), ast.source) });
                     continue;
                 }
 
@@ -262,7 +262,7 @@ const TypeChecker = struct {
                     const tI = stmt.data[0];
                     const exprI = stmt.data[1];
 
-                    try self.inferMachine.found(stmtI, tI, stmt.getLocationAst(self.ast.*));
+                    try self.inferMachine.found(stmtI, tI, stmtI);
 
                     try self.checkExpressionExpectedType(exprI, tI);
                 } else {
@@ -400,7 +400,7 @@ const TypeChecker = struct {
                     }
                 } else {
                     if (self.inferMachine.includes(variableI)) {
-                        try self.inferMachine.found(variableI, expectedTypeI, expr.getLocationAst(self.ast.*));
+                        try self.inferMachine.found(variableI, expectedTypeI, exprI);
                     } else {
                         // CLEANUP: The Generic varialble is checked every time
                         const prevError = self.errs;
