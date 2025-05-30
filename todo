@@ -40,7 +40,8 @@
         "id": "LtQFbPgP",
         "title": "Add to typecheck dependency so it can access global variable or other function declared later on the program",
         "desc": "",
-        "time_created": "2025-05-22 09:46:41.536941311 -03:00:00"
+        "time_created": "2025-05-22 09:46:41.536941311 -03:00:00",
+        "time_started": "2025-05-30 12:29:34.207970065 -03:00:00"
       },
       {
         "dependencies": [
@@ -117,6 +118,18 @@
         "title": "Make InferMachine Compatible with function types",
         "desc": "Parse a function type and use checkExpression for function checking",
         "time_created": "2025-05-30 08:51:51.477126349 -03:00:00"
+      },
+      {
+        "id": "cWSu4nUH",
+        "title": "Invalid op neg with unsigned",
+        "desc": "",
+        "time_created": "2025-05-30 11:13:33.281664492 -03:00:00"
+      },
+      {
+        "id": "KNarfCMh",
+        "title": "Transform type expression from the parser for something useful in typechecker",
+        "desc": "TypeExpressio to an actual type",
+        "time_created": "2025-05-30 11:14:01.522003994 -03:00:00"
       }
     ]
   }

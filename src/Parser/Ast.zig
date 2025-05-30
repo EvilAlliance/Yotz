@@ -36,6 +36,10 @@ pub fn getNodeLocation(self: *@This(), i: Parser.NodeIndex) Lexer.Location {
     return self.nodeList.items[i].getLocationAst(self.*);
 }
 
+pub fn getNodeText(self: *@This(), i: Parser.NodeIndex) []const u8 {
+    return self.nodeList.items[i].getTextAst(self.*);
+}
+
 pub fn getNode(self: *@This(), i: Parser.NodeIndex) Parser.Node {
     return self.nodeList.items[i];
 }
@@ -54,6 +58,10 @@ pub fn toString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Erro
     const end = root.data[1];
     while (i < end) : (i = self.getNode(i).next) {
         try self.tostringVariable(&cont, 0, i);
+
+        if (self.getNode(self.getNode(i).data[1]).tag != .funcProto) {
+            try cont.appendSlice(";\n");
+        }
     }
 
     return cont;
@@ -156,10 +164,6 @@ fn tostringVariable(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser.
             else => unreachable,
         }
         try self.toStringExpression(cont, d, variable.data[1]);
-    }
-
-    if (self.getNode(variable.data[1]).tag != .funcProto) {
-        try cont.appendSlice(";\n");
     }
 }
 

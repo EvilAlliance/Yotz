@@ -10,6 +10,23 @@ const nl = @import("./Parser/NodeListUtil.zig");
 const Scope = std.StringHashMap(Parser.NodeIndex);
 const Scopes = std.ArrayList(Scope);
 
+const FlattenExpression = std.ArrayList(Parser.NodeIndex);
+
+const CheckPoint = struct {
+    const Type = enum {
+        unknownIdentifier,
+    };
+
+    scopes: Scopes,
+
+    t: Type,
+
+    dep: Parser.NodeIndex,
+    state: *FlattenExpression,
+
+    expectedTypeI: Parser.NodeIndex,
+};
+
 const TypeChecker = struct {
     const ScopeLevel = enum { global, local };
     const Self = @This();
@@ -26,6 +43,8 @@ const TypeChecker = struct {
 
     foundMain: ?Parser.Node = null,
 
+    checkPoints: std.ArrayList(CheckPoint),
+
     pub fn init(alloc: std.mem.Allocator, ast: *Parser.Ast) std.mem.Allocator.Error!bool {
         var checker = @This(){
             .alloc = alloc,
@@ -33,10 +52,37 @@ const TypeChecker = struct {
             .ast = ast,
             .globalScope = Scope.init(alloc),
             .scopes = Scopes.init(alloc),
+            .checkPoints = std.ArrayList(CheckPoint).init(alloc),
         };
         defer checker.deinit();
 
         try checker.checkGlobalScope();
+        var changed = true;
+
+        while (changed) {
+            changed = false;
+            var i: usize = 0;
+            while (i < checker.checkPoints.items.len) {
+                const checkPoint = checker.checkPoints.items[i];
+                switch (checkPoint.t) {
+                    .unknownIdentifier => {
+                        checker.scopes = checkPoint.scopes;
+
+                        const node = ast.getNode(checkPoint.dep);
+                        _ = checker.searchVariableScope(node.getTextAst(ast.*)) orelse {
+                            i += 1;
+                            continue;
+                        };
+
+                        _ = checker.checkPoints.swapRemove(i);
+
+                        changed = true;
+
+                        try checker.checkFlattenExpression(checkPoint.state, checkPoint.expectedTypeI);
+                    },
+                }
+            }
+        }
 
         var itSet = checker.inferMachine.variable.varTOset.iterator();
 
@@ -426,25 +472,50 @@ const TypeChecker = struct {
         unreachable;
     }
 
-    fn checkExpressionExpectedType(self: *Self, exprI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex) std.mem.Allocator.Error!void {
+    fn flattenExpression(self: *Self, stack: *FlattenExpression, exprI: Parser.NodeIndex) std.mem.Allocator.Error!void {
         const expr = self.ast.getNode(exprI);
-        const expectedType = self.ast.getNode(expectedTypeI);
-
-        std.debug.assert(expectedType.tag == .type);
         std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, expr.tag));
 
         switch (expr.tag) {
             .lit => {
-                self.checkValueForType(exprI, expectedTypeI);
+                try stack.append(exprI);
             },
             .load => {
-                const variableI = self.searchVariableScope(expr.getTextAst(self.ast.*)) orelse {
-                    const loc = expr.getLocationAst(self.ast.*);
-                    Logger.logLocation.err(self.ast.path, loc, "Unknown identifier in expression \'{s}\' {s}", .{ expr.getTextAst(self.ast.*), Logger.placeSlice(loc, self.ast.source) });
-                    self.errs += 1;
+                try stack.append(exprI);
+            },
+            .neg => {
+                const left = expr.data[0];
 
-                    return;
-                };
+                try self.flattenExpression(stack, left);
+
+                try stack.append(exprI);
+            },
+            .addition, .subtraction, .multiplication, .division, .power => {
+                const left = expr.data[0];
+                const right = expr.data[1];
+
+                try self.flattenExpression(stack, left);
+                try stack.append(exprI);
+                try self.flattenExpression(stack, right);
+            },
+            else => {
+                const loc = expr.getLocationAst(self.ast.*);
+                Logger.logLocation.err(self.ast.path, loc, "Node not supported {} {s}", .{ expr.tag, Logger.placeSlice(loc, self.ast.source) });
+                unreachable;
+            },
+        }
+    }
+
+    fn checkExpressionLeaf(self: *Self, leafI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex) std.mem.Allocator.Error!?CheckPoint.Type {
+        const leaf = self.ast.getNode(leafI);
+        std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load }, leaf.tag));
+
+        const expectedType = self.ast.getNode(expectedTypeI);
+
+        switch (leaf.tag) {
+            .lit => self.checkValueForType(leafI, expectedTypeI),
+            .load => {
+                const variableI = self.searchVariableScope(leaf.getTextAst(self.ast.*)) orelse return .unknownIdentifier;
 
                 const variable = self.ast.getNode(variableI);
 
@@ -459,7 +530,7 @@ const TypeChecker = struct {
                             "This variable declared here with type {s} {s}",
                             .{ t.getNameAst(self.ast.*), Logger.placeSlice(locVar, self.ast.source) },
                         );
-                        const locExpr = expr.getLocationAst(self.ast.*);
+                        const locExpr = leaf.getLocationAst(self.ast.*);
                         Logger.logLocation.err(
                             self.ast.path,
                             locExpr,
@@ -469,46 +540,93 @@ const TypeChecker = struct {
                         self.errs += 1;
                     }
                 } else {
-                    if (self.inferMachine.includes(variableI)) {
-                        try self.inferMachine.found(variableI, expectedTypeI, exprI);
-                    } else {
-                        // CLEANUP: The Generic varialble is checked every time
-                        const prevError = self.errs;
-                        try self.checkExpressionExpectedType(variable.data[1], expectedTypeI);
-                        if (prevError != self.errs) {
-                            const loc = expr.getLocationAst(self.ast.*);
-                            Logger.logLocation.info(
-                                self.ast.path,
-                                loc,
-                                "Generic type is not compatible with: {s} {s}",
-                                .{ expectedType.getNameAst(self.ast.*), Logger.placeSlice(loc, self.ast.source) },
-                            );
-                        }
-                    }
+                    try self.inferMachine.found(variableI, expectedTypeI, leafI);
                 }
             },
-            .neg => {
-                const leftI = expr.data[0];
+            else => unreachable,
+        }
 
-                try self.checkExpressionExpectedType(leftI, expectedTypeI);
-            },
-            .addition, .subtraction, .multiplication, .division, .power => {
-                const leftI = expr.data[0];
-                const rightI = expr.data[1];
+        return null;
+    }
 
-                try self.checkExpressionExpectedType(leftI, expectedTypeI);
-                try self.checkExpressionExpectedType(rightI, expectedTypeI);
-            },
-            else => {
-                const loc = expr.getLocationAst(self.ast.*);
-                Logger.logLocation.err(
-                    self.ast.path,
-                    loc,
-                    "Node not supported {} {s}",
-                    .{ expr.tag, Logger.placeSlice(loc, self.ast.source) },
-                );
-                unreachable;
-            },
+    fn checkExpressionExpectedType(self: *Self, exprI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex) std.mem.Allocator.Error!void {
+        const expr = self.ast.getNode(exprI);
+        const expectedType = self.ast.getNode(expectedTypeI);
+
+        std.debug.assert(expectedType.tag == .type);
+        std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, expr.tag));
+
+        // deinit int checkFlattenExpression
+        const flat = try self.alloc.create(FlattenExpression);
+        flat.* = FlattenExpression.init(self.alloc);
+
+        try self.flattenExpression(flat, exprI);
+
+        try self.checkFlattenExpression(flat, expectedTypeI);
+    }
+
+    pub fn checkFlattenExpression(self: *Self, flat: *FlattenExpression, expectedTypeI: Parser.NodeIndex) std.mem.Allocator.Error!void {
+        const expectedType = self.ast.getNode(expectedTypeI);
+        defer if (flat.items.len == 0) flat.deinit();
+
+        std.debug.assert(expectedType.tag == .type);
+
+        while (flat.items.len > 0) {
+            const firstI = flat.getLast();
+            const first = self.ast.getNode(firstI);
+
+            if (first.tag != .neg) {
+                if (try self.checkExpressionLeaf(firstI, expectedTypeI)) |t| {
+                    switch (t) {
+                        .unknownIdentifier => return try self.checkPoints.append(.{
+                            .t = .unknownIdentifier,
+                            .state = flat,
+                            .dep = firstI,
+                            .scopes = try self.scopes.clone(),
+                            .expectedTypeI = expectedTypeI,
+                        }),
+                    }
+                } else {
+                    _ = flat.pop().?;
+                }
+            }
+
+            while (flat.items.len > 0) {
+                const opI = flat.pop().?;
+                const op = self.ast.getNode(opI);
+
+                std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .neg, .power, .division, .multiplication, .subtraction, .addition }, op.tag));
+
+                switch (op.tag) {
+                    .neg => break,
+                    .power,
+                    .division,
+                    .multiplication,
+                    .subtraction,
+                    .addition,
+                    => {
+                        const xI = flat.getLast();
+                        const x = self.ast.getNode(xI);
+
+                        if (x.tag == .neg) break;
+
+                        if (try self.checkExpressionLeaf(xI, expectedTypeI)) |t| {
+                            switch (t) {
+                                .unknownIdentifier => return try self.checkPoints.append(.{
+                                    .t = .unknownIdentifier,
+                                    .state = flat,
+                                    .dep = xI,
+                                    .scopes = try self.scopes.clone(),
+                                    .expectedTypeI = expectedTypeI,
+                                }),
+                            }
+                        } else {
+                            _ = flat.pop().?;
+                        }
+                    },
+                    else => unreachable,
+                }
+            }
         }
     }
 
