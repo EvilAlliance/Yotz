@@ -11,6 +11,7 @@ const Scope = std.StringHashMap(Parser.NodeIndex);
 const Scopes = std.ArrayList(Scope);
 
 const TypeChecker = struct {
+    const ScopeLevel = enum { global, local };
     const Self = @This();
 
     errs: usize = 0,
@@ -21,6 +22,7 @@ const TypeChecker = struct {
 
     ast: *Parser.Ast,
     scopes: Scopes,
+    globalScope: Scope,
 
     foundMain: ?Parser.Node = null,
 
@@ -29,16 +31,12 @@ const TypeChecker = struct {
             .alloc = alloc,
             .inferMachine = InferMachine.init(alloc, ast),
             .ast = ast,
+            .globalScope = Scope.init(alloc),
             .scopes = Scopes.init(alloc),
         };
         defer checker.deinit();
 
-        var funcIndex = ast.getNode(0).data[0];
-        while (funcIndex != ast.getNode(0).data[1]) : (funcIndex = ast.getNode(funcIndex).next) {
-            const func = ast.getNode(funcIndex);
-
-            try checker.checkFunction(func.data[1]);
-        }
+        try checker.checkGlobalScope();
 
         var itSet = checker.inferMachine.variable.varTOset.iterator();
 
@@ -134,15 +132,22 @@ const TypeChecker = struct {
 
         // TODO: Pass this to the new format
 
-        if (checker.foundMain) |mainProto| {
-            std.debug.assert(mainProto.tag == .funcProto);
-            const t = ast.nodeList.items[mainProto.data[1]];
-            std.debug.assert(t.tag == .type);
+        if (checker.searchVariableScope("main")) |mainVariableI| {
+            const mainVariable = ast.getNode(mainVariableI);
+            const expr = ast.getNode(mainVariable.data[1]);
+            if (expr.tag == .funcProto) {
+                const mainProto = expr;
+                const t = ast.nodeList.items[mainProto.data[1]];
+                std.debug.assert(t.tag == .type);
 
-            if (t.getTokenTagAst(ast.*) != .unsigned8) {
-                const loc = t.getLocationAst(ast.*);
-                Logger.logLocation.err(ast.path, loc, "Main must return u8 instead of {s} {s}", .{ t.getNameAst(ast.*), Logger.placeSlice(loc, ast.source) });
-                checker.errs += 1;
+                if (t.getTokenTagAst(ast.*) != .unsigned8) {
+                    const loc = t.getLocationAst(ast.*);
+                    Logger.logLocation.err(ast.path, loc, "Main must return u8 instead of {s} {s}", .{ t.getNameAst(ast.*), Logger.placeSlice(loc, ast.source) });
+                    checker.errs += 1;
+                }
+            } else {
+                const loc = mainVariable.getLocationAst(ast.*);
+                Logger.logLocation.err(ast.path, loc, "Main must be a function: {s}", .{Logger.placeSlice(loc, ast.source)});
             }
         } else {
             Logger.log.err("Main function is missing, Expected: \n{s}", .{
@@ -156,6 +161,62 @@ const TypeChecker = struct {
         return checker.errs > 0;
     }
 
+    fn checkGlobalScope(self: *Self) std.mem.Allocator.Error!void {
+        var variableI = self.ast.getNode(0).data[0];
+        while (variableI != self.ast.getNode(0).data[1]) : (variableI = self.ast.getNode(variableI).next) {
+            const variable = self.ast.getNode(variableI);
+            const tI = variable.data[0];
+            const exprI = variable.data[1];
+            const expr = self.ast.getNode(exprI);
+
+            if (self.searchVariableScope(variable.getTextAst(self.ast.*))) |variableJ| {
+                const locStmt = variable.getLocationAst(self.ast.*);
+                const varia = self.ast.getNode(variableJ);
+
+                Logger.logLocation.err(self.ast.path, locStmt, "Identifier {s} is already in use {s}", .{ varia.getTextAst(self.ast.*), Logger.placeSlice(locStmt, self.ast.source) });
+                const locVar = varia.getLocationAst(self.ast.*);
+                Logger.logLocation.err(self.ast.path, locVar, "{s} is declared in use {s}", .{ varia.getTextAst(self.ast.*), Logger.placeSlice(locVar, self.ast.source) });
+                self.errs += 1;
+                return;
+            }
+
+            try self.addVariableScope(variable.getTextAst(self.ast.*), variableI, .global);
+
+            switch (expr.tag) {
+                .funcProto => try self.checkFunction(exprI),
+                .addition,
+                .subtraction,
+                .multiplication,
+                .division,
+                .power,
+                .neg,
+                .load,
+                .lit,
+                => {
+                    _ = try self.inferMachine.add(variableI);
+                    if (variable.tag == .constant) _ = try self.inferMachine.toConstant(variableI);
+                    if (tI != 0) {
+                        try self.inferMachine.found(variableI, tI, variableI);
+
+                        try self.checkExpressionExpectedType(exprI, tI);
+                    } else {
+                        if (variable.tag == .constant) _ = try self.inferMachine.toConstant(variableI);
+                        if (try self.checkExpressionInferType(exprI)) |bS| {
+                            _ = self.inferMachine.merge(variableI, bS) catch |err| switch (err) {
+                                error.IncompatibleType => unreachable,
+                                error.OutOfMemory => return error.OutOfMemory,
+                            };
+                        }
+                    }
+                },
+                else => {
+                    Logger.log.err("Unknown Node {s}", .{@tagName(expr.tag)});
+                    unreachable;
+                },
+            }
+        }
+    }
+
     pub fn searchVariableScope(self: *Self, name: []const u8) ?Parser.NodeIndex {
         var i: usize = self.scopes.items.len;
         while (i > 0) {
@@ -165,12 +226,21 @@ const TypeChecker = struct {
             if (dic.get(name)) |n| return n;
         }
 
+        if (self.globalScope.get(name)) |n| return n;
+
         return null;
     }
 
-    pub fn addVariableScope(self: *Self, name: []const u8, nodeI: Parser.NodeIndex) std.mem.Allocator.Error!void {
-        const scope = &self.scopes.items[self.scopes.items.len - 1];
-        try scope.put(name, nodeI);
+    pub fn addVariableScope(self: *Self, name: []const u8, nodeI: Parser.NodeIndex, level: ScopeLevel) std.mem.Allocator.Error!void {
+        switch (level) {
+            .local => {
+                const scope = &self.scopes.items[self.scopes.items.len - 1];
+                try scope.put(name, nodeI);
+            },
+            .global => {
+                try self.globalScope.put(name, nodeI);
+            },
+        }
     }
 
     pub fn deinit(self: *Self) void {
@@ -254,7 +324,7 @@ const TypeChecker = struct {
                     return;
                 }
 
-                try self.addVariableScope(stmt.getTextAst(self.ast.*), stmtI);
+                try self.addVariableScope(stmt.getTextAst(self.ast.*), stmtI, .local);
 
                 _ = try self.inferMachine.add(stmtI);
 

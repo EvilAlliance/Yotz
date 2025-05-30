@@ -157,6 +157,10 @@ fn tostringVariable(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser.
         }
         try self.toStringExpression(cont, d, variable.data[1]);
     }
+
+    if (self.getNode(variable.data[1]).tag != .funcProto) {
+        try cont.appendSlice(";\n");
+    }
 }
 
 fn toStringExpression(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
