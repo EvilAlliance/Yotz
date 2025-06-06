@@ -120,16 +120,16 @@ pub fn parse(self: *@This()) (std.mem.Allocator.Error)!Ast {
     return Ast.init(self.alloc, &self.nodeList, self.tokens, self.absPath, self.path, self.source);
 }
 
-fn parseRoot(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!void {
+fn parseRoot(self: *@This()) (std.mem.Allocator.Error)!void {
     try self.nodeList.insert(0, .{ .tag = .root, .data = .{ 1, 0 } });
 
     var t, _ = self.peek();
     while (t.tag != .EOF) : (t, _ = self.peek()) {
-        if (!try self.expect(t, &.{.iden})) return error.UnexpectedToken;
+        if (!try self.expect(t, &.{.iden})) return;
         const top = self.nodeList.items.len;
 
         const nodeIndex = switch (t.tag) {
-            .iden => try self.parseVariableDecl(),
+            .iden => self.parseVariableDecl(),
             // .let => unreachable,
             else => unreachable,
         } catch |err| switch (err) {
@@ -146,10 +146,25 @@ fn parseRoot(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})
     self.nodeList.items[0].data[1] = @intCast(self.nodeList.items.len);
 }
 
-fn parseFuncDecl(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!?NodeIndex {
+fn parseFuncDecl(self: *@This()) std.mem.Allocator.Error!?NodeIndex {
     if (self.peek()[0].tag != .openParen or self.peekMany(1)[0].tag != .closeParen) return null;
 
-    const funcProto = try self.parseFuncProto();
+    const funcProto = self.parseFuncProto() catch |err| switch (err) {
+        error.UnexpectedToken => {
+            if (self.peek()[0].tag != .openBrace) {
+                var depth: usize = 1;
+                while (depth > 0) {
+                    const token, _ = self.pop();
+                    switch (token.tag) {
+                        .openBrace => depth += 1,
+                        .closeBrace => depth -= 1,
+                        else => {},
+                    }
+                }
+            } else {}
+        },
+        else => return error.OutOfMemory,
+    };
 
     if (self.peek()[0].tag != .openBrace) {
         self.nodeList.items[funcProto].next = @intCast(self.nodeList.items.len);
@@ -173,7 +188,13 @@ fn parseFuncProto(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedTo
     _ = self.pop();
 
     {
-        const p = try self.parseType();
+        const p = self.parseType() catch |err| switch (err) {
+            error.UnexpectedToken => {
+                _ = self.pop();
+                return err;
+            },
+            else => return err,
+        };
         self.nodeList.items[nodeIndex].data[1] = p;
     }
 
