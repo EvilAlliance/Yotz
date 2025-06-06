@@ -124,7 +124,7 @@ pub fn parse(self: *@This()) (std.mem.Allocator.Error)!Ast {
         else => {},
     };
 
-    return Ast.init(self.alloc, self.nodeList, self.tokens, self.absPath, self.path, self.source);
+    return Ast.init(self.alloc, &self.nodeList, self.tokens, self.absPath, self.path, self.source);
 }
 
 fn parseRoot(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!void {
@@ -186,17 +186,44 @@ fn parseFuncProto(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedTo
     return nodeIndex;
 }
 
-fn parseType(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
-    if (!try self.expect(self.peek()[0], &.{ .unsigned8, .unsigned16, .unsigned32, .unsigned64, .signed8, .signed16, .signed32, .signed64 })) return error.UnexpectedToken;
+fn parseTypeFunction(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
+    std.debug.assert(Util.listContains(Lexer.TokenType, &.{.openParen}, self.peek()[0].tag));
+
+    if (!try self.expect(self.peek()[0], &.{.openParen})) return error.UnexpectedToken;
+    _, const initI = self.pop();
+    if (!try self.expect(self.peek()[0], &.{.closeParen})) return error.UnexpectedToken;
+    _ = self.pop();
+
+    const x = try self.parseType();
+
+    const node = Node{
+        .tag = .funcType,
+        .data = .{ 0, x },
+        .tokenIndex = initI,
+    };
+
+    return try nl.addNode(&self.temp, node);
+}
+
+fn parseTypePrimitive(self: *@This()) std.mem.Allocator.Error!NodeIndex {
+    std.debug.assert(Util.listContains(Lexer.TokenType, &.{ .unsigned8, .unsigned16, .unsigned32, .unsigned64, .signed8, .signed16, .signed32, .signed64 }, self.peek()[0].tag));
     _, const mainIndex = self.pop();
 
     const nodeIndex = try nl.addNode(&self.temp, .{
         .tokenIndex = mainIndex,
-        .tag = .type,
+        .tag = .typeExpression,
         .data = .{ 0, 0 },
     });
 
     return nodeIndex;
+}
+fn parseType(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
+    if (!try self.expect(self.peek()[0], &.{ .openParen, .unsigned8, .unsigned16, .unsigned32, .unsigned64, .signed8, .signed16, .signed32, .signed64 })) return error.UnexpectedToken;
+    if (self.peek()[0].tag == .openParen) {
+        return try self.parseTypeFunction();
+    } else {
+        return try self.parseTypePrimitive();
+    }
 }
 
 fn parseScope(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {

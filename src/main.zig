@@ -146,7 +146,7 @@ pub fn main() u8 {
     if (arguments.bench)
         Logger.log.info("Type Checking", .{});
 
-    const err = typeCheck(&ast) catch {
+    const err = typeCheck(gpa, &ast) catch {
         Logger.log.err("out of memory", .{});
         return 1;
     };

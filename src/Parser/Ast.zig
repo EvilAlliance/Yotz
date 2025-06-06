@@ -1,5 +1,6 @@
 const std = @import("std");
 const Lexer = @import("../Lexer/Lexer.zig");
+const Logger = @import("../Logger.zig");
 const Parser = @import("Parser.zig");
 
 pub const NodeList = std.ArrayList(Parser.Node);
@@ -13,9 +14,9 @@ path: []const u8,
 
 tokens: []Lexer.Token,
 
-nodeList: NodeList,
+nodeList: *NodeList,
 
-pub fn init(alloc: std.mem.Allocator, nl: NodeList, tl: []Lexer.Token, absPath: []const u8, path: []const u8, source: [:0]const u8) @This() {
+pub fn init(alloc: std.mem.Allocator, nl: *NodeList, tl: []Lexer.Token, absPath: []const u8, path: []const u8, source: [:0]const u8) @This() {
     return @This(){
         .alloc = alloc,
 
@@ -85,18 +86,43 @@ fn toStringFuncProto(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser
 }
 
 fn toStringType(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
-    const t = self.nodeList.items[i];
-    switch (t.tag) {
-        .type => try cont.appendSlice(t.getTextAst(self.*)),
-        .typeGroup => {
-            const start = t.data[0];
-            const end = t.data[1];
-            for (start..end) |iNode| {
-                try self.toStringType(cont, d, @intCast(iNode));
-                if (iNode < end - 1) try cont.appendSlice(", ");
-            }
-        },
-        else => unreachable,
+    _ = d;
+
+    var index = i;
+
+    while (true) {
+        const t = self.nodeList.items[index];
+
+        switch (t.tag) {
+            .typeExpression => try cont.appendSlice(t.getTextAst(self.*)),
+            .funcType => {
+                std.debug.assert(t.data[0] == 0);
+                try cont.appendSlice("() ");
+
+                index = t.data[1];
+                continue;
+            },
+            .type => {
+                try cont.append(switch (@as(Parser.Node.Primitive, @enumFromInt(t.data[1]))) {
+                    Parser.Node.Primitive.int => 'i',
+                    Parser.Node.Primitive.uint => 'u',
+                    Parser.Node.Primitive.float => 'f',
+                });
+
+                const size = try std.fmt.allocPrint(cont.allocator, "{}", .{t.data[0]});
+                try cont.appendSlice(size);
+                cont.allocator.free(size);
+            },
+            else => unreachable,
+        }
+
+        index = t.next;
+
+        if (t.next != 0) {
+            try cont.appendSlice(", ");
+        } else {
+            break;
+        }
     }
 }
 

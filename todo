@@ -41,7 +41,8 @@
         "title": "Add to typecheck dependency so it can access global variable or other function declared later on the program",
         "desc": "",
         "time_created": "2025-05-22 09:46:41.536941311 -03:00:00",
-        "time_started": "2025-05-30 12:29:34.207970065 -03:00:00"
+        "time_started": "2025-05-30 12:29:34.207970065 -03:00:00",
+        "time_completed": "2025-06-06 11:58:17.540055352 -03:00:00"
       },
       {
         "dependencies": [
@@ -86,10 +87,12 @@
         "time_completed": "2025-05-29 19:20:28.438222269 -03:00:00"
       },
       {
-        "id": "xTCDTnyV",
-        "title": "Try to rebuild TypeCheck and InferMachine so it is more clear and not so compolluted",
+        "id": "gBYaAo9F",
+        "title": "Parse  function type",
         "desc": "",
-        "time_created": "2025-05-26 23:08:03.86878455 -03:00:00"
+        "time_created": "2025-06-03 11:34:03.77224401 -03:00:00",
+        "time_started": "2025-06-05 22:10:03.593968514 -03:00:00",
+        "time_completed": "2025-06-06 17:56:57.520170165 -03:00:00"
       },
       {
         "id": "myhFkW5e",
@@ -100,12 +103,6 @@
         "time_completed": "2025-05-29 11:33:56.983278897 -03:00:00"
       },
       {
-        "id": "tUBGD6hV",
-        "title": "When implementing removal of variables in InferMachine, it si possible to remove in both end parens, but if root only delete one end",
-        "desc": "Make possible to reuse the number set which is use in a set",
-        "time_created": "2025-05-27 08:24:13.775966182 -03:00:00"
-      },
-      {
         "id": "z4j8Cbhb",
         "title": "Remove Node.Tag: Parentesis",
         "desc": "",
@@ -114,22 +111,57 @@
         "time_completed": "2025-05-29 11:06:22.714401094 -03:00:00"
       },
       {
-        "id": "652qzFYy",
-        "title": "Make InferMachine Compatible with function types",
-        "desc": "Parse a function type and use checkExpression for function checking",
-        "time_created": "2025-05-30 08:51:51.477126349 -03:00:00"
-      },
-      {
-        "id": "cWSu4nUH",
-        "title": "Invalid op neg with unsigned",
-        "desc": "",
-        "time_created": "2025-05-30 11:13:33.281664492 -03:00:00"
+        "id": "qYe4WLux",
+        "title": "Infer type from expression primitive and function",
+        "desc": "TODO: Function type is letf and create how to",
+        "time_created": "2025-06-03 11:35:41.997299598 -03:00:00",
+        "time_started": "2025-06-03 11:35:43.714540172 -03:00:00",
+        "time_completed": "2025-06-06 17:57:23.098378791 -03:00:00"
       },
       {
         "id": "KNarfCMh",
         "title": "Transform type expression from the parser for something useful in typechecker",
         "desc": "TypeExpressio to an actual type",
-        "time_created": "2025-05-30 11:14:01.522003994 -03:00:00"
+        "time_created": "2025-05-30 11:14:01.522003994 -03:00:00",
+        "time_started": "2025-06-03 11:33:07.118792304 -03:00:00",
+        "time_completed": "2025-06-05 22:09:53.260924834 -03:00:00"
+      },
+      {
+        "id": "K9QPP4fw",
+        "title": "Better infer errors when checking infer types",
+        "desc": "",
+        "time_created": "2025-06-05 22:11:22.13799065 -03:00:00",
+        "time_started": "2025-06-05 22:11:23.772871272 -03:00:00",
+        "time_completed": "2025-06-06 11:56:04.967314306 -03:00:00"
+      },
+      {
+        "id": "5n8p64X9",
+        "title": "When are CheckPoints Still an error should be printed",
+        "desc": "",
+        "time_created": "2025-06-05 22:12:06.088161796 -03:00:00",
+        "time_started": "2025-06-06 18:11:13.110065621 -03:00:00",
+        "time_completed": "2025-06-06 18:11:14.217799617 -03:00:00"
+      },
+      {
+        "id": "77fYFzVh",
+        "title": "When a variable with infed type from use check if type is there  and do not add it a again",
+        "desc": "",
+        "time_created": "2025-06-05 22:13:33.982107985 -03:00:00",
+        "time_started": "2025-06-06 11:59:43.019584133 -03:00:00"
+      },
+      {
+        "id": "r9hwDqbh",
+        "title": "Add type coertion when extending",
+        "desc": "",
+        "time_created": "2025-06-05 22:14:04.869296697 -03:00:00",
+        "time_started": "2025-06-06 12:00:49.74224012 -03:00:00",
+        "time_completed": "2025-06-06 12:26:15.940635367 -03:00:00"
+      },
+      {
+        "id": "zKKgeaq7",
+        "title": "Separate Error to a struct",
+        "desc": "Could do the same with Info",
+        "time_created": "2025-06-06 11:57:09.543069641 -03:00:00"
       }
     ]
   }

@@ -1,14 +1,51 @@
 const std = @import("std");
 const Util = @import("Util.zig");
 const Logger = @import("Logger.zig");
-const InferMachine = @import("InferMachine.zig");
 const Lexer = @import("Lexer/Lexer.zig");
 
 const Parser = @import("./Parser/Parser.zig");
 const nl = @import("./Parser/NodeListUtil.zig");
 
 const Scope = std.StringHashMap(Parser.NodeIndex);
-const Scopes = std.ArrayList(Scope);
+const Scopes = struct {
+    list: std.ArrayList(Scope),
+
+    pub fn init(alloc: std.mem.Allocator) @This() {
+        return .{ .list = std.ArrayList(Scope).init(alloc) };
+    }
+
+    pub fn deinit(self: *@This()) void {
+        for (self.list.items) |*value| {
+            value.deinit();
+        }
+        self.list.deinit();
+    }
+
+    pub inline fn len(self: @This()) usize {
+        return self.list.items.len;
+    }
+
+    pub inline fn items(self: @This()) []Scope {
+        return self.list.items;
+    }
+
+    pub inline fn append(self: *@This(), scope: Scope) std.mem.Allocator.Error!void {
+        return self.list.append(scope);
+    }
+
+    pub inline fn pop(self: *@This()) ?Scope {
+        return self.list.pop();
+    }
+
+    pub fn deepClone(self: @This()) std.mem.Allocator.Error!@This() {
+        var x: @This() = .{ .list = std.ArrayList(Scope).init(self.list.allocator) };
+        for (self.list.items) |value| {
+            try x.append(try value.clone());
+        }
+
+        return x;
+    }
+};
 
 const FlattenExpression = std.ArrayList(Parser.NodeIndex);
 
@@ -22,7 +59,7 @@ const CheckPoint = struct {
     t: Type,
 
     dep: Parser.NodeIndex,
-    state: *FlattenExpression,
+    state: ?*FlattenExpression,
 
     expectedTypeI: Parser.NodeIndex,
 };
@@ -35,8 +72,6 @@ const TypeChecker = struct {
 
     alloc: std.mem.Allocator,
 
-    inferMachine: InferMachine,
-
     ast: *Parser.Ast,
     scopes: Scopes,
     globalScope: Scope,
@@ -48,12 +83,12 @@ const TypeChecker = struct {
     pub fn init(alloc: std.mem.Allocator, ast: *Parser.Ast) std.mem.Allocator.Error!bool {
         var checker = @This(){
             .alloc = alloc,
-            .inferMachine = InferMachine.init(alloc, ast),
             .ast = ast,
             .globalScope = Scope.init(alloc),
             .scopes = Scopes.init(alloc),
             .checkPoints = std.ArrayList(CheckPoint).init(alloc),
         };
+
         defer checker.deinit();
 
         try checker.checkGlobalScope();
@@ -63,117 +98,55 @@ const TypeChecker = struct {
             changed = false;
             var i: usize = 0;
             while (i < checker.checkPoints.items.len) {
-                const checkPoint = checker.checkPoints.items[i];
+                var checkPoint = checker.checkPoints.items[i];
                 switch (checkPoint.t) {
                     .unknownIdentifier => {
-                        checker.scopes = checkPoint.scopes;
-
                         const node = ast.getNode(checkPoint.dep);
                         _ = checker.searchVariableScope(node.getTextAst(ast.*)) orelse {
                             i += 1;
                             continue;
                         };
+                        changed = true;
+
+                        const temp = checker.scopes;
+                        checker.scopes = checkPoint.scopes;
 
                         _ = checker.checkPoints.swapRemove(i);
 
-                        changed = true;
+                        try checker.checkFlattenExpression(checkPoint.state.?, checkPoint.expectedTypeI);
 
-                        try checker.checkFlattenExpression(checkPoint.state, checkPoint.expectedTypeI);
+                        checker.scopes = temp;
+
+                        checkPoint.scopes.deinit();
                     },
+                    // .inferVariableType => {
+                    //     const node = ast.getNode(checkPoint.dep);
+                    //
+                    //     if (node.data[0] == 0) {
+                    //         i += 1;
+                    //         continue;
+                    //     }
+                    //
+                    //     const temp = checker.scopes;
+                    //     checker.scopes = checkPoint.scopes;
+                    //
+                    //     _ = checker.checkPoints.swapRemove(i);
+                    //
+                    //     var t = node.data[0];
+                    //     while (t != 0) : (t = ast.getNode(t).next) {
+                    //         try checker.checkExpressionExpectedType(node.data[1], t);
+                    //     }
+                    //
+                    //     checker.scopes = temp;
+                    //     checkPoint.scopes.deinit();
+                    // },
                 }
             }
         }
 
-        var itSet = checker.inferMachine.variable.varTOset.iterator();
-
-        while (itSet.next()) |entry| {
-            const nodeIndex = entry.key_ptr;
-            const set = entry.value_ptr;
-
-            const variable = ast.getNodePtr(nodeIndex.*);
-            if (variable.data[0] != 0) continue;
-
-            const typelocOP = checker.inferMachine.variable.setTOType.getPtr(set.*).?;
-
-            if (typelocOP.*) |_| {
-                const index, const locIndex = checker.inferMachine.getRoot(typelocOP).?;
-
-                const errorCount = checker.errs;
-                // CLEANUP: Check when its found instead of now
-                checker.checkLiteralExpressionExpectedType(variable.data[1], index);
-
-                if (errorCount != checker.errs) {
-                    const t = ast.getNode(index);
-                    Logger.logLocation.info(ast.path, ast.getNodeLocation(locIndex), "It was found unsing type {s} here: {s}", .{ t.getNameAst(ast.*), Logger.placeSlice(ast.getNodeLocation(locIndex), ast.source) });
-                    continue;
-                }
-                variable.data[0] = index;
-
-                continue;
-            }
-
-            const loc = variable.getLocationAst(ast.*);
-            Logger.logLocation.warn(ast.path, loc, "Variable has ambiguos type {s}", .{Logger.placeSlice(loc, ast.source)});
-        }
-
-        var itConstant = checker.inferMachine.constant.varTOset.iterator();
-
-        while (itConstant.next()) |entry| {
-            const nodeIndex = entry.key_ptr;
-            const set = entry.value_ptr;
-
-            const variable = ast.getNode(nodeIndex.*);
-            if (variable.data[0] != 0) continue;
-
-            const setTypeLoc = checker.inferMachine.constant.setTOvar.get(set.*).?;
-
-            var typeLoc = std.AutoArrayHashMap(Lexer.Token.TokenType, InferMachine.TypeLocation).init(alloc);
-            // typeLoc.deinit();
-
-            var itTypeLoc = setTypeLoc.iterator();
-
-            while (itTypeLoc.next()) |entry1| {
-                const typelocIndex = entry1.key_ptr;
-                const typeloc = checker.inferMachine.variable.setTOType.getPtr(typelocIndex.*).?;
-                const root = checker.inferMachine.getRoot(typeloc).?;
-                const typeNode = ast.getNode(root[0]);
-                const t = ast.getToken(typeNode.tokenIndex);
-
-                try typeLoc.put(t.tag, root);
-            }
-
-            var uniqueIt = typeLoc.iterator();
-
-            const start = ast.nodeList.items.len;
-
-            while (uniqueIt.next()) |entry1| {
-                const index, const locIndex = entry1.value_ptr.*;
-
-                const errorCount = checker.errs;
-                // CLEANUP: Check when its found instead of now
-                checker.checkLiteralExpressionExpectedType(variable.data[1], index);
-
-                if (errorCount != checker.errs) {
-                    const t = ast.getNode(index);
-                    Logger.logLocation.info(ast.path, ast.getNodeLocation(locIndex), "It was found unsing type {s} here: {s}", .{ t.getNameAst(ast.*), Logger.placeSlice(ast.getNodeLocation(locIndex), ast.source) });
-                    continue;
-                }
-
-                _ = try nl.addNode(&ast.nodeList, ast.getNode(index));
-            }
-
-            const end = ast.nodeList.items.len;
-
-            if (start == end) {
-                const loc = variable.getLocationAst(ast.*);
-                Logger.logLocation.warn(ast.path, loc, "Variable has ambiguos type {s}", .{Logger.placeSlice(loc, ast.source)});
-            }
-
-            const p = try nl.addNode(&ast.nodeList, .{
-                .tag = .typeGroup,
-                .data = .{ @intCast(start), @intCast(end) },
-            });
-            ast.getNodePtr(nodeIndex.*).data[0] = p;
+        for (checker.checkPoints) |checkPoint| {
+            _ = checkPoint;
+            unreachable;
         }
 
         // TODO: Pass this to the new format
@@ -186,7 +159,7 @@ const TypeChecker = struct {
                 const t = ast.nodeList.items[mainProto.data[1]];
                 std.debug.assert(t.tag == .type);
 
-                if (t.getTokenTagAst(ast.*) != .unsigned8) {
+                if (t.data[0] != 8 or t.data[1] != @intFromEnum(Parser.Node.Primitive.uint)) {
                     const loc = t.getLocationAst(ast.*);
                     Logger.logLocation.err(ast.path, loc, "Main must return u8 instead of {s} {s}", .{ t.getNameAst(ast.*), Logger.placeSlice(loc, ast.source) });
                     checker.errs += 1;
@@ -229,7 +202,18 @@ const TypeChecker = struct {
             try self.addVariableScope(variable.getTextAst(self.ast.*), variableI, .global);
 
             switch (expr.tag) {
-                .funcProto => try self.checkFunction(exprI),
+                .funcProto => {
+                    const typeI = result: {
+                        if (variable.data[0] != 0) {
+                            self.transformType(variable.data[0]);
+                            break :result variable.data[0];
+                        }
+                        const t = try self.inferFunctionType(variable.data[1]);
+                        self.ast.getNodePtr(variableI).data[0] = t;
+                        break :result t;
+                    };
+                    try self.checkFunction(exprI, typeI);
+                },
                 .addition,
                 .subtraction,
                 .multiplication,
@@ -239,20 +223,17 @@ const TypeChecker = struct {
                 .load,
                 .lit,
                 => {
-                    _ = try self.inferMachine.add(variableI);
-                    if (variable.tag == .constant) _ = try self.inferMachine.toConstant(variableI);
                     if (tI != 0) {
-                        try self.inferMachine.found(variableI, tI, variableI);
-
                         try self.checkExpressionExpectedType(exprI, tI);
                     } else {
-                        if (variable.tag == .constant) _ = try self.inferMachine.toConstant(variableI);
-                        if (try self.checkExpressionInferType(exprI)) |bS| {
-                            _ = self.inferMachine.merge(variableI, bS) catch |err| switch (err) {
-                                error.IncompatibleType => unreachable,
-                                error.OutOfMemory => return error.OutOfMemory,
-                            };
-                        }
+                        // try self.checkPoints.append(.{
+                        //     .t = .inferVariableType,
+                        //     .dep = exprI,
+                        //     .scopes = try self.scopes.deepClone(),
+                        //
+                        //     .state = null,
+                        //     .expectedTypeI = 0,
+                        // });
                     }
                 },
                 else => {
@@ -264,11 +245,11 @@ const TypeChecker = struct {
     }
 
     pub fn searchVariableScope(self: *Self, name: []const u8) ?Parser.NodeIndex {
-        var i: usize = self.scopes.items.len;
+        var i: usize = self.scopes.len();
         while (i > 0) {
             i -= 1;
 
-            var dic = self.scopes.items[i];
+            var dic = self.scopes.items()[i];
             if (dic.get(name)) |n| return n;
         }
 
@@ -280,7 +261,7 @@ const TypeChecker = struct {
     pub fn addVariableScope(self: *Self, name: []const u8, nodeI: Parser.NodeIndex, level: ScopeLevel) std.mem.Allocator.Error!void {
         switch (level) {
             .local => {
-                const scope = &self.scopes.items[self.scopes.items.len - 1];
+                const scope = &self.scopes.items()[self.scopes.len() - 1];
                 try scope.put(name, nodeI);
             },
             .global => {
@@ -290,19 +271,59 @@ const TypeChecker = struct {
     }
 
     pub fn deinit(self: *Self) void {
-        for (self.scopes.items) |*s|
-            s.deinit();
-
         self.scopes.deinit();
-        self.inferMachine.deinit();
+        self.globalScope.deinit();
     }
 
-    fn checkFunction(self: *Self, nodeI: Parser.NodeIndex) std.mem.Allocator.Error!void {
+    fn _transformType(t: Lexer.Token) struct { Parser.NodeIndex, Parser.NodeIndex } {
+        return .{
+            switch (t.tag) {
+                .unsigned8, .signed8 => 8,
+                .unsigned16, .signed16 => 16,
+                .unsigned32, .signed32 => 32,
+                .unsigned64, .signed64 => 64,
+                else => unreachable,
+            },
+            @intFromEnum(switch (t.tag) {
+                .signed8, .signed16, .signed32, .signed64 => Parser.Node.Primitive.int,
+                .unsigned8, .unsigned16, .unsigned32, .unsigned64 => Parser.Node.Primitive.uint,
+                else => unreachable,
+            }),
+        };
+    }
+
+    fn transformType(self: *Self, tI: Parser.NodeIndex) void {
+        const t = self.ast.getNodePtr(tI);
+        if (t.tag == .funcType) {
+            self.transformType(t.data[1]);
+        } else {
+            const token = self.ast.getToken(t.tokenIndex);
+            t.tag = .type;
+            t.data = _transformType(token);
+            t.next = 0;
+        }
+    }
+
+    fn inferFunctionType(self: *Self, protoI: Parser.NodeIndex) std.mem.Allocator.Error!Parser.NodeIndex {
+        const proto = self.ast.getNode(protoI);
+        std.debug.assert(proto.tag == .funcProto);
+
+        const tIndex = proto.data[1];
+        self.transformType(tIndex);
+
+        return try nl.addNode(self.ast.nodeList, .{
+            .tag = .funcType,
+            .data = .{ 0, tIndex },
+        });
+    }
+
+    fn checkFunction(self: *Self, nodeI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex) std.mem.Allocator.Error!void {
         const node = self.ast.getNode(nodeI);
         std.debug.assert(node.tag == .funcProto);
 
         const name = node.getTextAst(self.ast.*);
 
+        // TODO: Move this where it belongs
         if (std.mem.eql(u8, name, "_start")) {
             const loc = node.getLocationAst(self.ast.*);
             Logger.logLocation.err(self.ast.path, loc, "_start is an identifier not available {s}", .{Logger.placeSlice(loc, self.ast.source)});
@@ -310,6 +331,11 @@ const TypeChecker = struct {
         } else if (self.foundMain == null and std.mem.eql(u8, name, "main")) self.foundMain = node;
 
         const tIndex = node.data[1];
+        self.transformType(tIndex);
+
+        if (!self.typeEqual(tIndex, self.ast.getNode(expectedTypeI).data[1])) {
+            unreachable;
+        }
 
         const stmtORscopeIndex = node.next;
         const stmtORscope = self.ast.getNode(stmtORscopeIndex);
@@ -372,104 +398,35 @@ const TypeChecker = struct {
 
                 try self.addVariableScope(stmt.getTextAst(self.ast.*), stmtI, .local);
 
-                _ = try self.inferMachine.add(stmtI);
+                const exprI = stmt.data[1];
 
                 if (stmt.data[0] != 0) {
                     const tI = stmt.data[0];
-                    const exprI = stmt.data[1];
-
-                    try self.inferMachine.found(stmtI, tI, stmtI);
+                    self.transformType(tI);
 
                     try self.checkExpressionExpectedType(exprI, tI);
                 } else {
-                    const exprI = stmt.data[1];
-                    if (stmt.tag == .constant) _ = try self.inferMachine.toConstant(stmtI);
-                    if (try self.checkExpressionInferType(exprI)) |bS| {
-                        _ = self.inferMachine.merge(stmtI, bS) catch |err| switch (err) {
-                            error.IncompatibleType => unreachable,
-                            error.OutOfMemory => return error.OutOfMemory,
-                        };
-                    }
+                    const posibleType, const loc = try self.getTypeFromExpression(exprI);
+                    // if (posibleType == 0)
+                    // return try self.checkPoints.append(.{
+                    //     .t = .inferVariableType,
+                    //     .dep = stmtI,
+                    //     .scopes = try self.scopes.deepClone(),
+                    //
+                    //     .state = null,
+                    //     .expectedTypeI = 0,
+                    // });
+                    var nodeType = self.ast.getNode(posibleType);
+                    nodeType.tokenIndex = loc;
+                    nodeType.flags |= @intFromEnum(Parser.Node.Flag.inferedFromExpression);
+                    const x = try nl.addNode(self.ast.nodeList, nodeType);
+                    self.ast.getNodePtr(stmtI).data[0] = x;
+
+                    try self.checkExpressionExpectedType(exprI, x);
                 }
             },
             else => unreachable,
         }
-    }
-    fn checkExpressionInferType(self: *Self, exprI: Parser.NodeIndex) std.mem.Allocator.Error!?Parser.NodeIndex {
-        const expr = self.ast.getNode(exprI);
-
-        std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, expr.tag));
-        switch (expr.tag) {
-            .lit => {
-                return null;
-            },
-            .load => {
-                const variable = self.searchVariableScope(expr.getTextAst(self.ast.*)) orelse {
-                    const loc = expr.getLocationAst(self.ast.*);
-                    Logger.logLocation.err(self.ast.path, loc, "Unknown identifier in expression \'{s}\' {s}", .{ expr.getNameAst(self.ast.*), Logger.placeSlice(loc, self.ast.source) });
-                    self.errs += 1;
-
-                    return null;
-                };
-
-                return variable;
-            },
-            .neg => {
-                const leftI = expr.data[0];
-
-                return try self.checkExpressionInferType(leftI);
-            },
-            .addition, .subtraction, .multiplication, .division, .power => {
-                const leftI = expr.data[0];
-                const rightI = expr.data[1];
-
-                const a = try self.checkExpressionInferType(leftI);
-                const b = try self.checkExpressionInferType(rightI);
-
-                if (a != null and b != null) {
-                    const aS = a.?;
-                    const bS = b.?;
-
-                    return self.inferMachine.merge(aS, bS) catch |err| switch (err) {
-                        error.IncompatibleType => {
-                            unreachable;
-                            // const tLeft = self.inferMachine.setTOvar.get(aS).?[0].?;
-                            // const tRight = self.inferMachine.setTOvar.get(bS).?[0].?;
-                            // const loc = expr.getLocationAst(self.ast.tokens);
-                            // Logger.logLocation.err(
-                            //     self.ast.path,
-                            //     loc,
-                            //     "To the left of this operation has {s} and to the right has {s}, they must be the same {s}",
-                            //     .{ tLeft[0].getNameAst(self.ast.tokens), tRight[0].getNameAst(self.ast.tokens), Logger.placeSlice(loc, self.ast.source) },
-                            // );
-                            //
-                            // self.errs += 1;
-                            //
-                            // return null;
-                        },
-                        error.OutOfMemory => return error.OutOfMemory,
-                    };
-                }
-
-                if (a) |aS| {
-                    return aS;
-                } else {
-                    return b;
-                }
-            },
-            else => {
-                const loc = expr.getLocationAst(self.ast.*);
-                Logger.logLocation.err(
-                    self.ast.path,
-                    loc,
-                    "Node not supported {} {s}",
-                    .{ expr.tag, Logger.placeSlice(loc, self.ast.source) },
-                );
-                unreachable;
-            },
-        }
-
-        unreachable;
     }
 
     fn flattenExpression(self: *Self, stack: *FlattenExpression, exprI: Parser.NodeIndex) std.mem.Allocator.Error!void {
@@ -508,9 +465,8 @@ const TypeChecker = struct {
 
     fn checkExpressionLeaf(self: *Self, leafI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex) std.mem.Allocator.Error!?CheckPoint.Type {
         const leaf = self.ast.getNode(leafI);
-        std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load }, leaf.tag));
-
         const expectedType = self.ast.getNode(expectedTypeI);
+        std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load }, leaf.tag) and expectedType.tag == .type);
 
         switch (leaf.tag) {
             .lit => self.checkValueForType(leafI, expectedTypeI),
@@ -518,35 +474,119 @@ const TypeChecker = struct {
                 const variableI = self.searchVariableScope(leaf.getTextAst(self.ast.*)) orelse return .unknownIdentifier;
 
                 const variable = self.ast.getNode(variableI);
+                const t = self.ast.nodeList.items[variable.data[0]];
 
-                if (variable.data[0] != 0) {
-                    const t = self.ast.nodeList.items[variable.data[0]];
+                if (variable.data[0] != 0 and (t.flags & @intFromEnum(Parser.Node.Flag.inferedFromExpression)) != 0) {
 
-                    if (t.getTokenTagAst(self.ast.*) != expectedType.getTokenTagAst(self.ast.*)) {
-                        const locVar = variable.getLocationAst(self.ast.*);
-                        Logger.logLocation.err(
-                            self.ast.path,
-                            locVar,
-                            "This variable declared here with type {s} {s}",
-                            .{ t.getNameAst(self.ast.*), Logger.placeSlice(locVar, self.ast.source) },
-                        );
-                        const locExpr = leaf.getLocationAst(self.ast.*);
-                        Logger.logLocation.err(
-                            self.ast.path,
-                            locExpr,
-                            "Is use here with another type {s}, these types are incompatible {s}",
-                            .{ expectedType.getNameAst(self.ast.*), Logger.placeSlice(locExpr, self.ast.source) },
-                        );
+                    // TODO: Can be cast to type
+                    if (!self.canTypeBeCoerced(variable.data[0], expectedTypeI)) {
+                        if ((t.flags & @intFromEnum(Parser.Node.Flag.inferedFromUse)) | (t.flags & @intFromEnum(Parser.Node.Flag.inferedFromExpression)) != 0) {
+                            const locVar = variable.getLocationAst(self.ast.*);
+                            Logger.logLocation.err(
+                                self.ast.path,
+                                locVar,
+                                "This variable declared here {s}",
+                                .{Logger.placeSlice(locVar, self.ast.source)},
+                            );
+                            Logger.logLocation.err(
+                                self.ast.path,
+                                locVar,
+                                "Infered Type {c}{} here:{s}",
+                                .{
+                                    @as(u8, switch (@as(Parser.Node.Primitive, @enumFromInt(t.data[1]))) {
+                                        .int => 'i',
+                                        .uint => 'u',
+                                        .float => 'f',
+                                    }),
+                                    t.data[0],
+                                    Logger.placeSlice(t.getLocationAst(self.ast.*), self.ast.source),
+                                },
+                            );
+                            const locExpr = leaf.getLocationAst(self.ast.*);
+                            Logger.logLocation.err(
+                                self.ast.path,
+                                locExpr,
+                                "Is use here with another type {s}, these types are incompatible {s}",
+                                .{ expectedType.getNameAst(self.ast.*), Logger.placeSlice(locExpr, self.ast.source) },
+                            );
+                        } else {
+                            const locVar = variable.getLocationAst(self.ast.*);
+                            Logger.logLocation.err(
+                                self.ast.path,
+                                locVar,
+                                "This variable declared here with type {s} {s}",
+                                .{ t.getNameAst(self.ast.*), Logger.placeSlice(locVar, self.ast.source) },
+                            );
+                            const locExpr = leaf.getLocationAst(self.ast.*);
+                            Logger.logLocation.err(
+                                self.ast.path,
+                                locExpr,
+                                "Is use here with another type {s}, these types are incompatible {s}",
+                                .{ expectedType.getNameAst(self.ast.*), Logger.placeSlice(locExpr, self.ast.source) },
+                            );
+                        }
                         self.errs += 1;
                     }
                 } else {
-                    try self.inferMachine.found(variableI, expectedTypeI, leafI);
+                    var tIndex = variable.data[0];
+                    while (tIndex != 0 and self.canTypeBeCoerced(tIndex, expectedTypeI)) : (tIndex = self.ast.getNode(tIndex).next) {}
+                    if (tIndex == 0) {
+                        var nodeType = self.ast.getNode(expectedTypeI);
+                        nodeType.tokenIndex = leaf.tokenIndex;
+                        nodeType.flags |= @intFromEnum(Parser.Node.Flag.inferedFromUse);
+                        const x = try nl.addNode(self.ast.nodeList, nodeType);
+                        self.ast.getNodePtr(x).next = variable.data[0];
+                        self.ast.getNodePtr(variableI).data[0] = x;
+                    } else {
+                        unreachable;
+                    }
                 }
             },
             else => unreachable,
         }
 
         return null;
+    }
+    fn getTypeFromExpression(self: *Self, exprI: Parser.NodeIndex) std.mem.Allocator.Error!struct { Parser.NodeIndex, Parser.TokenIndex } {
+        const expr = self.ast.getNode(exprI);
+        std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, expr.tag));
+
+        const flat = try self.alloc.create(FlattenExpression);
+        flat.* = FlattenExpression.init(self.alloc);
+
+        try self.flattenExpression(flat, exprI);
+
+        defer {
+            flat.deinit();
+            self.alloc.destroy(flat);
+        }
+
+        while (flat.items.len > 0) {
+            const firstI = flat.pop().?;
+            const first = self.ast.getNode(firstI);
+
+            if (first.tag != .load) continue;
+
+            const variableOP = self.searchVariableScope(self.ast.getNodeText(firstI));
+            if (variableOP == null) continue;
+            const variable = self.ast.getNode(variableOP.?);
+
+            return .{ variable.data[0], first.tokenIndex };
+        }
+
+        return .{ 0, 0 };
+    }
+
+    fn typeEqual(self: *Self, actualI: Parser.NodeIndex, expectedI: Parser.NodeIndex) bool {
+        const actual = self.ast.getNode(actualI);
+        const expected = self.ast.getNode(expectedI);
+        return expected.data[1] == actual.data[1] and expected.data[0] == actual.data[0];
+    }
+
+    fn canTypeBeCoerced(self: *Self, actualI: Parser.NodeIndex, expectedI: Parser.NodeIndex) bool {
+        const actual = self.ast.getNode(actualI);
+        const expected = self.ast.getNode(expectedI);
+        return expected.data[1] == actual.data[1] and expected.data[0] >= actual.data[0];
     }
 
     fn checkExpressionExpectedType(self: *Self, exprI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex) std.mem.Allocator.Error!void {
@@ -567,7 +607,10 @@ const TypeChecker = struct {
 
     pub fn checkFlattenExpression(self: *Self, flat: *FlattenExpression, expectedTypeI: Parser.NodeIndex) std.mem.Allocator.Error!void {
         const expectedType = self.ast.getNode(expectedTypeI);
-        defer if (flat.items.len == 0) flat.deinit();
+        defer if (flat.items.len == 0) {
+            flat.deinit();
+            self.alloc.destroy(flat);
+        };
 
         std.debug.assert(expectedType.tag == .type);
 
@@ -582,9 +625,10 @@ const TypeChecker = struct {
                             .t = .unknownIdentifier,
                             .state = flat,
                             .dep = firstI,
-                            .scopes = try self.scopes.clone(),
+                            .scopes = try self.scopes.deepClone(),
                             .expectedTypeI = expectedTypeI,
                         }),
+                        // else => unreachable,
                     }
                 } else {
                     _ = flat.pop().?;
@@ -616,9 +660,11 @@ const TypeChecker = struct {
                                     .t = .unknownIdentifier,
                                     .state = flat,
                                     .dep = xI,
-                                    .scopes = try self.scopes.clone(),
+                                    .scopes = try self.scopes.deepClone(),
                                     .expectedTypeI = expectedTypeI,
                                 }),
+
+                                // else => unreachable,
                             }
                         } else {
                             _ = flat.pop().?;
@@ -665,79 +711,104 @@ const TypeChecker = struct {
     fn checkValueForType(self: *Self, exprI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex) void {
         const expr = self.ast.getNode(exprI);
         const expectedType = self.ast.getNode(expectedTypeI);
+        std.debug.assert(expectedType.tag == .type);
 
         const text = expr.getTextAst(self.ast.*);
-        switch (expectedType.getTokenTagAst(self.ast.*)) {
-            .unsigned8 => {
-                _ = std.fmt.parseUnsigned(u8, text, 10) catch {
-                    const loc = expr.getLocationAst(self.ast.*);
-                    Logger.logLocation.err(self.ast.path, loc, "Number literal is too large for the expected type {s} {s}", .{ expectedType.getNameAst(self.ast.*), Logger.placeSlice(loc, self.ast.source) });
-                    self.errs += 1;
-                };
-            },
-            .unsigned16 => {
-                _ = std.fmt.parseUnsigned(u16, text, 10) catch {
-                    const loc = expr.getLocationAst(self.ast.*);
+        switch (@as(Parser.Node.Primitive, @enumFromInt(expectedType.data[1]))) {
+            Parser.Node.Primitive.uint => {
+                const max = std.math.pow(u64, 2, expectedType.data[0]) - 1;
+                const number = std.fmt.parseInt(u64, text, 10) catch {
+                    const loc = self.ast.getNodeLocation(exprI);
                     Logger.logLocation.err(
                         self.ast.path,
                         loc,
-                        "Number literal is too large for the expected type {s} {s}",
-                        .{ expectedType.getNameAst(self.ast.*), Logger.placeSlice(loc, self.ast.source) },
+                        "Number does not fit into for type u{}, range: 0 - {} {s}",
+                        .{
+                            expectedType.data[0],
+                            max,
+                            Logger.placeSlice(loc, self.ast.source),
+                        },
                     );
-                    self.errs += 1;
+                    if ((expectedType.flags & @intFromEnum(Parser.Node.Flag.inferedFromExpression)) |
+                        (expectedType.flags & @intFromEnum(Parser.Node.Flag.inferedFromUse)) != 0)
+                    {
+                        Logger.logLocation.err(self.ast.getInfo()[0], loc, "The type was infered here: {s}", .{Logger.placeSlice(loc, self.ast.source)});
+                    }
+                    return;
                 };
-            },
-            .unsigned32 => {
-                _ = std.fmt.parseUnsigned(u32, text, 10) catch {
-                    const loc = expr.getLocationAst(self.ast.*);
-                    Logger.logLocation.err(self.ast.path, loc, "Number literal is too large for the expected type {s} {s}", .{ expectedType.getNameAst(self.ast.*), Logger.placeSlice(loc, self.ast.source) });
-                    self.errs += 1;
-                };
-            },
-            .unsigned64 => {
-                _ = std.fmt.parseUnsigned(u64, text, 10) catch {
-                    const loc = expr.getLocationAst(self.ast.*);
-                    Logger.logLocation.err(self.ast.path, loc, "Number literal is too large for the expected type {s} {s}", .{ expectedType.getNameAst(self.ast.*), Logger.placeSlice(loc, self.ast.source) });
-                    self.errs += 1;
-                };
-            },
 
-            .signed8 => {
-                _ = std.fmt.parseInt(i8, text, 10) catch {
-                    const loc = expr.getLocationAst(self.ast.*);
-                    Logger.logLocation.err(self.ast.path, loc, "Number literal is too large for the expected type {s} {s}", .{ expectedType.getNameAst(self.ast.*), Logger.placeSlice(loc, self.ast.source) });
-                    self.errs += 1;
-                };
+                if (number < max) return;
+                const loc = self.ast.getNodeLocation(exprI);
+                Logger.logLocation.err(
+                    self.ast.path,
+                    loc,
+                    "Number does not fit into for type u{}, range: 0 - {} {s}",
+                    .{
+                        expectedType.data[0],
+                        max,
+                        Logger.placeSlice(loc, self.ast.source),
+                    },
+                );
+                if ((expectedType.flags & @intFromEnum(Parser.Node.Flag.inferedFromExpression)) |
+                    (expectedType.flags & @intFromEnum(Parser.Node.Flag.inferedFromUse)) != 0)
+                {
+                    const typeLoc = expectedType.getLocationAst(self.ast.*);
+                    Logger.logLocation.err(self.ast.getInfo()[0], typeLoc, "The type was infered here: {s}", .{Logger.placeSlice(typeLoc, self.ast.source)});
+                }
             },
-            .signed16 => {
-                _ = std.fmt.parseInt(i16, text, 10) catch {
-                    const loc = expr.getLocationAst(self.ast.*);
-                    Logger.logLocation.err(self.ast.path, loc, "Number literal is too large for the expected type {s} {s}", .{ expectedType.getNameAst(self.ast.*), Logger.placeSlice(loc, self.ast.source) });
-                    self.errs += 1;
+            Parser.Node.Primitive.int => {
+                const max = std.math.pow(i64, 2, (expectedType.data[0] - 1)) - 1;
+                const min = std.math.pow(i64, 2, (expectedType.data[0] - 1)) - 1;
+                const number = std.fmt.parseInt(i64, text, 10) catch {
+                    const loc = self.ast.getNodeLocation(exprI);
+                    Logger.logLocation.err(
+                        self.ast.path,
+                        loc,
+                        "Number does not fit into for type u{}, range: {} - {} {s}",
+                        .{
+                            expectedType.data[0],
+                            min,
+                            max,
+                            Logger.placeSlice(loc, self.ast.source),
+                        },
+                    );
+                    if ((expectedType.flags & @intFromEnum(Parser.Node.Flag.inferedFromExpression)) |
+                        (expectedType.flags & @intFromEnum(Parser.Node.Flag.inferedFromUse)) != 0)
+                    {
+                        const typeLoc = expectedType.getLocationAst(self.ast.*);
+                        Logger.logLocation.err(self.ast.getInfo()[0], typeLoc, "The type was infered here: {s}", .{Logger.placeSlice(typeLoc, self.ast.source)});
+                    }
+                    return;
                 };
+
+                if (min < number and number < max) return;
+                const loc = self.ast.getNodeLocation(exprI);
+                Logger.logLocation.err(
+                    self.ast.path,
+                    loc,
+                    "Number does not fit into for type u{}, range: {} - {} {s}",
+                    .{
+                        expectedType.data[0],
+                        min,
+                        max,
+                        Logger.placeSlice(loc, self.ast.source),
+                    },
+                );
+                if ((expectedType.flags & @intFromEnum(Parser.Node.Flag.inferedFromExpression)) |
+                    (expectedType.flags & @intFromEnum(Parser.Node.Flag.inferedFromUse)) != 0)
+                {
+                    const typeLoc = expectedType.getLocationAst(self.ast.*);
+                    Logger.logLocation.err(self.ast.getInfo()[0], typeLoc, "The type was infered here: {s}", .{Logger.placeSlice(typeLoc, self.ast.source)});
+                }
             },
-            .signed32 => {
-                _ = std.fmt.parseInt(i32, text, 10) catch {
-                    const loc = expr.getLocationAst(self.ast.*);
-                    Logger.logLocation.err(self.ast.path, loc, "Number literal is too large for the expected type {s} {s}", .{ expectedType.getNameAst(self.ast.*), Logger.placeSlice(loc, self.ast.source) });
-                    self.errs += 1;
-                };
-            },
-            .signed64 => {
-                _ = std.fmt.parseInt(i64, text, 10) catch {
-                    const loc = expr.getLocationAst(self.ast.*);
-                    Logger.logLocation.err(self.ast.path, loc, "Number literal is too large for the expected type {s} {s}", .{ expectedType.getNameAst(self.ast.*), Logger.placeSlice(loc, self.ast.source) });
-                    self.errs += 1;
-                };
-            },
-            else => unreachable,
+            Parser.Node.Primitive.float => unreachable,
         }
     }
 };
 
-pub fn typeCheck(p: *Parser.Ast) std.mem.Allocator.Error!bool {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+pub fn typeCheck(alloc: std.mem.Allocator, p: *Parser.Ast) std.mem.Allocator.Error!bool {
+    var arena = std.heap.ArenaAllocator.init(alloc);
     defer arena.deinit();
-    const alloc = arena.allocator();
-    return try TypeChecker.init(alloc, p);
+    const arenaAlloc = arena.allocator();
+    return try TypeChecker.init(arenaAlloc, p);
 }
