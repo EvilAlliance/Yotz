@@ -2,8 +2,8 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 34
-main :: () u8 { 
+:b stdout 40
+main: () u8 : () u8 { 
     return 1;
 } 
 
