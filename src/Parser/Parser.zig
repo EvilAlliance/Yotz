@@ -136,7 +136,7 @@ fn parseRoot(self: *@This()) (std.mem.Allocator.Error)!void {
             error.UnexpectedToken => {
                 self.nodeList.shrinkRetainingCapacity(top);
             },
-            error.OutOfMemory => return error.UnexpectedToken,
+            error.OutOfMemory => return error.OutOfMemory,
         };
         self.nodeList.items[nodeIndex].next = @intCast(self.nodeList.items.len);
 

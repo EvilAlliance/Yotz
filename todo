@@ -162,6 +162,12 @@
         "title": "Separate Error to a struct",
         "desc": "Could do the same with Info",
         "time_created": "2025-06-06 11:57:09.543069641 -03:00:00"
+      },
+      {
+        "id": "3t28BVzt",
+        "title": "Make Parser better error recovery",
+        "desc": "",
+        "time_created": "2025-06-06 19:07:23.099283545 -03:00:00"
       }
     ]
   }
