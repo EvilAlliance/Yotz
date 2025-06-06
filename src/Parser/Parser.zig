@@ -135,6 +135,7 @@ fn parseRoot(self: *@This()) (std.mem.Allocator.Error)!void {
         } catch |err| switch (err) {
             error.UnexpectedToken => {
                 self.nodeList.shrinkRetainingCapacity(top);
+                continue;
             },
             error.OutOfMemory => return error.OutOfMemory,
         };
@@ -146,7 +147,7 @@ fn parseRoot(self: *@This()) (std.mem.Allocator.Error)!void {
     self.nodeList.items[0].data[1] = @intCast(self.nodeList.items.len);
 }
 
-fn parseFuncDecl(self: *@This()) std.mem.Allocator.Error!?NodeIndex {
+fn parseFuncDecl(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!?NodeIndex {
     if (self.peek()[0].tag != .openParen or self.peekMany(1)[0].tag != .closeParen) return null;
 
     const funcProto = self.parseFuncProto() catch |err| switch (err) {
@@ -161,7 +162,11 @@ fn parseFuncDecl(self: *@This()) std.mem.Allocator.Error!?NodeIndex {
                         else => {},
                     }
                 }
-            } else {}
+            } else {
+                while (self.peek()[0].tag != .semicolon) : (_ = self.pop()) {}
+                _ = self.pop();
+            }
+            return error.UnexpectedToken;
         },
         else => return error.OutOfMemory,
     };
