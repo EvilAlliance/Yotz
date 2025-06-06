@@ -144,7 +144,7 @@ const TypeChecker = struct {
             }
         }
 
-        for (checker.checkPoints) |checkPoint| {
+        for (checker.checkPoints.items) |checkPoint| {
             _ = checkPoint;
             unreachable;
         }
