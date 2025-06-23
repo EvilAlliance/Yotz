@@ -29,23 +29,30 @@ pub fn init(alloc: std.mem.Allocator, nl: *NodeList, tl: []Lexer.Token, absPath:
     };
 }
 
-pub fn getToken(self: *@This(), i: Parser.TokenIndex) Lexer.Token {
+pub inline fn getToken(self: *@This(), i: Parser.TokenIndex) Lexer.Token {
     return self.tokens[i];
 }
 
-pub fn getNodeLocation(self: *@This(), i: Parser.NodeIndex) Lexer.Location {
-    return self.nodeList.items[i].getLocationAst(self.*);
+pub inline fn getNodeLocation(self: *@This(), i: Parser.NodeIndex) Lexer.Location {
+    const node = self.nodeList.items[i];
+    return self.getToken(node.tokenIndex).loc;
 }
 
-pub fn getNodeText(self: *@This(), i: Parser.NodeIndex) []const u8 {
-    return self.nodeList.items[i].getTextAst(self.*);
+pub inline fn getNodeText(self: *@This(), i: Parser.NodeIndex) []const u8 {
+    const node = self.nodeList.items[i];
+    return self.getToken(node.tokenIndex).getText(self.source);
 }
 
-pub fn getNode(self: *@This(), i: Parser.NodeIndex) Parser.Node {
+pub inline fn getNodeName(self: *@This(), i: Parser.NodeIndex) []const u8 {
+    const node = self.nodeList.items[i];
+    return self.getToken(node.tokenIndex).tag.getName();
+}
+
+pub inline fn getNode(self: *@This(), i: Parser.NodeIndex) Parser.Node {
     return self.nodeList.items[i];
 }
 
-pub fn getNodePtr(self: *@This(), i: Parser.NodeIndex) *Parser.Node {
+pub inline fn getNodePtr(self: *@This(), i: Parser.NodeIndex) *Parser.Node {
     return &self.nodeList.items[i];
 }
 

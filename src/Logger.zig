@@ -3,55 +3,11 @@ const std = @import("std");
 const Lexer = @import("./Lexer/Lexer.zig");
 
 pub var silence = false;
-var buffPlace = std.BoundedArray(u8, 10 * 1024).init(0) catch unreachable;
 
 pub fn placeSlice(location: Lexer.Location, content: [:0]const u8) []const u8 {
-    buffPlace.clear();
-
-    var beg = location.start;
-
-    while (beg > 1 and content[beg - 1] != '\n') : (beg -= 1) {}
-    if (beg > 0)
-        beg -= 1;
-    if (beg != 0)
-        beg += 1;
-
-    var end = location.start;
-
-    while (end < content.len and content[end + 1] != '\n') : (end += 1) {}
-    end += 1;
-
-    buffPlace.append('\n') catch {
-        log.err("Line is larger than {} caracters", .{10 * 1024});
-        return buffPlace.constSlice();
-    };
-
-    buffPlace.append(' ') catch {
-        log.err("Line is larger than {} caracters", .{10 * 1024});
-        return buffPlace.constSlice();
-    };
-
-    buffPlace.appendSlice(content[beg..end]) catch {
-        log.err("Line is larger than {} caracters", .{10 * 1024});
-        return buffPlace.constSlice();
-    };
-
-    buffPlace.append('\n') catch {
-        log.err("Line is larger than {} caracters", .{10 * 1024});
-        return buffPlace.constSlice();
-    };
-
-    buffPlace.appendNTimes(' ', location.col) catch {
-        log.err("Line is larger than {} caracters", .{10 * 1024});
-        return buffPlace.constSlice();
-    };
-
-    buffPlace.append('^') catch {
-        log.err("Line is larger than {} caracters", .{10 * 1024});
-        return buffPlace.constSlice();
-    };
-
-    return buffPlace.constSlice();
+    _ = location;
+    _ = content;
+    unreachable;
 }
 
 pub const logLocation = struct {
@@ -88,6 +44,7 @@ pub const logLocation = struct {
             writer.print(level_txt ++ ": " ++ format ++ "\n", args) catch return;
             bw.flush() catch return;
         }
+        unreachable;
     }
 };
 
