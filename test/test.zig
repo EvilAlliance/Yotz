@@ -1,4 +1,9 @@
 const std = @import("std");
+const Folder = @import("Folder.zig");
+const File = @import("File.zig");
+const SubCommand = @import("SubCommand.zig").SubCommand;
+const Result = @import("Result.zig").Result;
+const Test = @import("Test.zig");
 
 fn buildZig(alloc: std.mem.Allocator) !bool {
     std.debug.print("Trying to compile Yotz\n", .{});
@@ -38,322 +43,7 @@ fn buildZig(alloc: std.mem.Allocator) !bool {
     return true;
 }
 
-const Result = enum {
-    NotYet,
-    NotCompiled,
-    Compiled,
-    Updated,
-    Error,
-    Success,
-    Fail,
-    Unknown,
-
-    pub fn toStringSingle(self: @This()) []const u8 {
-        const red = "\x1b[31m";
-        const green = "\x1b[32m";
-        const yellow = "\x1b[33m";
-        const blue = "\x1b[34m";
-        const magenta = "\x1b[35m";
-        const reset = "\x1b[0m";
-
-        return switch (self) {
-            .NotYet => yellow ++ "Y" ++ reset,
-            .NotCompiled => blue ++ "N" ++ reset,
-            .Compiled => yellow ++ "C" ++ reset,
-            .Error => red ++ "E" ++ reset,
-            .Fail => red ++ "F" ++ reset,
-            .Success => green ++ "S" ++ reset,
-            .Updated => green ++ "U" ++ reset,
-            .Unknown => magenta ++ "U" ++ reset,
-        };
-    }
-};
-
-const SubCommand = enum(usize) {
-    Lexer = 0,
-    Parser,
-    Check,
-    Ir,
-    Build,
-    Run,
-    Interprete,
-    All,
-
-    pub fn toSubCommnad(self: @This()) ![]const u8 {
-        return switch (self) {
-            .Lexer => "lex",
-            .Parser => "parse",
-            .Check => "check",
-            .Ir => error.NotYet,
-            .Build => error.NotYet,
-            .Interprete => error.NotYet,
-            .Run => error.NotYet,
-            .All => @panic("Should not do this"),
-        };
-    }
-
-    pub fn toString(self: @This()) []const u8 {
-        return switch (self) {
-            .Lexer => "Lexer",
-            .Parser => "Parser",
-            .Check => "Type Check",
-            .Ir => "Intermediate Representation",
-            .Build => "Build (Assembly)",
-            .Interprete => "ByteCode",
-            .Run => "Program Executed",
-            .All => @panic("Should not do this"),
-        };
-    }
-
-    pub fn toEnum(name: []const u8) @This() {
-        if (std.mem.eql(u8, "lexer", name)) return .Lexer;
-        if (std.mem.eql(u8, "parser", name)) return .Parser;
-        if (std.mem.eql(u8, "check", name)) return .Check;
-        if (std.mem.eql(u8, "ir", name)) return .Ir;
-        if (std.mem.eql(u8, "build", name)) return .Build;
-        if (std.mem.eql(u8, "inter", name)) return .Interprete;
-        if (std.mem.eql(u8, "run", name)) return .Run;
-        if (std.mem.eql(u8, "all", name)) return .All;
-        unreachable;
-    }
-};
-
-const Test = struct {
-    file: File,
-    results: [@typeInfo(SubCommand).@"enum".fields.len]Result = undefined,
-};
-
 const Tests = std.ArrayList(Test);
-
-const File = struct {
-    absolute: []const u8,
-    relative: []const u8,
-
-    fn init(abs: []const u8, rel: []const u8) @This() {
-        return .{ .absolute = abs, .relative = rel };
-    }
-};
-
-fn testSubCommand(
-    alloc: std.mem.Allocator,
-    tests: *Tests,
-    file: File,
-    subCommand: SubCommand,
-    index: usize,
-    generateCheck: bool,
-    fileWithAnswer: []const u8,
-) void {
-    const command = [_][]const u8{
-        "./zig-out/bin/yot",
-        subCommand.toSubCommnad() catch {
-            tests.items[index].results[@intFromEnum(subCommand)] = .NotYet;
-            return;
-        },
-        file.relative,
-        "-s",
-        "-stdout",
-    };
-    var exec = std.process.Child.init(&command, alloc);
-
-    exec.stdout_behavior = .Pipe;
-    exec.stderr_behavior = .Pipe;
-
-    exec.spawn() catch return;
-
-    var stdout: []u8 = undefined;
-    var stderr: []u8 = undefined;
-
-    stdout = exec.stdout.?.reader().readAllAlloc(alloc, std.math.maxInt(u64)) catch return;
-    stderr = exec.stderr.?.reader().readAllAlloc(alloc, std.math.maxInt(u64)) catch return;
-
-    const result = (exec.wait() catch return).Exited;
-
-    if (generateCheck) {
-        const fileAnswer = std.fs.openFileAbsolute(fileWithAnswer, .{ .mode = .read_write }) catch file: {
-            std.fs.makeDirAbsolute(fileWithAnswer[0..std.mem.lastIndexOf(u8, fileWithAnswer, "/").?]) catch |e| {
-                if (e != error.PathAlreadyExists) {
-                    tests.items[index].results[@intFromEnum(subCommand)] = .Fail;
-                    return;
-                }
-            };
-
-            break :file std.fs.createFileAbsolute(fileWithAnswer, .{ .read = true }) catch {
-                tests.items[index].results[@intFromEnum(subCommand)] = .Fail;
-                return;
-            };
-        };
-
-        defer fileAnswer.close();
-
-        const w = fileAnswer.writer();
-
-        // TODO: When args in cmd are implemented this must be changed;
-        w.print(":i argc 0\n", .{}) catch {
-            tests.items[index].results[@intFromEnum(subCommand)] = .Fail;
-            return;
-        };
-        // TODO: When stdin in cmd are implemented this must be changed;
-        w.print(":b stdin 0\n\n", .{}) catch {
-            tests.items[index].results[@intFromEnum(subCommand)] = .Fail;
-            return;
-        };
-
-        w.print(":i returncode {}\n", .{result}) catch {
-            tests.items[index].results[@intFromEnum(subCommand)] = .Fail;
-            return;
-        };
-        w.print(":b stdout {}\n{s}\n", .{ stdout.len, stdout }) catch {
-            tests.items[index].results[@intFromEnum(subCommand)] = .Fail;
-            return;
-        };
-        w.print(":b stderr {}\n{s}\n", .{ stderr.len, stderr }) catch {
-            tests.items[index].results[@intFromEnum(subCommand)] = .Fail;
-            return;
-        };
-
-        tests.items[index].results[@intFromEnum(subCommand)] = .Updated;
-    } else {
-        const fileAnswer = std.fs.openFileAbsolute(fileWithAnswer, .{ .mode = .read_write }) catch {
-            tests.items[index].results[@intFromEnum(subCommand)] = .Error;
-            return;
-        };
-        defer fileAnswer.close();
-
-        const r = fileAnswer.reader();
-
-        // TODO: When args in cmd are implemented this must be changed;
-        r.skipBytes((":i argc 0\n").len, .{}) catch unreachable;
-
-        // TODO: When stdin in cmd are implemented this must be changed;
-        r.skipBytes((":b stdin 0\n\n").len, .{}) catch unreachable;
-
-        r.skipBytes((":i returncode ").len, .{}) catch unreachable;
-
-        var rc = r.readUntilDelimiterAlloc(alloc, '\n', std.math.maxInt(usize)) catch unreachable;
-        const returnCode = std.fmt.parseInt(usize, rc, 10) catch unreachable;
-
-        if (returnCode != result) {
-            tests.items[index].results[@intFromEnum(subCommand)] = .Error;
-            return;
-        }
-
-        tests.items[index].results[@intFromEnum(subCommand)] = .Success;
-
-        r.skipBytes((":b stdout ").len, .{}) catch unreachable;
-        rc = r.readUntilDelimiterAlloc(alloc, '\n', std.math.maxInt(usize)) catch unreachable;
-        const stdoutLen = std.fmt.parseInt(usize, rc, 10) catch unreachable;
-        rc = alloc.alloc(u8, stdoutLen) catch unreachable;
-        _ = r.read(rc) catch unreachable;
-        r.skipBytes(1, .{}) catch unreachable;
-
-        if (!std.mem.eql(u8, rc, stdout)) {
-            tests.items[index].results[@intFromEnum(subCommand)] = .Error;
-            return;
-        }
-
-        r.skipBytes((":b stderr ").len, .{}) catch unreachable;
-        rc = r.readUntilDelimiterAlloc(alloc, '\n', std.math.maxInt(usize)) catch unreachable;
-        const stderrLen = std.fmt.parseInt(usize, rc, 10) catch unreachable;
-        rc = alloc.alloc(u8, stderrLen) catch unreachable;
-        _ = r.read(rc) catch unreachable;
-        r.skipBytes(1, .{}) catch unreachable;
-
-        if (!std.mem.eql(u8, rc, stderr)) {
-            tests.items[index].results[@intFromEnum(subCommand)] = .Error;
-            return;
-        }
-    }
-
-    return;
-}
-
-fn testFile(pool: *std.Thread.Pool, alloc: std.mem.Allocator, subCommand: SubCommand, tests: *Tests, generateCheck: bool, file: File) void {
-    const storageIndex = std.mem.lastIndexOf(u8, file.absolute, "/").?;
-    const extensionIndex = std.mem.lastIndexOf(u8, file.absolute, ".").?;
-    if (std.mem.eql(u8, file.absolute[extensionIndex..], "yt")) unreachable;
-    const index = tests.items.len;
-    tests.append(.{
-        .file = file,
-    }) catch return;
-    inline for (@typeInfo(SubCommand).@"enum".fields) |falseValue| {
-        const value: SubCommand = @enumFromInt(falseValue.value);
-        if (value != .All) {
-            if (subCommand == .All or value != subCommand) {
-                const testStoragePath = std.fmt.allocPrint(alloc, "{s}.{s}/{s}", .{ file.absolute[0 .. storageIndex + 1], file.absolute[storageIndex + 1 .. extensionIndex], falseValue.name }) catch return;
-
-                const fileOP = std.fs.openFileAbsolute(testStoragePath, .{ .mode = .read_only }) catch null;
-                if (fileOP != null or generateCheck) {
-                    pool.spawn(
-                        testSubCommand,
-                        .{
-                            alloc,
-                            tests,
-                            file,
-                            value,
-                            index,
-                            generateCheck,
-                            testStoragePath,
-                        },
-                    ) catch return;
-                } else {
-                    tests.items[index].results[@intFromEnum(value)] = .Unknown;
-                }
-            } else {
-                tests.items[index].results[@intFromEnum(value)] = .Unknown;
-            }
-        }
-    }
-    return;
-}
-
-const Folder = struct {
-    absolute: []const u8,
-    relative: []const u8,
-
-    fn init(abs: []const u8, rel: []const u8) @This() {
-        return .{ .absolute = abs, .relative = rel };
-    }
-};
-
-fn testFolder(pool: *std.Thread.Pool, alloc: std.mem.Allocator, subCommand: SubCommand, tests: *Tests, generateCheck: bool, folder: Folder) void {
-    const children = std.fs.openDirAbsolute(folder.absolute, .{
-        .access_sub_paths = true,
-        .iterate = true,
-    }) catch return;
-
-    var iterator = children.iterate();
-
-    while (iterator.next() catch return) |child| {
-        switch (child.kind) {
-            .directory => {
-                if (child.name[0] == '.') continue;
-                pool.spawn(testFolder, .{
-                    pool,
-                    alloc,
-                    subCommand,
-                    tests,
-                    generateCheck,
-                    Folder.init(
-                        std.fmt.allocPrint(alloc, "{s}/{s}", .{ folder.absolute, child.name }) catch return,
-                        std.fmt.allocPrint(alloc, "{s}/{s}", .{ folder.relative, child.name }) catch return,
-                    ),
-                }) catch return;
-            },
-            .file => pool.spawn(testFile, .{
-                pool,
-                alloc,
-                subCommand,
-                tests,
-                generateCheck,
-                File.init(
-                    std.fmt.allocPrint(alloc, "{s}/{s}", .{ folder.absolute, child.name }) catch return,
-                    std.fmt.allocPrint(alloc, "{s}/{s}", .{ folder.relative, child.name }) catch return,
-                ),
-            }) catch return,
-            else => std.debug.print("Not handle kind {} \n", .{child.kind}),
-        }
-    }
-}
 
 fn testInit(
     alloc: std.mem.Allocator,
@@ -374,31 +64,31 @@ fn testInit(
 
     if (isFolder) |_| {
         pool.spawn(
-            testFolder,
+            Folder.testIt,
             .{
-                &pool,
-                alloc,
-                subCommand,
-                result,
-                generateCheck,
                 Folder.init(
+                    alloc,
                     absPath,
                     FolderOrFile,
+                    &pool,
+                    result,
+                    subCommand,
+                    generateCheck,
                 ),
             },
         ) catch return;
     } else |_| {
         pool.spawn(
-            testFile,
+            File.testIt,
             .{
-                &pool,
-                alloc,
-                subCommand,
-                result,
-                generateCheck,
                 File.init(
+                    alloc,
                     absPath,
                     FolderOrFile,
+                    &pool,
+                    result,
+                    subCommand,
+                    generateCheck,
                 ),
             },
         ) catch return;
