@@ -58,8 +58,8 @@ pub fn testIt(self: @This()) void {
                 .{
                     File.init(
                         self.alloc,
-                        self.absolute,
-                        self.relative,
+                        std.fmt.allocPrint(self.alloc, "{s}/{s}", .{ self.absolute, child.name }) catch return,
+                        std.fmt.allocPrint(self.alloc, "{s}/{s}", .{ self.relative, child.name }) catch return,
                         self.pool,
                         self.tests,
                         self.subCommand,

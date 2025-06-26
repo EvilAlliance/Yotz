@@ -1,4 +1,5 @@
 const std = @import("std");
+const Diffz = @import("DiffMatchPatch.zig");
 const Folder = @import("Folder.zig");
 const File = @import("File.zig");
 const SubCommand = @import("SubCommand.zig").SubCommand;
@@ -59,6 +60,7 @@ fn testInit(
     }) catch return;
 
     const absPath = std.fs.realpathAlloc(alloc, FolderOrFile) catch return;
+    const relative = std.fs.path.resolve(alloc, &.{FolderOrFile}) catch return;
 
     const isFolder = std.fs.openDirAbsolute(absPath, .{});
 
@@ -69,7 +71,7 @@ fn testInit(
                 Folder.init(
                     alloc,
                     absPath,
-                    FolderOrFile,
+                    relative,
                     &pool,
                     result,
                     subCommand,
@@ -84,7 +86,7 @@ fn testInit(
                 File.init(
                     alloc,
                     absPath,
-                    FolderOrFile,
+                    relative,
                     &pool,
                     result,
                     subCommand,
@@ -115,7 +117,7 @@ pub fn main() !u8 {
     if (!try buildZig(alloc)) return 1;
 
     var argIterator = try std.process.ArgIterator.initWithAllocator(alloc);
-    _ = argIterator.next();
+    _ = argIterator.skip();
     const firstArg = argIterator.next() orelse "run";
 
     var result = Tests.init(alloc);
@@ -191,7 +193,7 @@ fn printTests(result: *Tests) void {
 
         for (value.results, 0..) |res, i| {
             if (i == @intFromEnum(SubCommand.All)) continue;
-            std.debug.print("{s} ", .{res.toStringSingle()});
+            std.debug.print("{s} ", .{res.type.toStringSingle()});
         }
 
         std.debug.print("\n", .{});
@@ -210,6 +212,28 @@ fn printTests(result: *Tests) void {
 
             std.debug.print("╚ {s}", .{value.toString()});
             std.debug.print("\n", .{});
+        }
+    }
+
+    for (result.items) |value| {
+        for (value.results) |res| {
+            if (res.type != .Error) continue;
+
+            std.debug.print("{s}: \n", .{value.file.relative});
+
+            if (res.returnCodeDiff) |retCodes| {
+                std.debug.print("Expected {}, Actaul {}", retCodes);
+            }
+
+            if (res.stdout) |stdout| {
+                const text = Diffz.diffPrettyFormatXTerm(result.allocator, stdout) catch @panic("Try again");
+                std.debug.print("Stdout: \n{s}\n", .{text});
+            }
+
+            if (res.stderr) |stderror| {
+                const text = Diffz.diffPrettyFormatXTerm(result.allocator, stderror) catch @panic("Try Again");
+                std.debug.print("Stderror: \n{s}\n", .{text});
+            }
         }
     }
 }

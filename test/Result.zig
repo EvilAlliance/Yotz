@@ -1,4 +1,7 @@
-pub const Result = enum {
+const std = @import("std");
+const Diffz = @import("DiffMatchPatch.zig");
+
+pub const Type = enum {
     NotYet,
     NotCompiled,
     Compiled,
@@ -28,3 +31,8 @@ pub const Result = enum {
         };
     }
 };
+
+type: Type,
+returnCodeDiff: ?struct { i64, i64 } = null,
+stdout: ?std.ArrayListUnmanaged(Diffz.Diff) = null,
+stderr: ?std.ArrayListUnmanaged(Diffz.Diff) = null,
