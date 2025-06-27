@@ -7,6 +7,25 @@ const Result = @import("Result.zig").Result;
 const Test = @import("Test.zig");
 
 fn buildZig(alloc: std.mem.Allocator) !bool {
+    var childs = try std.fs.cwd().openDir(".test", .{ .iterate = true });
+    defer childs.close();
+    var it = childs.iterate();
+    var arr = std.ArrayList([]const u8).init(alloc);
+
+    while (try it.next()) |child| {
+        std.debug.assert(child.kind == .directory);
+        try arr.append(try std.fs.path.join(alloc, &.{ ".test", child.name }));
+    }
+
+    const rmCommand = [_][]const u8{ "rm", "-r" };
+    var rmExec = std.process.Child.init(try std.mem.concat(alloc, []const u8, &.{ &rmCommand, try arr.toOwnedSlice() }), alloc);
+
+    rmExec.stdout_behavior = .Ignore;
+    rmExec.stderr_behavior = .Ignore;
+
+    try rmExec.spawn();
+    _ = try rmExec.wait();
+
     std.debug.print("Trying to compile Yotz\n", .{});
 
     const command = [_][]const u8{ "zig", "build" };
@@ -51,6 +70,7 @@ fn testInit(
     FolderOrFile: []const u8,
     subCommand: SubCommand,
     generateCheck: bool,
+    coverage: bool,
     result: *Tests,
 ) void {
     var pool: std.Thread.Pool = undefined;
@@ -76,6 +96,7 @@ fn testInit(
                     result,
                     subCommand,
                     generateCheck,
+                    coverage,
                 ),
             },
         ) catch return;
@@ -91,6 +112,7 @@ fn testInit(
                     result,
                     subCommand,
                     generateCheck,
+                    coverage,
                 ),
             },
         ) catch return;
@@ -118,7 +140,10 @@ pub fn main() !u8 {
 
     var argIterator = try std.process.ArgIterator.initWithAllocator(alloc);
     _ = argIterator.skip();
-    const firstArg = argIterator.next() orelse "run";
+    const coverage = argIterator.next() orelse "run";
+    const coverageBool = std.mem.eql(u8, "-coverage", coverage);
+    const firstArg = if (coverageBool) argIterator.next() orelse "run" else coverage;
+    var update = false;
 
     var result = Tests.init(alloc);
     result.deinit();
@@ -128,7 +153,8 @@ pub fn main() !u8 {
         if (std.mem.eql(u8, "output", subsubcommand)) {
             const target = argIterator.next() orelse "Example";
             const subcommand = argIterator.next() orelse "all";
-            testInit(alloc, target, SubCommand.toEnum(subcommand), true, &result);
+            update = true;
+            testInit(alloc, target, SubCommand.toEnum(subcommand), true, coverageBool, &result);
         } else if (std.mem.eql(u8, "input", subsubcommand)) {
             @panic("Input unimplemented");
         } else {
@@ -137,10 +163,10 @@ pub fn main() !u8 {
     } else if (std.mem.eql(u8, "run", firstArg)) {
         const target = argIterator.next() orelse "Example";
         const subcommand = argIterator.next() orelse "all";
-        testInit(alloc, target, SubCommand.toEnum(subcommand), false, &result);
+        testInit(alloc, target, SubCommand.toEnum(subcommand), false, coverageBool, &result);
     } else if (std.mem.eql(u8, "help", firstArg)) {
         std.debug.print(
-            "Usage [SUBCOMAND]\n" ++
+            "Usage <-coverage> [SUBCOMAND]\n" ++
                 "   Subcommand:\n" ++
                 "     run <TARGET> <SUBCOMMAND>\n" ++
                 "       Run the test on the [TARGET]. The [TARGET] is either a '*.yt' file or \n" ++
@@ -173,7 +199,25 @@ pub fn main() !u8 {
             .{},
         );
     } else {
-        testInit(alloc, "Example", .All, false, &result);
+        testInit(alloc, "Example", .All, false, coverageBool, &result);
+    }
+
+    var childs = try std.fs.cwd().openDir(".test", .{ .iterate = true });
+    defer childs.close();
+    var it = childs.iterate();
+    var arr = std.ArrayList([]const u8).init(alloc);
+
+    while (try it.next()) |child| {
+        std.debug.assert(child.kind == .directory);
+        try arr.append(try std.fs.path.join(alloc, &.{ ".test", child.name }));
+    }
+
+    if (coverageBool and !update) {
+        const command = [_][]const u8{ "kcov", "--merge", ".test/merge" };
+        var exec = std.process.Child.init(try std.mem.concat(alloc, []const u8, &.{ &command, try arr.toOwnedSlice() }), alloc);
+
+        try exec.spawn();
+        _ = try exec.wait();
     }
 
     printTests(&result);
@@ -222,7 +266,7 @@ fn printTests(result: *Tests) void {
             std.debug.print("{s}: \n", .{value.file.relative});
 
             if (res.returnCodeDiff) |retCodes| {
-                std.debug.print("Expected {}, Actaul {}", retCodes);
+                std.debug.print("Expected {}, Actaul {}\n", retCodes);
             }
 
             if (res.stdout) |stdout| {

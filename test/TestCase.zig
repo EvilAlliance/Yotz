@@ -136,6 +136,7 @@ pub fn compare(expected: *@This(), actual: *@This()) !Result {
     var result = Result{
         .type = .Success,
     };
+
     if (expected.returnCode != actual.returnCode) {
         result.returnCodeDiff = .{ expected.returnCode, actual.returnCode };
     }

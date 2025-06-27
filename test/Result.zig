@@ -2,6 +2,7 @@ const std = @import("std");
 const Diffz = @import("DiffMatchPatch.zig");
 
 pub const Type = enum {
+    Unknown,
     NotYet,
     NotCompiled,
     Compiled,
@@ -9,7 +10,6 @@ pub const Type = enum {
     Error,
     Success,
     Fail,
-    Unknown,
 
     pub fn toStringSingle(self: @This()) []const u8 {
         const red = "\x1b[31m";

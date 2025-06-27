@@ -11,8 +11,9 @@ alloc: std.mem.Allocator,
 pool: *std.Thread.Pool,
 generateCheck: bool,
 tests: *Tests,
+coverage: bool,
 
-pub fn init(alloc: std.mem.Allocator, abs: []const u8, rel: []const u8, pool: *std.Thread.Pool, tests: *Tests, subCommand: SubCommand, generateCheck: bool) @This() {
+pub fn init(alloc: std.mem.Allocator, abs: []const u8, rel: []const u8, pool: *std.Thread.Pool, tests: *Tests, subCommand: SubCommand, generateCheck: bool, coverage: bool) @This() {
     return .{
         .pool = pool,
 
@@ -24,6 +25,8 @@ pub fn init(alloc: std.mem.Allocator, abs: []const u8, rel: []const u8, pool: *s
         .tests = tests,
         .subCommand = subCommand,
         .generateCheck = generateCheck,
+
+        .coverage = coverage,
     };
 }
 
@@ -64,6 +67,7 @@ pub fn testIt(self: @This()) void {
                         self.tests,
                         self.subCommand,
                         self.generateCheck,
+                        self.coverage,
                     ),
                 },
             ) catch return,
