@@ -25,7 +25,12 @@ pub fn init(
 ) @This() {
     var fileAnswer = std.fs.openFileAbsolute(fileAbs, .{ .mode = .read_write }) catch null;
     if (fileAnswer == null) {
-        std.fs.makeDirAbsolute(fileAbs[0..std.mem.lastIndexOf(u8, fileAbs, "/").?]) catch @panic("Could not create a tests directory");
+        std.fs.makeDirAbsolute(fileAbs[0..std.mem.lastIndexOf(u8, fileAbs, "/").?]) catch |e| {
+            switch (e) {
+                error.PathAlreadyExists => {},
+                else => @panic("Could not create a tests directory"),
+            }
+        };
         fileAnswer = std.fs.createFileAbsolute(fileAbs, .{ .read = true }) catch @panic("Could not create file to store test");
     }
 
@@ -52,7 +57,21 @@ pub fn initFromFile(
     alloc: std.mem.Allocator,
     fileAbs: []const u8,
 ) !@This() {
-    var fileAnswer = try std.fs.openFileAbsolute(fileAbs, .{ .mode = .read_write });
+    var fileAnswer = std.fs.openFileAbsolute(fileAbs, .{ .mode = .read_write }) catch {
+        return @This(){
+            .alloc = alloc,
+
+            .args = &[_][]const u8{},
+            .stdin = "",
+            .returnCode = 0,
+            .stdout = "",
+            .stderr = "",
+
+            .file = undefined,
+            .w = undefined,
+            .r = undefined,
+        };
+    };
 
     var self = @This(){
         .alloc = alloc,

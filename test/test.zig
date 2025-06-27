@@ -76,7 +76,7 @@ fn testInit(
     var pool: std.Thread.Pool = undefined;
     pool.init(.{
         .allocator = alloc,
-        .n_jobs = 12,
+        .n_jobs = 20,
     }) catch return;
 
     const absPath = std.fs.realpathAlloc(alloc, FolderOrFile) catch return;
@@ -212,7 +212,7 @@ pub fn main() !u8 {
         try arr.append(try std.fs.path.join(alloc, &.{ ".test", child.name }));
     }
 
-    if (coverageBool and !update) {
+    if (coverageBool and !update and result.items.len > 0) {
         const command = [_][]const u8{ "kcov", "--merge", ".test/merge" };
         var exec = std.process.Child.init(try std.mem.concat(alloc, []const u8, &.{ &command, try arr.toOwnedSlice() }), alloc);
 

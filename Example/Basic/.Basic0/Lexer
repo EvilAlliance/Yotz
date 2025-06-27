@@ -18,11 +18,3 @@ Example/Basic/Basic0.yt:4:1 EOF (EOF)
 
 :b stderr 0
 
-5 return (ret)
-/home/pedro/Project/Yotz/Example/Basic/Basic0.yt:2:12 1 (numberLiteral)
-/home/pedro/Project/Yotz/Example/Basic/Basic0.yt:2:13 ; (semicolon)
-/home/pedro/Project/Yotz/Example/Basic/Basic0.yt:3:1 } (closeBrace)
-/home/pedro/Project/Yotz/Example/Basic/Basic0.yt:4:1 EOF (EOF)
-
-:b stderr 0
-

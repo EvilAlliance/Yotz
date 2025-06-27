@@ -85,11 +85,12 @@ fn testSubCommand(
     subCommand: SubCommand,
     fileWithAnswer: []const u8,
 ) void {
-    var expected = TestCase.initFromFile(self.alloc, fileWithAnswer) catch {
+    var expected: TestCase = undefined;
+    expected = TestCase.initFromFile(self.alloc, fileWithAnswer) catch {
         self.tests.items[index].results[@intFromEnum(subCommand)].type = .Fail;
         return;
     };
-    defer expected.deinit();
+    defer if (!self.generateCheck) expected.deinit();
 
     mutexI.lock();
     i += 1;
@@ -149,6 +150,7 @@ fn testSubCommand(
         self.tests.items[index].results[@intFromEnum(subCommand)].type = .Fail;
         return;
     };
+
     const result = (exec.wait() catch {
         self.tests.items[index].results[@intFromEnum(subCommand)].type = .Fail;
         return;

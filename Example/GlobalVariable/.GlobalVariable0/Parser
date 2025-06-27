@@ -1,0 +1,12 @@
+:i argc 0
+:b stdin 0
+
+:i returncode 0
+:b stdout 43
+a :: 10;
+main :: () u8 { 
+    return a;
+} 
+
+:b stderr 0
+
