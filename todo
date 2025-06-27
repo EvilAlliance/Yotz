@@ -147,7 +147,8 @@
         "title": "When a variable with infed type from use check if type is there  and do not add it a again",
         "desc": "",
         "time_created": "2025-06-05 22:13:33.982107985 -03:00:00",
-        "time_started": "2025-06-06 11:59:43.019584133 -03:00:00"
+        "time_started": "2025-06-06 11:59:43.019584133 -03:00:00",
+        "time_completed": "2025-06-27 11:19:05.292906932 -03:00:00"
       },
       {
         "id": "r9hwDqbh",
@@ -161,11 +162,12 @@
         "id": "zKKgeaq7",
         "title": "Separate Error to a struct",
         "desc": "Could do the same with Info",
-        "time_created": "2025-06-06 11:57:09.543069641 -03:00:00"
+        "time_created": "2025-06-06 11:57:09.543069641 -03:00:00",
+        "time_completed": "2025-06-27 11:19:11.529615987 -03:00:00"
       },
       {
         "id": "3t28BVzt",
-        "title": "Make Parser better error recovery",
+        "title": "Make Parser better error recovery For function",
         "desc": "",
         "time_created": "2025-06-06 19:07:23.099283545 -03:00:00"
       }
