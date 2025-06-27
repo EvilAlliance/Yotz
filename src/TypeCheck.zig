@@ -106,7 +106,7 @@ const TypeChecker = struct {
                 switch (checkPoint.t) {
                     .unknownIdentifier => {
                         const node = ast.getNode(checkPoint.dep);
-                        _ = checker.searchVariableScope(node.getTextAst(ast.*)) orelse {
+                        _ = checker.searchVariableScope(node.getTextAst(ast)) orelse {
                             i += 1;
                             continue;
                         };
@@ -187,7 +187,7 @@ const TypeChecker = struct {
             const exprI = variable.data[1];
             const expr = self.ast.getNode(exprI);
 
-            if (self.searchVariableScope(variable.getTextAst(self.ast.*))) |variableJ| {
+            if (self.searchVariableScope(variable.getTextAst(self.ast))) |variableJ| {
                 self.message.err.identifierIsUsed(variableI, variableJ);
                 self.message.info.isDeclaredHere(variableJ);
 
@@ -195,7 +195,7 @@ const TypeChecker = struct {
                 return;
             }
 
-            try self.addVariableScope(variable.getTextAst(self.ast.*), variableI, .global);
+            try self.addVariableScope(variable.getTextAst(self.ast), variableI, .global);
 
             switch (expr.tag) {
                 .funcProto => {
@@ -221,16 +221,17 @@ const TypeChecker = struct {
                 => {
                     if (tI != 0) {
                         try self.checkExpressionExpectedType(exprI, tI);
-                    } else {
-                        // try self.checkPoints.append(.{
-                        //     .t = .inferVariableType,
-                        //     .dep = exprI,
-                        //     .scopes = try self.scopes.deepClone(),
-                        //
-                        //     .state = null,
-                        //     .expectedTypeI = 0,
-                        // });
                     }
+                    // else {
+                    // try self.checkPoints.append(.{
+                    //     .t = .inferVariableType,
+                    //     .dep = exprI,
+                    //     .scopes = try self.scopes.deepClone(),
+                    //
+                    //     .state = null,
+                    //     .expectedTypeI = 0,
+                    // });
+                    // }
                 },
                 else => {
                     self.message.err.nodeNotSupported(variableI);
@@ -317,7 +318,7 @@ const TypeChecker = struct {
         const node = self.ast.getNode(nodeI);
         std.debug.assert(node.tag == .funcProto);
 
-        const name = node.getTextAst(self.ast.*);
+        const name = node.getTextAst(self.ast);
 
         // TODO: Move this where it belongs
         if (std.mem.eql(u8, name, "_start")) {
@@ -381,7 +382,7 @@ const TypeChecker = struct {
                 try self.checkExpressionExpectedType(stmt.data[0], retTypeI);
             },
             .variable, .constant => {
-                if (self.searchVariableScope(stmt.getTextAst(self.ast.*))) |variableI| {
+                if (self.searchVariableScope(stmt.getTextAst(self.ast))) |variableI| {
                     self.message.err.identifierIsUsed(stmtI, variableI);
                     self.message.info.isDeclaredHere(variableI);
 
@@ -390,7 +391,7 @@ const TypeChecker = struct {
                     return;
                 }
 
-                try self.addVariableScope(stmt.getTextAst(self.ast.*), stmtI, .local);
+                try self.addVariableScope(stmt.getTextAst(self.ast), stmtI, .local);
 
                 const exprI = stmt.data[1];
 
@@ -404,7 +405,6 @@ const TypeChecker = struct {
                     if (posibleType == 0) return;
 
                     var nodeType = self.ast.getNode(posibleType);
-                    Logger.log.err("{}", .{posibleType});
                     nodeType.tokenIndex = loc;
                     nodeType.flags |= @intFromEnum(Parser.Node.Flag.inferedFromExpression);
                     const x = try nl.addNode(self.ast.nodeList, nodeType);
@@ -459,43 +459,62 @@ const TypeChecker = struct {
         switch (leaf.tag) {
             .lit => self.checkValueForType(leafI, expectedTypeI),
             .load => {
-                const variableI = self.searchVariableScope(leaf.getTextAst(self.ast.*)) orelse return .unknownIdentifier;
+                const variableI = self.searchVariableScope(leaf.getTextAst(self.ast)) orelse return .unknownIdentifier;
 
                 const variable = self.ast.getNode(variableI);
                 const t = self.ast.nodeList.items[variable.data[0]];
 
-                if (variable.data[0] != 0 and (t.flags & @intFromEnum(Parser.Node.Flag.inferedFromExpression)) != 0) {
+                if (variable.data[0] != 0 and (t.flags == 0 or (t.flags & @intFromEnum(Parser.Node.Flag.inferedFromExpression)) != 0)) {
 
                     // TODO: Can be cast to type
                     if (!self.canTypeBeCoerced(variable.data[0], expectedTypeI)) {
+                        const locExpr = leaf.getLocationAst(self.ast.*);
+                        self.message.err.incompatibleType(expectedTypeI, variable.data[0], locExpr);
+                        self.message.info.isDeclaredHere(variableI);
                         if ((t.flags & @intFromEnum(Parser.Node.Flag.inferedFromUse)) | (t.flags & @intFromEnum(Parser.Node.Flag.inferedFromExpression)) != 0) {
-                            const locExpr = leaf.getLocationAst(self.ast.*);
-                            self.message.err.incompatibleType(expectedTypeI, variable.data[0], locExpr);
-                            self.message.info.isDeclaredHere(variableI);
                             self.message.info.inferedType(variable.data[0]);
                         } else {
-                            const locExpr = leaf.getLocationAst(self.ast.*);
-                            self.message.err.incompatibleType(expectedTypeI, variable.data[0], locExpr);
                             self.message.info.isDeclaredHere(variableI);
                         }
                         self.errs += 1;
                     } else {
-                        self.ast.getNodePtr(leafI).flags |= @intFromEnum(Parser.Node.Flag.implicitCast);
+                        if (!self.typeEqual(variable.data[0], expectedTypeI)) self.ast.getNodePtr(leafI).flags |= @intFromEnum(Parser.Node.Flag.implicitCast);
                     }
                 } else {
                     var tIndex = variable.data[0];
-                    while (tIndex != 0 and self.canTypeBeCoerced(tIndex, expectedTypeI)) : (tIndex = self.ast.getNode(tIndex).next) {}
+                    while (variable.tag == .constant and tIndex != 0 and self.canTypeBeCoerced(tIndex, expectedTypeI) and !self.typeEqual(tIndex, expectedTypeI)) : (tIndex = self.ast.getNode(tIndex).next) {}
                     if (tIndex == 0) {
-                        var nodeType = self.ast.getNode(expectedTypeI);
-                        nodeType.tokenIndex = leaf.tokenIndex;
-                        nodeType.flags |= @intFromEnum(Parser.Node.Flag.inferedFromUse);
-                        const x = try nl.addNode(self.ast.nodeList, nodeType);
-                        self.ast.getNodePtr(x).next = variable.data[0];
-                        self.ast.getNodePtr(variableI).data[0] = x;
+                        try self.checkExpressionExpectedType(variable.data[1], expectedTypeI);
+                        const err = self.errs;
+                        if (self.errs == err) {
+                            var nodeType = self.ast.getNode(expectedTypeI);
+                            nodeType.flags = 0;
+                            nodeType.tokenIndex = leaf.tokenIndex;
+                            nodeType.flags |= @intFromEnum(Parser.Node.Flag.inferedFromUse);
+                            const x = try nl.addNode(self.ast.nodeList, nodeType);
+                            self.ast.getNodePtr(x).next = variable.data[0];
+                            self.ast.getNodePtr(variableI).data[0] = x;
+                        }
                     } else {
-                        const typeNode = self.ast.getNodePtr(variable.data[0]);
-                        typeNode.tokenIndex = leaf.tokenIndex;
-                        typeNode.data = expectedType.data;
+                        if (variable.tag == .variable) {
+                            const locExpr = leaf.getLocationAst(self.ast.*);
+                            self.message.err.incompatibleType(expectedTypeI, tIndex, locExpr);
+                            self.message.info.isDeclaredHere(variableI);
+
+                            if ((t.flags & @intFromEnum(Parser.Node.Flag.inferedFromUse)) | (t.flags & @intFromEnum(Parser.Node.Flag.inferedFromExpression)) != 0) {
+                                self.message.info.inferedType(variable.data[0]);
+                            } else {
+                                self.message.info.isDeclaredHere(variableI);
+                            }
+                        }
+
+                        const err = self.errs;
+                        try self.checkExpressionExpectedType(variable.data[1], expectedTypeI);
+                        if (self.errs == err) {
+                            const typeNode = self.ast.getNodePtr(variable.data[0]);
+                            typeNode.tokenIndex = leaf.tokenIndex;
+                            typeNode.data = expectedType.data;
+                        }
                     }
                 }
             },
@@ -669,7 +688,7 @@ const TypeChecker = struct {
         const expectedType = self.ast.getNode(expectedTypeI);
         std.debug.assert(expectedType.tag == .type);
 
-        const text = expr.getTextAst(self.ast.*);
+        const text = expr.getTextAst(self.ast);
         switch (@as(Parser.Node.Primitive, @enumFromInt(expectedType.data[1]))) {
             Parser.Node.Primitive.uint => {
                 const max = std.math.pow(u64, 2, expectedType.data[0]) - 1;

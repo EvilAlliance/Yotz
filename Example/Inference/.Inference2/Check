@@ -1,0 +1,16 @@
+:i argc 0
+:b stdin 0
+
+:i returncode 0
+:b stdout 71
+main: () u8 : () u8 { 
+    a: u8 = 8;
+    b: u16 = a;
+    return a;
+} 
+
+:b stderr 109
+[ERROR]: Example/Inference/Inference2.yt:6:12: Type u8, is incompatible with u16 
+    return a;
+           ^
+

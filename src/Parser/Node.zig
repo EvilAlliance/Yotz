@@ -63,7 +63,7 @@ pub inline fn getTokenTagAst(self: *const @This(), ast: Parser.Ast) Lexer.TokenT
     return ast.tokens[self.tokenIndex].tag;
 }
 
-pub inline fn getTextAst(self: *const @This(), ast: Parser.Ast) []const u8 {
+pub inline fn getTextAst(self: *const @This(), ast: *const Parser.Ast) []const u8 {
     return ast.tokens[self.tokenIndex].getText(ast.source);
 }
 

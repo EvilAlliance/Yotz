@@ -1,0 +1,15 @@
+:i argc 0
+:b stdin 0
+
+:i returncode 0
+:b stdout 115
+main: () u8 : () u8 { 
+    a: u8 = 10;
+    b: u8 = (a + 20);
+    c: u8 = 30;
+    e: u8 = (b + c);
+    return e;
+} 
+
+:b stderr 0
+

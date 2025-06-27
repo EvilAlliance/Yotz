@@ -15,6 +15,16 @@ generateCheck: bool,
 tests: *Tests,
 coverage: bool,
 
+fn toUniqueNumber(term: std.process.Child.Term) u32 {
+    const tag = @as(u32, @intFromEnum(term));
+    const value = switch (term) {
+        .Exited => |code| @as(u32, code),
+        .Signal => |sig| sig,
+        .Stopped => |sig| sig,
+        .Unknown => |val| val,
+    };
+    return (tag << 28) ^ @mulWithOverflow(value, 0x9E3779B9)[0];
+}
 pub fn init(alloc: std.mem.Allocator, abs: []const u8, rel: []const u8, pool: *std.Thread.Pool, tests: *Tests, subCommand: SubCommand, generateCheck: bool, coverage: bool) @This() {
     return .{
         .pool = pool,
@@ -53,7 +63,7 @@ pub fn testIt(self: @This()) void {
         const value: SubCommand = @enumFromInt(falseValue.value);
 
         if (value == .All) continue;
-        if (self.subCommand == .All or value != self.subCommand) {
+        if (self.subCommand == .All or value == self.subCommand) {
             const testStoragePath = std.fmt.allocPrint(self.alloc, "{s}.{s}/{s}", .{ self.absolute[0 .. storageIndex + 1], self.absolute[storageIndex + 1 .. extensionIndex], falseValue.name }) catch @panic("Could not form file were the test is saved");
 
             const fileOP = std.fs.openFileAbsolute(testStoragePath, .{ .mode = .read_only }) catch null;
@@ -151,10 +161,10 @@ fn testSubCommand(
         return;
     };
 
-    const result = (exec.wait() catch {
+    const result = toUniqueNumber(exec.wait() catch {
         self.tests.items[index].results[@intFromEnum(subCommand)].type = .Fail;
         return;
-    }).Exited;
+    });
 
     var actual = TestCase.init(self.alloc, fileWithAnswer, &[0][]const u8{}, expected.stdin, result, stdout, stderr);
     defer actual.deinit();

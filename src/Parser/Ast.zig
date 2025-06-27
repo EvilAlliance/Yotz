@@ -101,7 +101,7 @@ fn toStringType(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser.Node
         const t = self.nodeList.items[index];
 
         switch (t.tag) {
-            .typeExpression => try cont.appendSlice(t.getTextAst(self.*)),
+            .typeExpression => try cont.appendSlice(t.getTextAst(self)),
             .funcType => {
                 std.debug.assert(t.data[0] == 0);
                 try cont.appendSlice("() ");
@@ -178,7 +178,7 @@ fn tostringVariable(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser.
     const variable = self.nodeList.items[i];
     std.debug.assert(variable.tag == .constant or variable.tag == .variable);
 
-    try cont.appendSlice(variable.getTextAst(self.*));
+    try cont.appendSlice(variable.getTextAst(self));
 
     if (variable.data[0] == 0)
         try cont.append(' ');
@@ -228,10 +228,10 @@ fn toStringExpression(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parse
             try cont.append(')');
         },
         .load => {
-            try cont.appendSlice(node.getTextAst(self.*));
+            try cont.appendSlice(node.getTextAst(self));
         },
         .lit => {
-            try cont.appendSlice(node.getTextAst(self.*));
+            try cont.appendSlice(node.getTextAst(self));
         },
         else => unreachable,
     }

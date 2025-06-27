@@ -20,7 +20,7 @@ pub fn placeSlice(location: Lexer.Location, content: [:0]const u8) struct { beg:
     return .{
         .beg = beg,
         .end = end,
-        .pad = location.col + 1,
+        .pad = location.col,
     };
 }
 
@@ -89,7 +89,7 @@ const Error = struct {
                 self.ast.path,
                 locStmt.row,
                 locStmt.col,
-                varia.getTextAst(self.ast.*),
+                varia.getTextAst(self.ast),
                 self.ast.source[where.beg..where.end],
                 '^',
                 where.pad,
@@ -191,7 +191,7 @@ const Info = struct {
                 self.ast.path,
                 locVar.row,
                 locVar.col,
-                varia.getTextAst(self.ast.*),
+                varia.getTextAst(self.ast),
                 self.ast.source[where.beg..where.end],
                 '^',
                 where.pad,
