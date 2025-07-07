@@ -5,10 +5,6 @@ const Allocator = std.mem.Allocator;
 
 const Util = @import("../Util.zig");
 const gen = @import("../General.zig");
-const tb = @import("../libs/tb/tb.zig");
-const tbHelper = @import("../TBHelper.zig");
-
-const getType = tbHelper.getType;
 
 const message = gen.message;
 

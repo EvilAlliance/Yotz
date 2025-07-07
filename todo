@@ -167,9 +167,15 @@
       },
       {
         "id": "3t28BVzt",
-        "title": "Make Parser better error recovery For function",
+        "title": "Make Parser better error recovery For function, if etc",
         "desc": "",
         "time_created": "2025-06-06 19:07:23.099283545 -03:00:00"
+      },
+      {
+        "id": "AHzzxJdF",
+        "title": "Make Sea of Node for Basic",
+        "desc": "",
+        "time_created": "2025-06-28 15:39:59.30718597 -03:00:00"
       }
     ]
   }

@@ -22,12 +22,17 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const ziglangSet = b.dependency("ziglangSet", .{});
-    exe.root_module.addImport("Set", ziglangSet.module("ziglangSet"));
+    // Fake "dependency" — local module setup
+    const by = b.addModule("BollYotz", .{
+        .root_source_file = b.path("BollYotz/main.zig"),
+    });
 
-    exe.addIncludePath(b.path("./src/libs"));
-    exe.addObjectFile(b.path("./src/libs/tb.a")); // Adjust the path and filename
-    exe.linkLibC();
+    // Register it under the name "Set"
+    exe.root_module.addImport("BollYotz", by);
+
+    // exe.addIncludePath(b.path("./src/libs"));
+    // exe.addObjectFile(b.path("./src/libs/tb.a")); // Adjust the path and filename
+    // exe.linkLibC();
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
