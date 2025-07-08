@@ -9,25 +9,9 @@ const nl = @import("./../Parser/NodeListUtil.zig");
 
 const Scopes = @import("./Scopes.zig");
 const Context = @import("./Context.zig");
+const CheckPoint = @import("./CheckPoint.zig");
 
-const FlattenExpression = std.ArrayList(Parser.NodeIndex);
-
-const CheckPoint = struct {
-    const Type = enum {
-        unknownIdentifier,
-    };
-
-    scopes: Scopes,
-
-    t: Type,
-
-    dep: Parser.NodeIndex,
-    state: ?*FlattenExpression,
-
-    expectedTypeI: Parser.NodeIndex,
-};
-
-const TypeChecker = struct {
+pub const TypeChecker = struct {
     const Self = @This();
 
     message: Message,
@@ -56,61 +40,7 @@ const TypeChecker = struct {
         defer checker.deinit();
 
         try checker.checkGlobalScope();
-        var changed = true;
-
-        while (changed) {
-            changed = false;
-            var i: usize = 0;
-            while (i < checker.checkPoints.items.len) {
-                var checkPoint = checker.checkPoints.items[i];
-                switch (checkPoint.t) {
-                    .unknownIdentifier => {
-                        const node = ast.getNode(checkPoint.dep);
-                        _ = checker.ctx.searchVariableScope(node.getTextAst(ast)) orelse {
-                            i += 1;
-                            continue;
-                        };
-                        changed = true;
-
-                        const temp = checker.ctx.swap(checkPoint.scopes);
-
-                        _ = checker.checkPoints.swapRemove(i);
-
-                        try checker.checkFlattenExpression(checkPoint.state.?, checkPoint.expectedTypeI);
-
-                        checker.ctx.restore(temp);
-
-                        checkPoint.scopes.deinit();
-                    },
-                    // .inferVariableType => {
-                    //     const node = ast.getNode(checkPoint.dep);
-                    //
-                    //     if (node.data[0] == 0) {
-                    //         i += 1;
-                    //         continue;
-                    //     }
-                    //
-                    //     const temp = checker.scopes;
-                    //     checker.scopes = checkPoint.scopes;
-                    //
-                    //     _ = checker.checkPoints.swapRemove(i);
-                    //
-                    //     var t = node.data[0];
-                    //     while (t != 0) : (t = ast.getNode(t).next) {
-                    //         try checker.checkExpressionExpectedType(node.data[1], t);
-                    //     }
-                    //
-                    //     checker.scopes = temp;
-                    //     checkPoint.scopes.deinit();
-                    // },
-                }
-            }
-        }
-
-        for (checker.checkPoints.items) |checkPoint| {
-            _ = checkPoint;
-            unreachable;
-        }
+        try checker.resolveCheckPoint();
 
         if (checker.ctx.searchVariableScope("main")) |mainVariableI| {
             const mainVariable = ast.getNode(mainVariableI);
@@ -198,6 +128,27 @@ const TypeChecker = struct {
 
     pub fn deinit(self: *Self) void {
         self.ctx.deinit();
+    }
+
+    fn resolveCheckPoint(self: *Self) std.mem.Allocator.Error!void {
+        var changed = true;
+
+        while (changed) {
+            changed = false;
+            var i: usize = 0;
+            while (i < self.checkPoints.items.len) {
+                var checkPoint = self.checkPoints.items[i];
+                if (try checkPoint.resolve(self)) {
+                    _ = self.checkPoints.swapRemove(i);
+                    changed = true;
+                } else {
+                    i += 1;
+                }
+            }
+        }
+
+        for (self.checkPoints.items) |*checkPoint|
+            checkPoint.report(self);
     }
 
     fn _transformType(t: Lexer.Token) struct { Parser.NodeIndex, Parser.NodeIndex } {
@@ -332,7 +283,7 @@ const TypeChecker = struct {
         }
     }
 
-    fn flattenExpression(self: *Self, stack: *FlattenExpression, exprI: Parser.NodeIndex) std.mem.Allocator.Error!void {
+    fn flattenExpression(self: *Self, stack: *CheckPoint.FlattenExpression, exprI: Parser.NodeIndex) std.mem.Allocator.Error!void {
         const expr = self.ast.getNode(exprI);
         std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, expr.tag));
 
@@ -439,8 +390,8 @@ const TypeChecker = struct {
         const expr = self.ast.getNode(exprI);
         std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, expr.tag));
 
-        const flat = try self.alloc.create(FlattenExpression);
-        flat.* = FlattenExpression.init(self.alloc);
+        const flat = try self.alloc.create(CheckPoint.FlattenExpression);
+        flat.* = CheckPoint.FlattenExpression.init(self.alloc);
 
         try self.flattenExpression(flat, exprI);
 
@@ -485,15 +436,15 @@ const TypeChecker = struct {
         std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, expr.tag));
 
         // deinit int checkFlattenExpression
-        const flat = try self.alloc.create(FlattenExpression);
-        flat.* = FlattenExpression.init(self.alloc);
+        const flat = try self.alloc.create(CheckPoint.FlattenExpression);
+        flat.* = CheckPoint.FlattenExpression.init(self.alloc);
 
         try self.flattenExpression(flat, exprI);
 
         try self.checkFlattenExpression(flat, expectedTypeI);
     }
 
-    pub fn checkFlattenExpression(self: *Self, flat: *FlattenExpression, expectedTypeI: Parser.NodeIndex) std.mem.Allocator.Error!void {
+    pub fn checkFlattenExpression(self: *Self, flat: *CheckPoint.FlattenExpression, expectedTypeI: Parser.NodeIndex) std.mem.Allocator.Error!void {
         const expectedType = self.ast.getNode(expectedTypeI);
         defer if (flat.items.len == 0) {
             flat.deinit();

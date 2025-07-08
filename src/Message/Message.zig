@@ -97,6 +97,24 @@ const Error = struct {
         );
     }
 
+    pub inline fn unknownIdentifier(self: @This(), unkownNode: Parser.NodeIndex) void {
+        const stmt = self.ast.getNode(unkownNode);
+        const locStmt = stmt.getLocationAst(self.ast.*);
+        const where = placeSlice(locStmt, self.ast.source);
+        Logger.log.err(
+            "{s}:{}:{}: Unknown identifier '{s}' \n{s}\n{[5]c: >[6]}",
+            .{
+                self.ast.path,
+                locStmt.row,
+                locStmt.col,
+                stmt.getTextAst(self.ast),
+                self.ast.source[where.beg..where.end],
+                '^',
+                where.pad,
+            },
+        );
+    }
+
     pub inline fn identifierNotAvailable(self: @This(), iden: []const u8, loc: Lexer.Location) void {
         const where = placeSlice(loc, self.ast.source);
         Logger.log.err(

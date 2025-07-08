@@ -48,7 +48,7 @@ pub inline fn getNodeName(self: *@This(), i: Parser.NodeIndex) []const u8 {
     return self.getToken(node.tokenIndex).tag.getName();
 }
 
-pub inline fn getNode(self: *@This(), i: Parser.NodeIndex) Parser.Node {
+pub fn getNode(self: *@This(), i: Parser.NodeIndex) Parser.Node {
     return self.nodeList.items[i];
 }
 
