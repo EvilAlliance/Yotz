@@ -7,7 +7,11 @@ const Result = @import("Result.zig").Result;
 const Test = @import("Test.zig");
 
 fn buildZig(alloc: std.mem.Allocator) !bool {
-    var childs = try std.fs.cwd().openDir(".test", .{ .iterate = true });
+    var childs = std.fs.cwd().openDir(".test", .{ .iterate = true }) catch res: {
+        try std.fs.cwd().makeDir(".test");
+        break :res try std.fs.cwd().openDir(".test", .{ .iterate = true });
+    };
+
     defer childs.close();
     var it = childs.iterate();
     var arr = std.ArrayList([]const u8).init(alloc);
