@@ -6,12 +6,12 @@ jobs:
     runs-on: ubuntu-latest
     name: Test of Compiler
     steps:
-    - name: Clone GIT repo
-      uses: actions/checkout@v4
-    - name: Setup Zig
-      uses: korandoru/setup-zig@v1
-      with:
-        zig-version: 0.14.1
+      - name: Clone GIT repo
+        uses: actions/checkout@v4
+      - name: Setup Zig
+        uses: korandoru/setup-zig@v1
+        with:
+          zig-version: 0.14.1
 
-    - name: All Test
-      run: zig build test
+      - name: All Test
+        run: zig build test
