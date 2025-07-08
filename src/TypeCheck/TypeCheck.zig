@@ -112,8 +112,6 @@ const TypeChecker = struct {
             unreachable;
         }
 
-        // TODO: Pass this to the new format
-
         if (checker.ctx.searchVariableScope("main")) |mainVariableI| {
             const mainVariable = ast.getNode(mainVariableI);
             const expr = ast.getNode(mainVariable.data[1]);
@@ -381,8 +379,6 @@ const TypeChecker = struct {
                 const t = self.ast.nodeList.items[variable.data[0]];
 
                 if (variable.data[0] != 0 and (t.flags == 0 or (t.flags & @intFromEnum(Parser.Node.Flag.inferedFromExpression)) != 0)) {
-
-                    // TODO: Can be cast to type
                     if (!self.canTypeBeCoerced(variable.data[0], expectedTypeI)) {
                         const locExpr = leaf.getLocationAst(self.ast.*);
                         self.message.err.incompatibleType(expectedTypeI, variable.data[0], locExpr);
