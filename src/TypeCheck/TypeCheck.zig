@@ -1,52 +1,14 @@
 const std = @import("std");
-const Util = @import("Util.zig");
-const Logger = @import("Logger.zig");
-const Lexer = @import("Lexer/Lexer.zig");
-const Message = @import("./Message/Message.zig");
+const Util = @import("./../Util.zig");
+const Logger = @import("./../Logger.zig");
+const Lexer = @import("./../Lexer/Lexer.zig");
+const Message = @import("./../Message/Message.zig");
 
-const Parser = @import("./Parser/Parser.zig");
-const nl = @import("./Parser/NodeListUtil.zig");
+const Parser = @import("./../Parser/Parser.zig");
+const nl = @import("./../Parser/NodeListUtil.zig");
 
-const Scope = std.StringHashMap(Parser.NodeIndex);
-const Scopes = struct {
-    list: std.ArrayList(Scope),
-
-    pub fn init(alloc: std.mem.Allocator) @This() {
-        return .{ .list = std.ArrayList(Scope).init(alloc) };
-    }
-
-    pub fn deinit(self: *@This()) void {
-        for (self.list.items) |*value| {
-            value.deinit();
-        }
-        self.list.deinit();
-    }
-
-    pub inline fn len(self: @This()) usize {
-        return self.list.items.len;
-    }
-
-    pub inline fn items(self: @This()) []Scope {
-        return self.list.items;
-    }
-
-    pub inline fn append(self: *@This(), scope: Scope) std.mem.Allocator.Error!void {
-        return self.list.append(scope);
-    }
-
-    pub inline fn pop(self: *@This()) ?Scope {
-        return self.list.pop();
-    }
-
-    pub fn deepClone(self: @This()) std.mem.Allocator.Error!@This() {
-        var x: @This() = .{ .list = std.ArrayList(Scope).init(self.list.allocator) };
-        for (self.list.items) |value| {
-            try x.append(try value.clone());
-        }
-
-        return x;
-    }
-};
+const Scopes = @import("./Scopes.zig");
+const Context = @import("./Context.zig");
 
 const FlattenExpression = std.ArrayList(Parser.NodeIndex);
 
@@ -66,7 +28,6 @@ const CheckPoint = struct {
 };
 
 const TypeChecker = struct {
-    const ScopeLevel = enum { global, local };
     const Self = @This();
 
     message: Message,
@@ -76,10 +37,10 @@ const TypeChecker = struct {
     alloc: std.mem.Allocator,
 
     ast: *Parser.Ast,
-    scopes: Scopes,
-    globalScope: Scope,
 
     foundMain: ?Parser.Node = null,
+
+    ctx: Context,
 
     checkPoints: std.ArrayList(CheckPoint),
 
@@ -87,9 +48,8 @@ const TypeChecker = struct {
         var checker = @This(){
             .alloc = alloc,
             .ast = ast,
-            .globalScope = Scope.init(alloc),
-            .scopes = Scopes.init(alloc),
             .checkPoints = std.ArrayList(CheckPoint).init(alloc),
+            .ctx = Context.init(alloc),
             .message = Message.init(ast),
         };
 
@@ -106,20 +66,19 @@ const TypeChecker = struct {
                 switch (checkPoint.t) {
                     .unknownIdentifier => {
                         const node = ast.getNode(checkPoint.dep);
-                        _ = checker.searchVariableScope(node.getTextAst(ast)) orelse {
+                        _ = checker.ctx.searchVariableScope(node.getTextAst(ast)) orelse {
                             i += 1;
                             continue;
                         };
                         changed = true;
 
-                        const temp = checker.scopes;
-                        checker.scopes = checkPoint.scopes;
+                        const temp = checker.ctx.swap(checkPoint.scopes);
 
                         _ = checker.checkPoints.swapRemove(i);
 
                         try checker.checkFlattenExpression(checkPoint.state.?, checkPoint.expectedTypeI);
 
-                        checker.scopes = temp;
+                        checker.ctx.restore(temp);
 
                         checkPoint.scopes.deinit();
                     },
@@ -155,7 +114,7 @@ const TypeChecker = struct {
 
         // TODO: Pass this to the new format
 
-        if (checker.searchVariableScope("main")) |mainVariableI| {
+        if (checker.ctx.searchVariableScope("main")) |mainVariableI| {
             const mainVariable = ast.getNode(mainVariableI);
             const expr = ast.getNode(mainVariable.data[1]);
             if (expr.tag == .funcProto) {
@@ -176,6 +135,13 @@ const TypeChecker = struct {
             checker.errs += 1;
         }
 
+        if (checker.ctx.searchVariableScope("_start")) |_startVariableI| {
+            const _start = ast.getNode(_startVariableI);
+            const loc = _start.getLocationAst(ast.*);
+            checker.message.err.identifierNotAvailable("_start", loc);
+            checker.errs += 1;
+        }
+
         return checker.errs > 0;
     }
 
@@ -187,7 +153,7 @@ const TypeChecker = struct {
             const exprI = variable.data[1];
             const expr = self.ast.getNode(exprI);
 
-            if (self.searchVariableScope(variable.getTextAst(self.ast))) |variableJ| {
+            if (self.ctx.searchVariableScope(variable.getTextAst(self.ast))) |variableJ| {
                 self.message.err.identifierIsUsed(variableI, variableJ);
                 self.message.info.isDeclaredHere(variableJ);
 
@@ -195,7 +161,7 @@ const TypeChecker = struct {
                 return;
             }
 
-            try self.addVariableScope(variable.getTextAst(self.ast), variableI, .global);
+            try self.ctx.addVariableScope(variable.getTextAst(self.ast), variableI, .global);
 
             switch (expr.tag) {
                 .funcProto => {
@@ -222,16 +188,7 @@ const TypeChecker = struct {
                     if (tI != 0) {
                         try self.checkExpressionExpectedType(exprI, tI);
                     }
-                    // else {
-                    // try self.checkPoints.append(.{
-                    //     .t = .inferVariableType,
-                    //     .dep = exprI,
-                    //     .scopes = try self.scopes.deepClone(),
-                    //
-                    //     .state = null,
-                    //     .expectedTypeI = 0,
-                    // });
-                    // }
+                    // WARNING: This can cause that this is not infered and cause problems
                 },
                 else => {
                     self.message.err.nodeNotSupported(variableI);
@@ -241,35 +198,8 @@ const TypeChecker = struct {
         }
     }
 
-    pub fn searchVariableScope(self: *Self, name: []const u8) ?Parser.NodeIndex {
-        var i: usize = self.scopes.len();
-        while (i > 0) {
-            i -= 1;
-
-            var dic = self.scopes.items()[i];
-            if (dic.get(name)) |n| return n;
-        }
-
-        if (self.globalScope.get(name)) |n| return n;
-
-        return null;
-    }
-
-    pub fn addVariableScope(self: *Self, name: []const u8, nodeI: Parser.NodeIndex, level: ScopeLevel) std.mem.Allocator.Error!void {
-        switch (level) {
-            .local => {
-                const scope = &self.scopes.items()[self.scopes.len() - 1];
-                try scope.put(name, nodeI);
-            },
-            .global => {
-                try self.globalScope.put(name, nodeI);
-            },
-        }
-    }
-
     pub fn deinit(self: *Self) void {
-        self.scopes.deinit();
-        self.globalScope.deinit();
+        self.ctx.deinit();
     }
 
     fn _transformType(t: Lexer.Token) struct { Parser.NodeIndex, Parser.NodeIndex } {
@@ -318,15 +248,6 @@ const TypeChecker = struct {
         const node = self.ast.getNode(nodeI);
         std.debug.assert(node.tag == .funcProto);
 
-        const name = node.getTextAst(self.ast);
-
-        // TODO: Move this where it belongs
-        if (std.mem.eql(u8, name, "_start")) {
-            const loc = node.getLocationAst(self.ast.*);
-            self.message.err.identifierNotAvailable("_start", loc);
-            self.errs += 1;
-        } else if (self.foundMain == null and std.mem.eql(u8, name, "main")) self.foundMain = node;
-
         const tIndex = node.data[1];
         self.transformType(tIndex);
 
@@ -340,12 +261,10 @@ const TypeChecker = struct {
         if (stmtORscope.tag == .scope) {
             try self.checkScope(stmtORscopeIndex, tIndex);
         } else {
-            try self.scopes.append(Scope.init(self.alloc));
+            try self.ctx.addScope();
             try self.checkStatements(stmtORscopeIndex, tIndex);
-            {
-                var x = self.scopes.pop().?;
-                x.deinit();
-            }
+
+            self.ctx.popScope();
         }
     }
 
@@ -355,7 +274,7 @@ const TypeChecker = struct {
 
         std.debug.assert(scope.tag == .scope and retType.tag == .type);
 
-        try self.scopes.append(Scope.init(self.alloc));
+        try self.ctx.addScope();
 
         var i = scope.data[0];
         const end = scope.data[1];
@@ -368,10 +287,7 @@ const TypeChecker = struct {
             i = stmt.next;
         }
 
-        {
-            var x = self.scopes.pop().?;
-            x.deinit();
-        }
+        self.ctx.popScope();
     }
 
     fn checkStatements(self: *Self, stmtI: Parser.NodeIndex, retTypeI: Parser.NodeIndex) std.mem.Allocator.Error!void {
@@ -382,7 +298,7 @@ const TypeChecker = struct {
                 try self.checkExpressionExpectedType(stmt.data[0], retTypeI);
             },
             .variable, .constant => {
-                if (self.searchVariableScope(stmt.getTextAst(self.ast))) |variableI| {
+                if (self.ctx.searchVariableScope(stmt.getTextAst(self.ast))) |variableI| {
                     self.message.err.identifierIsUsed(stmtI, variableI);
                     self.message.info.isDeclaredHere(variableI);
 
@@ -391,7 +307,7 @@ const TypeChecker = struct {
                     return;
                 }
 
-                try self.addVariableScope(stmt.getTextAst(self.ast), stmtI, .local);
+                try self.ctx.addVariableScope(stmt.getTextAst(self.ast), stmtI, .local);
 
                 const exprI = stmt.data[1];
 
@@ -459,7 +375,7 @@ const TypeChecker = struct {
         switch (leaf.tag) {
             .lit => self.checkValueForType(leafI, expectedTypeI),
             .load => {
-                const variableI = self.searchVariableScope(leaf.getTextAst(self.ast)) orelse return .unknownIdentifier;
+                const variableI = self.ctx.searchVariableScope(leaf.getTextAst(self.ast)) orelse return .unknownIdentifier;
 
                 const variable = self.ast.getNode(variableI);
                 const t = self.ast.nodeList.items[variable.data[0]];
@@ -543,7 +459,7 @@ const TypeChecker = struct {
 
             if (first.tag != .load) continue;
 
-            const variableOP = self.searchVariableScope(self.ast.getNodeText(firstI));
+            const variableOP = self.ctx.searchVariableScope(self.ast.getNodeText(firstI));
             if (variableOP == null) continue;
             const variable = self.ast.getNode(variableOP.?);
 
@@ -601,7 +517,7 @@ const TypeChecker = struct {
                             .t = .unknownIdentifier,
                             .state = flat,
                             .dep = firstI,
-                            .scopes = try self.scopes.deepClone(),
+                            .scopes = try self.ctx.scopes.deepClone(),
                             .expectedTypeI = expectedTypeI,
                         }),
                         // else => unreachable,
@@ -636,7 +552,7 @@ const TypeChecker = struct {
                                     .t = .unknownIdentifier,
                                     .state = flat,
                                     .dep = xI,
-                                    .scopes = try self.scopes.deepClone(),
+                                    .scopes = try self.ctx.scopes.deepClone(),
                                     .expectedTypeI = expectedTypeI,
                                 }),
 

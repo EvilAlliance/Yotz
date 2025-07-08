@@ -2,7 +2,7 @@ const std = @import("std");
 const Logger = @import("Logger.zig");
 
 const ParseArguments = @import("ParseArgs.zig");
-const typeCheck = @import("TypeCheck.zig").typeCheck;
+const typeCheck = @import("./TypeCheck/TypeCheck.zig").typeCheck;
 
 const usage = @import("General.zig").usage;
 
