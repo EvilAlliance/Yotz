@@ -222,6 +222,10 @@ pub fn main() !u8 {
 
     printTests(&result);
 
+    for (result.items) |case|
+        for (case.results) |res|
+            if (res.type == .Error) return 1;
+
     return 0;
 }
 

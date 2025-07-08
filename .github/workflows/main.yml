@@ -8,7 +8,7 @@ jobs:
     steps:
     - name: Clone GIT repo
       uses: actions/checkout@v4
-    - uses: korandoru/setup-zig@v1
+    - uses: korandoru/setup-zig@v2
       with:
         zig-version: 0.14.1
 
