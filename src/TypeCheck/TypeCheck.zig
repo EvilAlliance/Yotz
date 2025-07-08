@@ -9,25 +9,11 @@ const nl = @import("./../Parser/NodeListUtil.zig");
 
 const Scopes = @import("./Scopes.zig");
 const Context = @import("./Context.zig");
+const CheckPoint = @import("./CheckPoint.zig");
 
 const FlattenExpression = std.ArrayList(Parser.NodeIndex);
 
-const CheckPoint = struct {
-    const Type = enum {
-        unknownIdentifier,
-    };
-
-    scopes: Scopes,
-
-    t: Type,
-
-    dep: Parser.NodeIndex,
-    state: ?*FlattenExpression,
-
-    expectedTypeI: Parser.NodeIndex,
-};
-
-const TypeChecker = struct {
+pub const TypeChecker = struct {
     const Self = @This();
 
     message: Message,
@@ -56,61 +42,8 @@ const TypeChecker = struct {
         defer checker.deinit();
 
         try checker.checkGlobalScope();
-        var changed = true;
 
-        while (changed) {
-            changed = false;
-            var i: usize = 0;
-            while (i < checker.checkPoints.items.len) {
-                var checkPoint = checker.checkPoints.items[i];
-                switch (checkPoint.t) {
-                    .unknownIdentifier => {
-                        const node = ast.getNode(checkPoint.dep);
-                        _ = checker.ctx.searchVariableScope(node.getTextAst(ast)) orelse {
-                            i += 1;
-                            continue;
-                        };
-                        changed = true;
-
-                        const temp = checker.ctx.swap(checkPoint.scopes);
-
-                        _ = checker.checkPoints.swapRemove(i);
-
-                        try checker.checkFlattenExpression(checkPoint.state.?, checkPoint.expectedTypeI);
-
-                        checker.ctx.restore(temp);
-
-                        checkPoint.scopes.deinit();
-                    },
-                    // .inferVariableType => {
-                    //     const node = ast.getNode(checkPoint.dep);
-                    //
-                    //     if (node.data[0] == 0) {
-                    //         i += 1;
-                    //         continue;
-                    //     }
-                    //
-                    //     const temp = checker.scopes;
-                    //     checker.scopes = checkPoint.scopes;
-                    //
-                    //     _ = checker.checkPoints.swapRemove(i);
-                    //
-                    //     var t = node.data[0];
-                    //     while (t != 0) : (t = ast.getNode(t).next) {
-                    //         try checker.checkExpressionExpectedType(node.data[1], t);
-                    //     }
-                    //
-                    //     checker.scopes = temp;
-                    //     checkPoint.scopes.deinit();
-                    // },
-                }
-            }
-        }
-
-        for (checker.checkPoints.items) |checkPoint| {
-            _ = checkPoint;
-            unreachable;
-        }
+        try checker.resolveCheckPoint();
 
         if (checker.ctx.searchVariableScope("main")) |mainVariableI| {
             const mainVariable = ast.getNode(mainVariableI);
@@ -198,6 +131,30 @@ const TypeChecker = struct {
 
     pub fn deinit(self: *Self) void {
         self.ctx.deinit();
+    }
+
+    fn resolveCheckPoint(self: *Self) std.mem.Allocator.Error!void {
+        var changed = true;
+
+        while (changed) {
+            changed = false;
+            var i: usize = 0;
+            while (i < self.checkPoints.items.len) {
+                var checkPoint = self.checkPoints.items[i];
+                if (try checkPoint.resolve(self)) {
+                    _ = self.checkPoints.swapRemove(i);
+                    changed = true;
+                } else {
+                    i += 1;
+                }
+            }
+        }
+
+        self.errs += self.checkPoints.items.len;
+
+        for (self.checkPoints.items) |*checkPoint| {
+            checkPoint.report(self);
+        }
     }
 
     fn _transformType(t: Lexer.Token) struct { Parser.NodeIndex, Parser.NodeIndex } {
@@ -396,16 +353,19 @@ const TypeChecker = struct {
                     var tIndex = variable.data[0];
                     while (variable.tag == .constant and tIndex != 0 and self.canTypeBeCoerced(tIndex, expectedTypeI) and !self.typeEqual(tIndex, expectedTypeI)) : (tIndex = self.ast.getNode(tIndex).next) {}
                     if (tIndex == 0) {
-                        try self.checkExpressionExpectedType(variable.data[1], expectedTypeI);
                         const err = self.errs;
+                        try self.checkExpressionExpectedType(variable.data[1], expectedTypeI);
                         if (self.errs == err) {
                             var nodeType = self.ast.getNode(expectedTypeI);
                             nodeType.flags = 0;
                             nodeType.tokenIndex = leaf.tokenIndex;
                             nodeType.flags |= @intFromEnum(Parser.Node.Flag.inferedFromUse);
+                            std.debug.print("{}\n", .{variable});
                             const x = try nl.addNode(self.ast.nodeList, nodeType);
+                            std.debug.print("{}, {}\n", .{ self.ast.getNode(variableI), variable });
                             self.ast.getNodePtr(x).next = variable.data[0];
                             self.ast.getNodePtr(variableI).data[0] = x;
+                            std.debug.print("{}, {}, {}\n", .{ self.ast.getNode(variableI), variable, nodeType });
                         }
                     } else {
                         if (variable.tag == .variable) {
