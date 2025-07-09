@@ -46,11 +46,12 @@
       },
       {
         "dependencies": [
-          "LtQFbPgP"
+          "LtQFbPgP",
+          "Lmkgqp3z"
         ],
         "id": "t83KaQZh",
-        "title": "Make parser parallel",
-        "desc": "",
+        "title": "Make a translation unit, for file (global) and for each functions",
+        "desc": "Use a stack of pending which later is gonna be used with a ThreadPool",
         "time_created": "2025-05-22 09:47:03.222463911 -03:00:00"
       },
       {
@@ -58,7 +59,7 @@
           "t83KaQZh"
         ],
         "id": "d3oGBsNm",
-        "title": "Make translation units, each will be resposable for a small part of the code",
+        "title": "Change the implementation of the queue to use ThreadPool",
         "desc": "",
         "time_created": "2025-05-22 09:48:30.418908665 -03:00:00"
       },
@@ -168,7 +169,7 @@
       {
         "id": "3t28BVzt",
         "title": "Make Parser better error recovery For function, if etc",
-        "desc": "",
+        "desc": "Do not know how, it seems there is no solution available",
         "time_created": "2025-06-06 19:07:23.099283545 -03:00:00"
       },
       {
@@ -176,6 +177,42 @@
         "title": "Make Sea of Node for Basic",
         "desc": "",
         "time_created": "2025-06-28 15:39:59.30718597 -03:00:00"
+      },
+      {
+        "id": "p8Vb6w5M",
+        "title": "Make CheckPoint Stop TypeCheck for later check, MAYBE",
+        "desc": "",
+        "time_created": "2025-07-07 22:57:11.167685918 -03:00:00"
+      },
+      {
+        "id": "dfQjAfYR",
+        "title": "Merge parse, with typecheck",
+        "desc": "",
+        "time_created": "2025-07-08 10:32:01.260804218 -03:00:00"
+      },
+      {
+        "id": "64poMgL9",
+        "title": "Change Arguments struct to recieve a subcommand enum",
+        "desc": "",
+        "time_created": "2025-07-08 21:51:27.229631803 -03:00:00"
+      },
+      {
+        "dependencies": [
+          "64poMgL9"
+        ],
+        "id": "tqBwd6e3",
+        "title": "Create queue for functions",
+        "desc": "",
+        "time_created": "2025-07-08 21:56:27.569254334 -03:00:00"
+      },
+      {
+        "dependencies": [
+          "tqBwd6e3"
+        ],
+        "id": "Lmkgqp3z",
+        "title": "Start With the global scope, then the functions",
+        "desc": "",
+        "time_created": "2025-07-08 21:56:52.749179986 -03:00:00"
       }
     ]
   }
