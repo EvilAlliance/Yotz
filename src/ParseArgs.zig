@@ -3,6 +3,8 @@ const Logger = @import("Logger.zig");
 const util = @import("Util.zig");
 
 pub const SubCommamd = enum {
+    const Self = @This();
+
     Run,
     Build,
     Interpret,
@@ -10,6 +12,18 @@ pub const SubCommamd = enum {
     Parser,
     TypeCheck,
     IntermediateRepresentation,
+
+    pub fn getExt(self: Self) []const u8 {
+        return switch (self) {
+            .Run => @panic("Run should not generate file"),
+            .Build => "",
+            .Interpret => @panic("Interprete file should not generate a file"),
+            .Lexer => "lex",
+            .Parser => "parse",
+            .TypeCheck => "check",
+            .IntermediateRepresentation => "ir",
+        };
+    }
 };
 
 pub const Arguments = struct {

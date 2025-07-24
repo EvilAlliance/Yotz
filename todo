@@ -221,7 +221,9 @@
         "id": "thBRxrSZ",
         "title": "Make a translation unit which retusn an array of  u8 which the output byte which could be printed or create file",
         "desc": "",
-        "time_created": "2025-07-19 11:36:30.378030209 -03:00:00"
+        "time_created": "2025-07-19 11:36:30.378030209 -03:00:00",
+        "time_started": "2025-07-24 09:43:05.650639043 -03:00:00",
+        "time_completed": "2025-07-24 09:43:08.591257542 -03:00:00"
       }
     ]
   }

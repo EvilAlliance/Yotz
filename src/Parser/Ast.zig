@@ -56,9 +56,9 @@ pub inline fn getNodePtr(self: *@This(), i: Parser.NodeIndex) *Parser.Node {
     return &self.nodeList.items[i];
 }
 
-pub fn toString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Error!std.ArrayList(u8) {
+pub fn toString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Error![]const u8 {
+    if (self.nodeList.items.len == 0) return "";
     var cont = std.ArrayList(u8).init(alloc);
-    if (self.nodeList.items.len == 0) return cont;
 
     const root = self.nodeList.items[0];
 
@@ -72,7 +72,7 @@ pub fn toString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Erro
         }
     }
 
-    return cont;
+    return cont.toOwnedSlice();
 }
 
 fn toStringFuncProto(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {

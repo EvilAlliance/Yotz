@@ -9,6 +9,8 @@ const usage = @import("General.zig").usage;
 const getArguments = ParseArguments.getArguments;
 const Arguments = ParseArguments.Arguments;
 
+const TranslationUnit = @import("./TranslationUnit.zig");
+
 // TODO: Do not exopse the parse, only afunction parse
 const Parser = @import("./Parser/Parser.zig");
 
@@ -81,8 +83,6 @@ fn writeAll(c: []const u8, arg: Arguments, name: []u8) void {
 //
 
 pub fn main() u8 {
-    var timer = std.time.Timer.start() catch unreachable;
-
     var generalPurpose: std.heap.GeneralPurposeAllocator(.{}) = .init;
     const gpa = generalPurpose.allocator();
     defer _ = generalPurpose.deinit();
@@ -98,85 +98,20 @@ pub fn main() u8 {
         Logger.log.warn("Subcommand run wont print anything", .{});
     }
 
-    if (arguments.bench)
-        Logger.log.info("Lexing and Parsing", .{});
+    const tu = TranslationUnit.Temp.init(gpa, arguments);
 
-    var parser = Parser.init(gpa, arguments.path) orelse return 1;
-    defer parser.deinit();
-
-    if (arguments.subCom == .Lexer) {
-        const lexContent = parser.lexerToString(gpa) catch {
-            Logger.log.err("Out of memory", .{});
-            return 1;
-        };
-        defer lexContent.deinit();
-
-        const name = getName(parser.absPath, "lex");
-        writeAll(lexContent.items, arguments, name);
-
-        return 0;
-    }
-
-    var ast = parser.parse() catch |err| switch (err) {
-        error.OutOfMemory => {
-            Logger.log.err("Out of memory", .{});
-            return 1;
-        },
-    };
-    for (parser.errors.items) |e| {
-        e.display(ast.getInfo());
-    }
-
-    if (arguments.bench)
-        Logger.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
-
-    if (arguments.subCom == .Parser) {
-        const cont = ast.toString(gpa) catch {
-            Logger.log.err("Out of memory", .{});
-            return 1;
-        };
-        defer cont.deinit();
-
-        const name = getName(parser.absPath, "parse");
-        writeAll(cont.items, arguments, name);
-
-        return 0;
-    }
-
-    if (ast.nodeList.items.len == 0) return 1;
-
-    if (arguments.bench)
-        Logger.log.info("Type Checking", .{});
-
-    const err = typeCheck(gpa, &ast) catch {
-        Logger.log.err("out of memory", .{});
+    const bytes, const ret = tu.start() catch {
+        Logger.log.err("Run Out of Memory", .{});
         return 1;
     };
 
-    if (arguments.bench)
-        Logger.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
+    defer tu.deinit(bytes);
 
-    if (arguments.subCom == .TypeCheck and arguments.stdout) {
-        const cont = ast.toString(gpa) catch {
-            Logger.log.err("Out of memory", .{});
-            return 1;
-        };
-        defer cont.deinit();
+    writeAll(
+        bytes,
+        arguments,
+        getName(arguments.path, arguments.subCom.getExt()),
+    );
 
-        const name = getName(parser.absPath, "check");
-        writeAll(cont.items, arguments, name);
-
-        return if (err or (parser.errors.items.len > 1)) 1 else 0;
-    }
-
-    if (err) return 1;
-    if (parser.errors.items.len > 0) return 1;
-
-    if (arguments.bench)
-        Logger.log.info("Intermediate Represetation", .{});
-
-    if (arguments.bench)
-        Logger.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
-
-    return 0;
+    return ret;
 }

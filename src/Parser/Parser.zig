@@ -438,12 +438,12 @@ fn parseTerm(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})
     }
 }
 
-pub fn lexerToString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Error!std.ArrayList(u8) {
+pub fn lexerToString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Error![]const u8 {
     var al = std.ArrayList(u8).init(alloc);
 
     for (self.tokens) |value| {
         try value.toString(alloc, &al, self.path, self.source);
     }
 
-    return al;
+    return al.toOwnedSlice();
 }
