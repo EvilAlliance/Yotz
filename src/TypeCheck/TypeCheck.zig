@@ -369,14 +369,14 @@ pub const TypeChecker = struct {
                             } else {
                                 self.message.info.isDeclaredHere(variableI);
                             }
-                        }
-
-                        const err = self.errs;
-                        try self.checkExpressionExpectedType(variable.data[1], expectedTypeI);
-                        if (self.errs == err) {
-                            const typeNode = self.ast.getNodePtr(variable.data[0]);
-                            typeNode.tokenIndex = leaf.tokenIndex;
-                            typeNode.data = expectedType.data;
+                        } else {
+                            const err = self.errs;
+                            try self.checkExpressionExpectedType(variable.data[1], expectedTypeI);
+                            if (self.errs == err) {
+                                const typeNode = self.ast.getNodePtr(variable.data[0]);
+                                typeNode.tokenIndex = leaf.tokenIndex;
+                                typeNode.data = expectedType.data;
+                            }
                         }
                     }
                 }

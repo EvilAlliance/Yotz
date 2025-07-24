@@ -2,18 +2,24 @@ const std = @import("std");
 const Logger = @import("Logger.zig");
 const util = @import("Util.zig");
 
+pub const SubCommamd = enum {
+    Run,
+    Build,
+    Interpret,
+    Lexer,
+    Parser,
+    TypeCheck,
+    IntermediateRepresentation,
+};
+
 pub const Arguments = struct {
-    build: bool = false,
     stdout: bool = false,
-    run: bool = false,
-    simulation: bool = false,
-    lex: bool = false,
-    parse: bool = false,
-    check: bool = false,
-    ir: bool = false,
     silence: bool = false,
     bench: bool = false,
+
     path: []const u8,
+
+    subCom: SubCommamd = .Build,
 };
 
 const ArgumentsError = error{
@@ -82,21 +88,20 @@ fn parseArguments(args: []const []const u8) ArgumentResult {
 
 fn parseSubcommand(subcommand: []const u8, args: *Arguments) !void {
     if (std.mem.eql(u8, subcommand, "build")) {
-        args.build = true;
+        args.subCom = .Build;
     } else if (std.mem.eql(u8, subcommand, "run")) {
-        args.run = true;
+        args.subCom = .Run;
     } else if (std.mem.eql(u8, subcommand, "sim")) {
-        args.simulation = true;
+        args.subCom = .Interpret;
     } else if (std.mem.eql(u8, subcommand, "lex")) {
-        args.lex = true;
+        args.subCom = .Lexer;
     } else if (std.mem.eql(u8, subcommand, "parse")) {
-        args.parse = true;
+        args.subCom = .Parser;
     } else if (std.mem.eql(u8, subcommand, "check")) {
-        args.check = true;
+        args.subCom = .TypeCheck;
     } else if (std.mem.eql(u8, subcommand, "ir")) {
-        args.ir = true;
+        args.subCom = .IntermediateRepresentation;
     } else {
-        args.build = true;
         return error.unknownSubcommand;
     }
 }

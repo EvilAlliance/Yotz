@@ -94,7 +94,7 @@ pub fn main() u8 {
 
     Logger.silence = arguments.silence;
 
-    if (arguments.run and arguments.stdout) {
+    if (arguments.subCom == .Run and arguments.stdout) {
         Logger.log.warn("Subcommand run wont print anything", .{});
     }
 
@@ -104,7 +104,7 @@ pub fn main() u8 {
     var parser = Parser.init(gpa, arguments.path) orelse return 1;
     defer parser.deinit();
 
-    if (arguments.lex) {
+    if (arguments.subCom == .Lexer) {
         const lexContent = parser.lexerToString(gpa) catch {
             Logger.log.err("Out of memory", .{});
             return 1;
@@ -130,7 +130,7 @@ pub fn main() u8 {
     if (arguments.bench)
         Logger.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
 
-    if (arguments.parse) {
+    if (arguments.subCom == .Parser) {
         const cont = ast.toString(gpa) catch {
             Logger.log.err("Out of memory", .{});
             return 1;
@@ -156,7 +156,7 @@ pub fn main() u8 {
     if (arguments.bench)
         Logger.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
 
-    if (arguments.check and arguments.stdout) {
+    if (arguments.subCom == .TypeCheck and arguments.stdout) {
         const cont = ast.toString(gpa) catch {
             Logger.log.err("Out of memory", .{});
             return 1;

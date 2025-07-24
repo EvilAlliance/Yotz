@@ -2,9 +2,9 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 71
+:b stdout 72
 main: () u8 : () u8 { 
-    a: u8 = 8;
+    a: u16 = 8;
     b: u16 = a;
     return a;
 } 

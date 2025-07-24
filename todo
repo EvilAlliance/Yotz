@@ -194,11 +194,14 @@
         "id": "64poMgL9",
         "title": "Change Arguments struct to recieve a subcommand enum",
         "desc": "",
-        "time_created": "2025-07-08 21:51:27.229631803 -03:00:00"
+        "time_created": "2025-07-08 21:51:27.229631803 -03:00:00",
+        "time_started": "2025-07-19 11:33:45.250393019 -03:00:00",
+        "time_completed": "2025-07-19 11:33:46.127999902 -03:00:00"
       },
       {
         "dependencies": [
-          "64poMgL9"
+          "64poMgL9",
+          "thBRxrSZ"
         ],
         "id": "tqBwd6e3",
         "title": "Create queue for functions",
@@ -213,6 +216,12 @@
         "title": "Start With the global scope, then the functions",
         "desc": "",
         "time_created": "2025-07-08 21:56:52.749179986 -03:00:00"
+      },
+      {
+        "id": "thBRxrSZ",
+        "title": "Make a translation unit which retusn an array of  u8 which the output byte which could be printed or create file",
+        "desc": "",
+        "time_created": "2025-07-19 11:36:30.378030209 -03:00:00"
       }
     ]
   }
