@@ -230,6 +230,12 @@
         "title": "For the message struct join the message in a single function so it is easier to edit",
         "desc": "",
         "time_created": "2025-08-04 08:50:57.035503142 -03:00:00"
+      },
+      {
+        "id": "5GdLNL7o",
+        "title": "How do I bench ",
+        "desc": "If i compile everything at the same time, how do i bench it, before it was benching the stages",
+        "time_created": "2025-08-17 21:32:14.658980263 -03:00:00"
       }
     ]
   }

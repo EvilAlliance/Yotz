@@ -10,10 +10,9 @@ pub const Temp = struct {
 
     alloc: std.mem.Allocator,
 
-    subCommand: ParseArgs.SubCommamd,
+    subCommand: ParseArgs.SubCommand,
     path: []const u8,
 
-    bench: bool,
     stdout: bool,
 
     pub fn init(alloc: std.mem.Allocator, args: ParseArgs.Arguments) Self {
@@ -23,17 +22,11 @@ pub const Temp = struct {
             .subCommand = args.subCom,
             .path = args.path,
 
-            .bench = args.bench,
             .stdout = args.stdout,
         };
     }
 
     pub fn start(self: *const Self) std.mem.Allocator.Error!struct { []const u8, u8 } {
-        var timer = std.time.Timer.start() catch unreachable;
-
-        if (self.bench)
-            Logger.log.info("Lexing and Parsing", .{});
-
         var parser = Parser.init(self.alloc, self.path) orelse return .{ "", 1 };
         defer parser.deinit();
 
@@ -46,31 +39,16 @@ pub const Temp = struct {
             e.display(ast.getInfo());
         }
 
-        if (self.bench)
-            Logger.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
-
         if (self.subCommand == .Parser)
             return .{ try ast.toString(self.alloc), 0 };
 
-        if (self.bench)
-            Logger.log.info("Type Checking", .{});
-
         const err = try typeCheck(self.alloc, &ast);
-
-        if (self.bench)
-            Logger.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
 
         if (self.subCommand == .TypeCheck and self.stdout)
             return .{ try ast.toString(self.alloc), if (err or (parser.errors.items.len > 1)) 1 else 0 };
 
         if (err) return .{ "", 1 };
         if (parser.errors.items.len > 0) return .{ "", 1 };
-
-        if (self.bench)
-            Logger.log.info("Intermediate Represetation", .{});
-
-        if (self.bench)
-            Logger.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
 
         unreachable;
     }

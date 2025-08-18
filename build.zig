@@ -27,7 +27,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("BollYotz/main.zig"),
     });
 
-    // Register it under the name "Set"
+    exe.root_module.addImport("clap", b.dependency("clap", .{}).module("clap"));
     exe.root_module.addImport("BollYotz", by);
 
     // exe.addIncludePath(b.path("./src/libs"));

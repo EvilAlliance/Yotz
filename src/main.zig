@@ -19,7 +19,7 @@ const by = @import("BollYotz");
 fn getName(absPath: []const u8, extName: []const u8) []u8 {
     var buf: [5 * 1024]u8 = undefined;
 
-    const fileName = std.mem.lastIndexOf(u8, absPath, "/").?;
+    const fileName = std.mem.lastIndexOf(u8, absPath, "/") orelse 0;
     const ext = std.mem.lastIndexOf(u8, absPath, ".").?;
     if (extName.len > 0)
         return std.fmt.bufPrint(&buf, "{s}.{s}", .{ absPath[fileName + 1 .. ext], extName }) catch {
@@ -87,10 +87,7 @@ pub fn main() u8 {
     const gpa = generalPurpose.allocator();
     defer _ = generalPurpose.deinit();
 
-    const arguments = getArguments() orelse {
-        usage();
-        return 1;
-    };
+    const arguments = getArguments(gpa);
 
     Logger.silence = arguments.silence;
 

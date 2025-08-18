@@ -61,6 +61,10 @@
             .url = "git+https://github.com/ziglibs/diffz.git#a20dd1f11b10819a6f570f98b42e1c91e3704357",
             .hash = "diffz-0.0.1-G2tlIQrOAQCfH15jdyaLyrMgV8eGPouFhkCeYFTmJaLk",
         },
+        .clap = .{
+            .url = "https://github.com/Hejsil/zig-clap/archive/refs/tags/0.10.0.tar.gz",
+            .hash = "clap-0.10.0-oBajB434AQBDh-Ei3YtoKIRxZacVPF1iSwp3IX_ZB8f0",
+        },
     },
 
     // Specifies the set of files and directories that are included in this package.
