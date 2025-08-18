@@ -18,7 +18,7 @@ pub const SubCommand = enum {
         return switch (self) {
             .Run => "",
             .Build => "",
-            .Interpret => @panic("Interprete file should not generate a file"),
+            .Interpret => @panic("Interprete should not generate a file"),
             .Lexer => "lex",
             .Parser => "parse",
             .TypeCheck => "check",
@@ -78,7 +78,8 @@ pub fn getArguments(allocator: std.mem.Allocator) Arguments {
     const res = clap.parse(clap.Help, &params, parser, .{
         .diagnostic = &diag,
         .allocator = allocator,
-    }) catch {
+    }) catch |err| {
+        diag.report(std.io.getStdErr().writer(), err) catch {};
         clap.help(std.io.getStdOut().writer(), clap.Help, &params, .{}) catch {};
         std.process.exit(1);
     };
