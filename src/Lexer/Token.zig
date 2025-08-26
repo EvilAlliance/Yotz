@@ -133,24 +133,24 @@ pub fn getText(self: @This(), content: [:0]const u8) []const u8 {
 }
 
 pub fn toString(self: @This(), alloc: Allocator, cont: *std.ArrayList(u8), path: []const u8, content: [:0]const u8) std.mem.Allocator.Error!void {
-    try cont.appendSlice(path);
-    try cont.append(':');
+    try cont.appendSlice(alloc, path);
+    try cont.append(alloc, ':');
 
     const row = try std.fmt.allocPrint(alloc, "{}", .{self.loc.row});
-    try cont.appendSlice(row);
+    try cont.appendSlice(alloc, row);
     alloc.free(row);
 
-    try cont.append(':');
+    try cont.append(alloc, ':');
 
     const col = try std.fmt.allocPrint(alloc, "{}", .{self.loc.col});
-    try cont.appendSlice(col);
+    try cont.appendSlice(alloc, col);
     alloc.free(col);
 
-    try cont.append(' ');
+    try cont.append(alloc, ' ');
 
-    try cont.appendSlice(self.getText(content));
+    try cont.appendSlice(alloc, self.getText(content));
 
-    try cont.appendSlice(" (");
-    try cont.appendSlice(@tagName(self.tag));
-    try cont.appendSlice(")\n");
+    try cont.appendSlice(alloc, " (");
+    try cont.appendSlice(alloc, @tagName(self.tag));
+    try cont.appendSlice(alloc, ")\n");
 }

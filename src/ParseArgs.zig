@@ -79,13 +79,15 @@ pub fn getArguments(allocator: std.mem.Allocator) Arguments {
         .diagnostic = &diag,
         .allocator = allocator,
     }) catch |err| {
-        diag.report(std.io.getStdErr().writer(), err) catch {};
-        clap.help(std.io.getStdOut().writer(), clap.Help, &params, .{}) catch {};
+        clap.helpToFile(.stdout(), clap.Help, &params, .{}) catch {};
+        diag.reportToFile(.stderr(), err) catch {};
         std.process.exit(1);
     };
 
+    defer res.deinit();
+
     if (res.positionals[0] == null or res.positionals[1] == null or res.args.help != 0) {
-        clap.help(std.io.getStdOut().writer(), clap.Help, &params, .{}) catch {};
+        clap.helpToFile(.stdout(), clap.Help, &params, .{}) catch {};
         std.process.exit(0);
     }
 

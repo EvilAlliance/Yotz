@@ -14,20 +14,21 @@ alloc: std.mem.Allocator,
 pub fn display(self: @This(), fileInfo: Parser.Ast.FileInfo) void {
     const path = fileInfo[0];
     const content = fileInfo[1];
-    var arr = std.BoundedArray(u8, 10 * 1024).init(0) catch return;
+    var buff: [1024]u8 = undefined;
+    var arr = std.ArrayList(u8).initBuffer(&buff);
 
-    arr.append('\"') catch return;
-    arr.appendSlice(self.expected[0].getName()) catch return;
-    arr.append('\"') catch return;
+    arr.appendBounded('\"') catch return;
+    arr.appendSliceBounded(self.expected[0].getName()) catch return;
+    arr.appendBounded('\"') catch return;
     for (self.expected[1..]) |e| {
-        arr.appendSlice(", ") catch return;
-        arr.append('\"') catch return;
-        arr.appendSlice(e.getName()) catch return;
-        arr.append('\"') catch return;
+        arr.appendSliceBounded(", ") catch return;
+        arr.appendBounded('\"') catch return;
+        arr.appendSliceBounded(e.getName()) catch return;
+        arr.appendBounded('\"') catch return;
     }
 
     Logger.logLocation.err(path, self.loc, "Expected: {s} but found: \'{s}\' {s}\n", .{
-        arr.buffer[0..arr.len],
+        arr.items,
         self.found.getName(),
         Logger.placeSlice(self.loc, content),
     });

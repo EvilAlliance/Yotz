@@ -32,7 +32,7 @@ pub const TypeChecker = struct {
         var checker = @This(){
             .alloc = alloc,
             .ast = ast,
-            .checkPoints = std.ArrayList(CheckPoint).init(alloc),
+            .checkPoints = .{},
             .ctx = Context.init(alloc),
             .message = Message.init(ast),
         };
@@ -187,7 +187,7 @@ pub const TypeChecker = struct {
         const tIndex = proto.data[1];
         self.transformType(tIndex);
 
-        return try nl.addNode(self.ast.nodeList, .{
+        return try nl.addNode(self.ast.alloc, self.ast.nodeList, .{
             .tag = .funcType,
             .data = .{ 0, tIndex },
         });
@@ -272,7 +272,7 @@ pub const TypeChecker = struct {
                     var nodeType = self.ast.getNode(posibleType);
                     nodeType.tokenIndex = loc;
                     nodeType.flags |= @intFromEnum(Parser.Node.Flag.inferedFromExpression);
-                    const x = try nl.addNode(self.ast.nodeList, nodeType);
+                    const x = try nl.addNode(self.ast.alloc, self.ast.nodeList, nodeType);
 
                     self.ast.getNodePtr(stmtI).data[0] = x;
 
@@ -289,24 +289,24 @@ pub const TypeChecker = struct {
 
         switch (expr.tag) {
             .lit => {
-                try stack.append(exprI);
+                try stack.append(self.alloc, exprI);
             },
             .load => {
-                try stack.append(exprI);
+                try stack.append(self.alloc, exprI);
             },
             .neg => {
                 const left = expr.data[0];
 
                 try self.flattenExpression(stack, left);
 
-                try stack.append(exprI);
+                try stack.append(self.alloc, exprI);
             },
             .addition, .subtraction, .multiplication, .division, .power => {
                 const left = expr.data[0];
                 const right = expr.data[1];
 
                 try self.flattenExpression(stack, left);
-                try stack.append(exprI);
+                try stack.append(self.alloc, exprI);
                 try self.flattenExpression(stack, right);
             },
             else => {
@@ -354,7 +354,7 @@ pub const TypeChecker = struct {
                             nodeType.flags = 0;
                             nodeType.tokenIndex = leaf.tokenIndex;
                             nodeType.flags |= @intFromEnum(Parser.Node.Flag.inferedFromUse);
-                            const x = try nl.addNode(self.ast.nodeList, nodeType);
+                            const x = try nl.addNode(self.alloc, self.ast.nodeList, nodeType);
                             self.ast.getNodePtr(x).next = variable.data[0];
                             self.ast.getNodePtr(variableI).data[0] = x;
                         }
@@ -391,12 +391,11 @@ pub const TypeChecker = struct {
         std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, expr.tag));
 
         const flat = try self.alloc.create(CheckPoint.FlattenExpression);
-        flat.* = CheckPoint.FlattenExpression.init(self.alloc);
 
         try self.flattenExpression(flat, exprI);
 
         defer {
-            flat.deinit();
+            flat.deinit(self.alloc);
             self.alloc.destroy(flat);
         }
 
@@ -437,7 +436,6 @@ pub const TypeChecker = struct {
 
         // deinit int checkFlattenExpression
         const flat = try self.alloc.create(CheckPoint.FlattenExpression);
-        flat.* = CheckPoint.FlattenExpression.init(self.alloc);
 
         try self.flattenExpression(flat, exprI);
 
@@ -447,7 +445,7 @@ pub const TypeChecker = struct {
     pub fn checkFlattenExpression(self: *Self, flat: *CheckPoint.FlattenExpression, expectedTypeI: Parser.NodeIndex) std.mem.Allocator.Error!void {
         const expectedType = self.ast.getNode(expectedTypeI);
         defer if (flat.items.len == 0) {
-            flat.deinit();
+            flat.deinit(self.alloc);
             self.alloc.destroy(flat);
         };
 
@@ -460,7 +458,7 @@ pub const TypeChecker = struct {
             if (first.tag != .neg) {
                 if (try self.checkExpressionLeaf(firstI, expectedTypeI)) |t| {
                     switch (t) {
-                        .unknownIdentifier => return try self.checkPoints.append(.{
+                        .unknownIdentifier => return try self.checkPoints.append(self.alloc, .{
                             .t = .unknownIdentifier,
                             .state = flat,
                             .dep = firstI,
@@ -495,7 +493,7 @@ pub const TypeChecker = struct {
 
                         if (try self.checkExpressionLeaf(xI, expectedTypeI)) |t| {
                             switch (t) {
-                                .unknownIdentifier => return try self.checkPoints.append(.{
+                                .unknownIdentifier => return try self.checkPoints.append(self.alloc, .{
                                     .t = .unknownIdentifier,
                                     .state = flat,
                                     .dep = xI,

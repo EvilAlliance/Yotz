@@ -4,8 +4,6 @@ const Logger = @import("Logger.zig");
 const ParseArguments = @import("ParseArgs.zig");
 const typeCheck = @import("./TypeCheck/TypeCheck.zig").typeCheck;
 
-const usage = @import("General.zig").usage;
-
 const getArguments = ParseArguments.getArguments;
 const Arguments = ParseArguments.Arguments;
 
@@ -16,13 +14,11 @@ const Parser = @import("./Parser/Parser.zig");
 
 const by = @import("BollYotz");
 
-fn getName(absPath: []const u8, extName: []const u8) []u8 {
-    var buf: [5 * 1024]u8 = undefined;
-
+fn getName(absPath: []const u8, extName: []const u8, buf: []u8) []u8 {
     const fileName = std.mem.lastIndexOf(u8, absPath, "/") orelse 0;
     const ext = std.mem.lastIndexOf(u8, absPath, ".").?;
     if (extName.len > 0)
-        return std.fmt.bufPrint(&buf, "{s}.{s}", .{ absPath[fileName + 1 .. ext], extName }) catch {
+        return std.fmt.bufPrint(buf, "{s}.{s}", .{ absPath[fileName + 1 .. ext], extName }) catch {
             Logger.log.err("Name is to larger than {}\n", .{5 * 1024});
             return "";
         }
@@ -39,17 +35,17 @@ fn writeAll(c: []const u8, arg: Arguments, name: []u8) void {
     var writer: std.fs.File.Writer = undefined;
 
     if (arg.stdout) {
-        writer = std.io.getStdOut().writer();
+        writer = std.fs.File.stdout().writer(&.{});
     } else {
         file = std.fs.cwd().createFile(name, .{}) catch |err| {
             Logger.log.err("could not open file ({s}) becuase {}\n", .{ arg.path, err });
             return;
         };
 
-        writer = file.?.writer();
+        writer = file.?.writer(&.{});
     }
 
-    writer.writeAll(c) catch |err| {
+    writer.interface.writeAll(c) catch |err| {
         Logger.log.err("Could not write to file ({s}) becuase {}\n", .{ arg.path, err });
         return;
     };
@@ -83,7 +79,7 @@ fn writeAll(c: []const u8, arg: Arguments, name: []u8) void {
 //
 
 pub fn main() u8 {
-    var generalPurpose: std.heap.GeneralPurposeAllocator(.{}) = .init;
+    var generalPurpose: std.heap.DebugAllocator(.{}) = .init;
     const gpa = generalPurpose.allocator();
     defer _ = generalPurpose.deinit();
 
@@ -95,20 +91,23 @@ pub fn main() u8 {
         Logger.log.warn("Subcommand run wont print anything", .{});
     }
 
-    const tu = TranslationUnit.Temp.init(gpa, arguments);
+    const tu, const err = TranslationUnit.initGlobal(gpa, arguments);
+    if (!err) return 1;
 
-    const bytes, const ret = tu.start() catch {
-        Logger.log.err("Run Out of Memory", .{});
-        return 1;
-    };
+    // const bytes, const ret = tu.start() catch {
+    //     Logger.log.err("Run Out of Memory", .{});
+    //     return 1;
+    // };
 
-    defer tu.deinit(bytes);
+    defer tu.deinit(gpa.alloc(u8, 2) catch unreachable);
 
-    writeAll(
-        bytes,
-        arguments,
-        getName(arguments.path, arguments.subCom.getExt()),
-    );
+    // var buf: [5 * 1024]u8 = undefined;
 
-    return ret;
+    // writeAll(
+    //     bytes,
+    //     arguments,
+    //     getName(arguments.path, arguments.subCom.getExt(), &buf),
+    // );
+
+    return 0;
 }

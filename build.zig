@@ -17,9 +17,11 @@ pub fn build(b: *std.Build) void {
 
     const exe = b.addExecutable(.{
         .name = "yot",
-        .root_source_file = b.path("src/main.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
 
     // Fake "dependency" — local module setup
@@ -65,11 +67,14 @@ pub fn build(b: *std.Build) void {
 
     const testExe = b.addExecutable(.{
         .name = "yotza",
-        .root_source_file = b.path("test/test.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("test/test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
 
+    testExe.root_module.addImport("diffz", b.dependency("diffz", .{}).module("diffz"));
     b.installArtifact(testExe);
 
     // This *creates* a Run step in the build graph, to be executed when another

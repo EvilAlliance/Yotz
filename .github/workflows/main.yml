@@ -11,7 +11,7 @@ jobs:
       - name: Setup Zig
         uses: korandoru/setup-zig@v1
         with:
-          zig-version: 0.14.1
+          zig-version: 0.15.1
 
       - name: All Test
         run: zig build test

@@ -53,17 +53,13 @@
         //    // actually used.
         //    .lazy = false,
         //},
-        .ziglangSet = .{
-            .url = "https://github.com/deckarep/ziglang-set/archive/66c5ab9.tar.gz",
-            .hash = "ziglangSet-0.0.1-VUjv0poUAgCNnJ8mjuXpZ81KSDap5Nmd_WLb7hFRS18f",
+        .clap = .{
+            .url = "git+https://github.com/Hejsil/zig-clap.git#5289e0753cd274d65344bef1c114284c633536ea",
+            .hash = "clap-0.11.0-oBajB-HnAQDPCKYzwF7rO3qDFwRcD39Q0DALlTSz5H7e",
         },
         .diffz = .{
-            .url = "git+https://github.com/ziglibs/diffz.git#a20dd1f11b10819a6f570f98b42e1c91e3704357",
-            .hash = "diffz-0.0.1-G2tlIQrOAQCfH15jdyaLyrMgV8eGPouFhkCeYFTmJaLk",
-        },
-        .clap = .{
-            .url = "https://github.com/Hejsil/zig-clap/archive/refs/tags/0.10.0.tar.gz",
-            .hash = "clap-0.10.0-oBajB434AQBDh-Ei3YtoKIRxZacVPF1iSwp3IX_ZB8f0",
+            .url = "https://github.com/EvilAlliance/diffz/archive/4f68b8f0dd8f6451fa74dea9fbe5bdd84309526e.tar.gz",
+            .hash = "diffz-0.0.1-kp-d8rhwAwC-F4wd7IECoLwiww0OonXDPWrArRpxQnES",
         },
     },
 

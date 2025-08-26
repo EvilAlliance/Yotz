@@ -4,9 +4,6 @@ const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
 const Util = @import("../Util.zig");
-const gen = @import("../General.zig");
-
-const message = gen.message;
 
 const Lexer = @import("../Lexer/Lexer.zig");
 
@@ -58,9 +55,9 @@ pub fn init(alloc: Allocator, path: []const u8) ?@This() {
         .path = resolvedPath,
         .absPath = absPath,
 
-        .nodeList = Ast.NodeList.init(alloc),
+        .nodeList = .{},
 
-        .errors = std.ArrayList(UnexpectedToken).init(alloc),
+        .errors = .{},
     };
 }
 
@@ -70,16 +67,16 @@ pub fn deinit(self: *@This()) void {
     self.alloc.free(self.absPath);
     self.alloc.free(self.path);
 
-    self.nodeList.deinit();
+    self.nodeList.deinit(self.alloc);
 
-    self.errors.deinit();
+    self.errors.deinit(self.alloc);
 }
 
 pub fn expect(self: *@This(), token: Lexer.Token, t: []const Lexer.TokenType) std.mem.Allocator.Error!bool {
     const is = Util.listContains(Lexer.TokenType, t, token.tag);
     if (!is) {
         const ex = try self.alloc.dupe(Lexer.TokenType, t);
-        try self.errors.append(UnexpectedToken{
+        try self.errors.append(self.alloc, UnexpectedToken{
             .expected = ex,
             .found = token.tag,
             .loc = token.loc,
@@ -117,7 +114,7 @@ pub fn parse(self: *@This()) (std.mem.Allocator.Error)!Ast {
 }
 
 fn parseRoot(self: *@This()) (std.mem.Allocator.Error)!void {
-    try self.nodeList.insert(0, .{ .tag = .root, .data = .{ 1, 0 } });
+    try self.nodeList.insert(self.alloc, 0, .{ .tag = .root, .data = .{ 1, 0 } });
 
     var t, _ = self.peek();
     while (t.tag != .EOF) : (t, _ = self.peek()) {
@@ -179,7 +176,7 @@ fn parseFuncDecl(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedTok
 }
 
 fn parseFuncProto(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
-    const nodeIndex = try nl.addNode(&self.nodeList, .{
+    const nodeIndex = try nl.addNode(self.alloc, &self.nodeList, .{
         .tag = .funcProto,
         .data = .{ 0, 0 },
     });
@@ -218,14 +215,14 @@ fn parseTypeFunction(self: *@This()) (std.mem.Allocator.Error || error{Unexpecte
         .tokenIndex = initI,
     };
 
-    return try nl.addNode(&self.nodeList, node);
+    return try nl.addNode(self.alloc, &self.nodeList, node);
 }
 
 fn parseTypePrimitive(self: *@This()) std.mem.Allocator.Error!NodeIndex {
     std.debug.assert(Util.listContains(Lexer.TokenType, &.{ .unsigned8, .unsigned16, .unsigned32, .unsigned64, .signed8, .signed16, .signed32, .signed64 }, self.peek()[0].tag));
     _, const mainIndex = self.pop();
 
-    const nodeIndex = try nl.addNode(&self.nodeList, .{
+    const nodeIndex = try nl.addNode(self.alloc, &self.nodeList, .{
         .tokenIndex = mainIndex,
         .tag = .typeExpression,
         .data = .{ 0, 0 },
@@ -245,7 +242,7 @@ fn parseType(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})
 fn parseScope(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
     _ = self.popIf(.openBrace) orelse unreachable;
 
-    const nodeIndex = try nl.addNode(&self.nodeList, .{
+    const nodeIndex = try nl.addNode(self.alloc, &self.nodeList, .{
         .tag = .scope,
         .data = .{ 0, 0 },
     });
@@ -291,7 +288,7 @@ fn parseStatement(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedTo
 fn parseVariableDecl(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
     _, const nameIndex = self.popIf(.iden) orelse unreachable;
 
-    const index = try nl.reserveNode(&self.nodeList, .{
+    const index = try nl.reserveNode(self.alloc, &self.nodeList, .{
         .tag = Node.Tag.variable,
         .tokenIndex = nameIndex,
         .data = .{ 0, 0 },
@@ -332,7 +329,7 @@ fn parseVariableDecl(self: *@This()) (std.mem.Allocator.Error || error{Unexpecte
 fn parseReturn(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
     _, const retIndex = self.popIf(.ret) orelse unreachable;
 
-    const nodeIndex = try nl.addNode(&self.nodeList, .{
+    const nodeIndex = try nl.addNode(self.alloc, &self.nodeList, .{
         .tag = .ret,
         .tokenIndex = retIndex,
         .data = .{ 0, 0 },
@@ -375,7 +372,7 @@ fn parseExpr(self: *@This(), minPrecedence: u8) (std.mem.Allocator.Error || erro
 
         const right = try self.parseExpr(nextMinPrec);
 
-        leftIndex = try nl.addNode(&self.nodeList, Node{
+        leftIndex = try nl.addNode(self.alloc, &self.nodeList, Node{
             .tag = tag,
             .tokenIndex = opIndex,
             .data = .{ leftIndex, right },
@@ -392,14 +389,14 @@ fn parseTerm(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})
 
     switch (nextToken.tag) {
         .numberLiteral => {
-            return try nl.addNode(&self.nodeList, .{
+            return try nl.addNode(self.alloc, &self.nodeList, .{
                 .tag = .lit,
                 .tokenIndex = self.pop()[1],
                 .data = .{ 0, 0 },
             });
         },
         .iden => {
-            return try nl.addNode(&self.nodeList, .{
+            return try nl.addNode(self.alloc, &self.nodeList, .{
                 .tag = .load,
                 .tokenIndex = self.pop()[1],
                 .data = .{ 0, 0 },
@@ -410,7 +407,7 @@ fn parseTerm(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})
 
             const expr = try self.parseTerm();
 
-            return try nl.addNode(&self.nodeList, .{
+            return try nl.addNode(self.alloc, &self.nodeList, .{
                 .tag = switch (op.tag) {
                     .minus => .neg,
                     else => unreachable,
@@ -439,11 +436,11 @@ fn parseTerm(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})
 }
 
 pub fn lexerToString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Error![]const u8 {
-    var al = std.ArrayList(u8).init(alloc);
+    var al = std.ArrayList(u8){};
 
     for (self.tokens) |value| {
         try value.toString(alloc, &al, self.path, self.source);
     }
 
-    return al.toOwnedSlice();
+    return al.toOwnedSlice(alloc);
 }

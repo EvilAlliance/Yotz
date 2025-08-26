@@ -58,41 +58,41 @@ pub inline fn getNodePtr(self: *@This(), i: Parser.NodeIndex) *Parser.Node {
 
 pub fn toString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Error![]const u8 {
     if (self.nodeList.items.len == 0) return "";
-    var cont = std.ArrayList(u8).init(alloc);
+    var cont = std.ArrayList(u8){};
 
     const root = self.nodeList.items[0];
 
     var i = root.data[0];
     const end = root.data[1];
     while (i < end) : (i = self.getNode(i).next) {
-        try self.tostringVariable(&cont, 0, i);
+        try self.tostringVariable(alloc, &cont, 0, i);
 
         if (self.getNode(self.getNode(i).data[1]).tag != .funcProto) {
-            try cont.appendSlice(";\n");
+            try cont.appendSlice(alloc, ";\n");
         }
     }
 
-    return cont.toOwnedSlice();
+    return cont.toOwnedSlice(alloc);
 }
 
-fn toStringFuncProto(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
+fn toStringFuncProto(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
     std.debug.assert(self.nodeList.items[i].tag == .funcProto);
     std.debug.assert(self.nodeList.items[i].data[0] == 0);
 
     // TODO : Put arguments
-    try cont.appendSlice("() ");
+    try cont.appendSlice(alloc, "() ");
 
-    try self.toStringType(cont, d, self.nodeList.items[i].data[1]);
+    try self.toStringType(alloc, cont, d, self.nodeList.items[i].data[1]);
 
-    try cont.append(' ');
+    try cont.append(alloc, ' ');
 
     const proto = self.getNode(i);
-    if (self.getNode(proto.next).tag == .scope) return try self.toStringScope(cont, d, proto.next);
+    if (self.getNode(proto.next).tag == .scope) return try self.toStringScope(alloc, cont, d, proto.next);
 
-    try self.toStringStatement(cont, d, proto.next);
+    try self.toStringStatement(alloc, cont, d, proto.next);
 }
 
-fn toStringType(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
+fn toStringType(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
     _ = d;
 
     var index = i;
@@ -101,24 +101,24 @@ fn toStringType(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser.Node
         const t = self.nodeList.items[index];
 
         switch (t.tag) {
-            .typeExpression => try cont.appendSlice(t.getTextAst(self)),
+            .typeExpression => try cont.appendSlice(alloc, t.getTextAst(self)),
             .funcType => {
                 std.debug.assert(t.data[0] == 0);
-                try cont.appendSlice("() ");
+                try cont.appendSlice(alloc, "() ");
 
                 index = t.data[1];
                 continue;
             },
             .type => {
-                try cont.append(switch (@as(Parser.Node.Primitive, @enumFromInt(t.data[1]))) {
+                try cont.append(alloc, switch (@as(Parser.Node.Primitive, @enumFromInt(t.data[1]))) {
                     Parser.Node.Primitive.int => 'i',
                     Parser.Node.Primitive.uint => 'u',
                     Parser.Node.Primitive.float => 'f',
                 });
 
-                const size = try std.fmt.allocPrint(cont.allocator, "{}", .{t.data[0]});
-                try cont.appendSlice(size);
-                cont.allocator.free(size);
+                const size = try std.fmt.allocPrint(alloc, "{}", .{t.data[0]});
+                try cont.appendSlice(alloc, size);
+                alloc.free(size);
             },
             else => unreachable,
         }
@@ -126,18 +126,18 @@ fn toStringType(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser.Node
         index = t.next;
 
         if (t.next != 0) {
-            try cont.appendSlice(", ");
+            try cont.appendSlice(alloc, ", ");
         } else {
             break;
         }
     }
 }
 
-fn toStringScope(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
+fn toStringScope(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
     const scope = self.nodeList.items[i];
     std.debug.assert(scope.tag == .scope);
 
-    try cont.appendSlice("{ \n");
+    try cont.appendSlice(alloc, "{ \n");
 
     var j = scope.data[0];
     const end = scope.data[1];
@@ -145,93 +145,93 @@ fn toStringScope(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser.Nod
     while (j < end) {
         const node = self.nodeList.items[j];
 
-        try self.toStringStatement(cont, d + 4, j);
+        try self.toStringStatement(alloc, cont, d + 4, j);
 
         j = node.next;
     }
 
-    try cont.appendSlice("} \n");
+    try cont.appendSlice(alloc, "} \n");
 }
 
-fn toStringStatement(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
+fn toStringStatement(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
     for (0..d) |_| {
-        try cont.append(' ');
+        try cont.append(alloc, ' ');
     }
 
     const stmt = self.nodeList.items[i];
 
     switch (stmt.tag) {
         .ret => {
-            try cont.appendSlice("return ");
-            try self.toStringExpression(cont, d, stmt.data[0]);
+            try cont.appendSlice(alloc, "return ");
+            try self.toStringExpression(alloc, cont, d, stmt.data[0]);
         },
         .variable, .constant => {
-            try self.tostringVariable(cont, d, i);
+            try self.tostringVariable(alloc, cont, d, i);
         },
         else => unreachable,
     }
 
-    try cont.appendSlice(";\n");
+    try cont.appendSlice(alloc, ";\n");
 }
 
-fn tostringVariable(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
+fn tostringVariable(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
     const variable = self.nodeList.items[i];
     std.debug.assert(variable.tag == .constant or variable.tag == .variable);
 
-    try cont.appendSlice(variable.getTextAst(self));
+    try cont.appendSlice(alloc, variable.getTextAst(self));
 
     if (variable.data[0] == 0)
-        try cont.append(' ');
+        try cont.append(alloc, ' ');
 
-    try cont.append(':');
+    try cont.append(alloc, ':');
     if (variable.data[0] != 0) {
-        try cont.append(' ');
-        try self.toStringType(cont, d, variable.data[0]);
-        try cont.append(' ');
+        try cont.append(alloc, ' ');
+        try self.toStringType(alloc, cont, d, variable.data[0]);
+        try cont.append(alloc, ' ');
     }
 
     if (variable.data[1] != 0) {
         switch (variable.tag) {
-            .constant => try cont.appendSlice(": "),
-            .variable => try cont.appendSlice("= "),
+            .constant => try cont.appendSlice(alloc, ": "),
+            .variable => try cont.appendSlice(alloc, "= "),
             else => unreachable,
         }
-        try self.toStringExpression(cont, d, variable.data[1]);
+        try self.toStringExpression(alloc, cont, d, variable.data[1]);
     }
 }
 
-fn toStringExpression(self: *@This(), cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
+fn toStringExpression(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
     const node = self.nodeList.items[i];
     switch (node.tag) {
-        .funcProto => try self.toStringFuncProto(cont, d, i),
+        .funcProto => try self.toStringFuncProto(alloc, cont, d, i),
         .addition, .subtraction, .multiplication, .division, .power => {
-            try cont.append('(');
+            try cont.append(alloc, '(');
 
             const leftIndex = node.data[0];
-            try self.toStringExpression(cont, d, leftIndex);
+            try self.toStringExpression(alloc, cont, d, leftIndex);
 
-            try cont.append(' ');
-            try cont.appendSlice(node.getTokenTagAst(self.*).toSymbol().?);
-            try cont.append(' ');
+            try cont.append(alloc, ' ');
+            try cont.appendSlice(alloc, node.getTokenTagAst(self.*).toSymbol().?);
+            try cont.append(alloc, ' ');
 
             const rightIndex = node.data[1];
-            try self.toStringExpression(cont, d, rightIndex);
+            try self.toStringExpression(alloc, cont, d, rightIndex);
 
-            try cont.append(')');
+            try cont.append(alloc, ')');
         },
         .neg => {
-            try cont.appendSlice(node.getTokenTagAst(self.*).toSymbol().?);
-            try cont.append('(');
+            try cont.appendSlice(alloc, node.getTokenTagAst(self.*).toSymbol().?);
+            try cont.append(alloc, '(');
             const leftIndex = node.data[0];
 
-            try self.toStringExpression(cont, d, leftIndex);
-            try cont.append(')');
+            try self.toStringExpression(alloc, cont, d, leftIndex);
+            try cont.append(alloc, ')');
         },
         .load => {
-            try cont.appendSlice(node.getTextAst(self));
+            try cont.appendSlice(alloc, node.getTextAst(self));
         },
         .lit => {
-            try cont.appendSlice(node.getTextAst(self));
+            try cont.appendSlice(alloc, node.getTextAst(self));
         },
         else => unreachable,
     }

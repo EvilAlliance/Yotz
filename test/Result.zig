@@ -1,5 +1,5 @@
 const std = @import("std");
-const Diffz = @import("DiffMatchPatch.zig");
+const diffz = @import("diffz");
 
 pub const Type = enum {
     Unknown,
@@ -34,5 +34,5 @@ pub const Type = enum {
 
 type: Type,
 returnCodeDiff: ?struct { i64, i64 } = null,
-stdout: ?std.ArrayListUnmanaged(Diffz.Diff) = null,
-stderr: ?std.ArrayListUnmanaged(Diffz.Diff) = null,
+stdout: ?std.ArrayListUnmanaged(diffz.Diff) = null,
+stderr: ?std.ArrayListUnmanaged(diffz.Diff) = null,

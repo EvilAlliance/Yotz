@@ -4,8 +4,6 @@ const Test = @import("Test.zig");
 const TestCase = @import("TestCase.zig");
 const Tests = std.ArrayList(Test);
 
-var mutex = std.Thread.Mutex{};
-
 absolute: []const u8,
 relative: []const u8,
 subCommand: SubCommand,
@@ -14,6 +12,7 @@ pool: *std.Thread.Pool,
 generateCheck: bool,
 tests: *Tests,
 coverage: bool,
+mutex: *std.Thread.Mutex,
 
 fn toUniqueNumber(term: std.process.Child.Term) u32 {
     const tag = @as(u32, @intFromEnum(term));
@@ -25,7 +24,7 @@ fn toUniqueNumber(term: std.process.Child.Term) u32 {
     };
     return (tag << 28) ^ @mulWithOverflow(value, 0x9E3779B9)[0];
 }
-pub fn init(alloc: std.mem.Allocator, abs: []const u8, rel: []const u8, pool: *std.Thread.Pool, tests: *Tests, subCommand: SubCommand, generateCheck: bool, coverage: bool) @This() {
+pub fn init(alloc: std.mem.Allocator, abs: []const u8, rel: []const u8, pool: *std.Thread.Pool, mutex: *std.Thread.Mutex, tests: *Tests, subCommand: SubCommand, generateCheck: bool, coverage: bool) @This() {
     return .{
         .pool = pool,
 
@@ -39,6 +38,8 @@ pub fn init(alloc: std.mem.Allocator, abs: []const u8, rel: []const u8, pool: *s
         .generateCheck = generateCheck,
 
         .coverage = coverage,
+
+        .mutex = mutex,
     };
 }
 
@@ -54,10 +55,10 @@ pub fn testIt(self: @This()) void {
 
     if (std.mem.eql(u8, self.absolute[extensionIndex..], "yt")) unreachable;
 
-    mutex.lock();
+    self.mutex.lock();
     const index = self.tests.items.len;
-    self.tests.append(.{ .file = self }) catch @panic("Could not add the test to the list");
-    mutex.unlock();
+    self.tests.append(self.alloc, .{ .file = self }) catch @panic("Could not add the test to the list");
+    self.mutex.unlock();
 
     inline for (@typeInfo(SubCommand).@"enum".fields) |falseValue| {
         const value: SubCommand = @enumFromInt(falseValue.value);
@@ -78,10 +79,14 @@ pub fn testIt(self: @This()) void {
                     },
                 ) catch @panic("Could not spawn a Thread in the pool");
             } else {
+                self.mutex.lock();
                 self.tests.items[index].results[@intFromEnum(value)].type = .NotCompiled;
+                self.mutex.unlock();
             }
         } else {
+            self.mutex.lock();
             self.tests.items[index].results[@intFromEnum(value)].type = .NotCompiled;
+            self.mutex.unlock();
         }
     }
 }
@@ -97,6 +102,8 @@ fn testSubCommand(
 ) void {
     var expected: TestCase = undefined;
     expected = TestCase.initFromFile(self.alloc, fileWithAnswer) catch {
+        self.mutex.lock();
+        defer self.mutex.unlock();
         self.tests.items[index].results[@intFromEnum(subCommand)].type = .Fail;
         return;
     };
@@ -116,6 +123,8 @@ fn testSubCommand(
         std.fmt.allocPrint(self.alloc, ".test/{}", .{i}) catch return,
         "./zig-out/bin/yot",
         subCommand.toSubCommnad() catch {
+            self.mutex.lock();
+            defer self.mutex.unlock();
             self.tests.items[index].results[@intFromEnum(subCommand)].type = .NotYet;
             return;
         },
@@ -125,6 +134,8 @@ fn testSubCommand(
     } else &[_][]const u8{
         "./zig-out/bin/yot",
         subCommand.toSubCommnad() catch {
+            self.mutex.lock();
+            defer self.mutex.unlock();
             self.tests.items[index].results[@intFromEnum(subCommand)].type = .NotYet;
             return;
         },
@@ -139,29 +150,44 @@ fn testSubCommand(
     exec.stderr_behavior = .Pipe;
 
     exec.spawn() catch {
+        self.mutex.lock();
+        defer self.mutex.unlock();
         self.tests.items[index].results[@intFromEnum(subCommand)].type = .Fail;
         return;
     };
+
+    var buff: [1024]u8 = undefined;
 
     var stdout: []u8 = undefined;
     var stderr: []u8 = undefined;
 
-    exec.stdin.?.writer().writeAll(expected.stdin) catch {
+    var w = exec.stdin.?.writer(&buff);
+    w.interface.writeAll(expected.stdin) catch {
+        self.mutex.lock();
+        defer self.mutex.unlock();
         self.tests.items[index].results[@intFromEnum(subCommand)].type = .Fail;
         return;
     };
 
-    stdout = exec.stdout.?.reader().readAllAlloc(self.alloc, std.math.maxInt(u64)) catch {
+    var r = exec.stdout.?.reader(&buff);
+    stdout = r.interface.readAlloc(self.alloc, std.math.maxInt(u64)) catch {
+        self.mutex.lock();
+        defer self.mutex.unlock();
         self.tests.items[index].results[@intFromEnum(subCommand)].type = .Fail;
         return;
     };
 
-    stderr = exec.stderr.?.reader().readAllAlloc(self.alloc, std.math.maxInt(u64)) catch {
+    r = exec.stderr.?.reader(&buff);
+    stderr = r.interface.readAlloc(self.alloc, std.math.maxInt(u64)) catch {
+        self.mutex.lock();
+        defer self.mutex.unlock();
         self.tests.items[index].results[@intFromEnum(subCommand)].type = .Fail;
         return;
     };
 
     const result = toUniqueNumber(exec.wait() catch {
+        self.mutex.lock();
+        defer self.mutex.unlock();
         self.tests.items[index].results[@intFromEnum(subCommand)].type = .Fail;
         return;
     });
@@ -171,12 +197,16 @@ fn testSubCommand(
 
     if (self.generateCheck) {
         actual.saveTest() catch {
+            self.mutex.lock();
+            defer self.mutex.unlock();
             self.tests.items[index].results[@intFromEnum(subCommand)].type = .Fail;
             return;
         };
 
         self.tests.items[index].results[@intFromEnum(subCommand)].type = .Updated;
     } else {
+        self.mutex.lock();
+        defer self.mutex.unlock();
         self.tests.items[index].results[@intFromEnum(subCommand)] = expected.compare(&actual) catch {
             self.tests.items[index].results[@intFromEnum(subCommand)].type = .Fail;
             return;

@@ -33,16 +33,12 @@ pub const logLocation = struct {
             .debug => "[DEBUG]",
         };
 
-        const stderr = std.io.getStdErr().writer();
-        var bw = std.io.bufferedWriter(stderr);
-        const writer = bw.writer();
-
-        std.debug.lockStdErr();
-        defer std.debug.unlockStdErr();
+        var buffer: [256]u8 = undefined;
+        const stderr = std.debug.lockStderrWriter(&buffer);
+        defer std.debug.unlockStderrWriter();
         nosuspend {
-            writer.print("{s}:{}:{} ", .{ path, location.row, location.col }) catch return;
-            writer.print(level_txt ++ ": " ++ format ++ "\n", args) catch return;
-            bw.flush() catch return;
+            stderr.print("{s}:{}:{} ", .{ path, location.row, location.col }) catch return;
+            stderr.print(level_txt ++ ": " ++ format ++ "\n", args) catch return;
         }
         unreachable;
     }
@@ -71,15 +67,11 @@ pub const log = struct {
             .debug => "[DEBUG]",
         };
 
-        const stderr = std.io.getStdErr().writer();
-        var bw = std.io.bufferedWriter(stderr);
-        const writer = bw.writer();
-
-        std.debug.lockStdErr();
-        defer std.debug.unlockStdErr();
+        var buffer: [256]u8 = undefined;
+        const stderr = std.debug.lockStderrWriter(&buffer);
+        defer std.debug.unlockStderrWriter();
         nosuspend {
-            writer.print(level_txt ++ ": " ++ format ++ "\n", args) catch return;
-            bw.flush() catch return;
+            stderr.print(level_txt ++ ": " ++ format ++ "\n", args) catch return;
         }
     }
 };

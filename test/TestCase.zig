@@ -1,6 +1,6 @@
 const std = @import("std");
 const Result = @import("Result.zig");
-const Diffz = @import("DiffMatchPatch.zig");
+const diffz = @import("diffz");
 
 alloc: std.mem.Allocator,
 
@@ -10,9 +10,12 @@ returnCode: i64 = undefined,
 stdout: []const u8 = undefined,
 stderr: []const u8 = undefined,
 
+rBuff: [128]u8 = undefined,
+wBuff: [128]u8 = undefined,
+
 file: std.fs.File,
-w: std.fs.File.Writer,
-r: std.fs.File.Reader,
+w: std.fs.File.Writer = undefined,
+r: std.fs.File.Reader = undefined,
 
 pub fn init(
     alloc: std.mem.Allocator,
@@ -34,7 +37,7 @@ pub fn init(
         fileAnswer = std.fs.createFileAbsolute(fileAbs, .{ .read = true }) catch @panic("Could not create file to store test");
     }
 
-    return .{
+    var self: @This() = .{
         .alloc = alloc,
 
         .args = args,
@@ -44,9 +47,12 @@ pub fn init(
         .stderr = stderr,
 
         .file = fileAnswer.?,
-        .w = fileAnswer.?.writer(),
-        .r = fileAnswer.?.reader(),
     };
+
+    self.w = fileAnswer.?.writer(&self.wBuff);
+    self.r = fileAnswer.?.reader(&self.rBuff);
+
+    return self;
 }
 
 pub fn deinit(self: *@This()) void {
@@ -77,9 +83,10 @@ pub fn initFromFile(
         .alloc = alloc,
 
         .file = fileAnswer,
-        .w = fileAnswer.writer(),
-        .r = fileAnswer.reader(),
     };
+
+    self.w = fileAnswer.writer(&self.wBuff);
+    self.r = fileAnswer.reader(&self.rBuff);
 
     try self.readTest();
 
@@ -121,22 +128,36 @@ pub fn saveTest(self: *@This()) !void {
 }
 
 fn writeBlob(self: *@This(), name: []const u8, blob: []const u8) !void {
-    try self.w.print(":b {s} {}\n{s}\n", .{ name, blob.len, blob });
+    try self.w.interface.print(":b {s} {}\n{s}\n", .{ name, blob.len, blob });
 }
 
 fn writeInteger(self: *@This(), name: []const u8, integer: i64) !void {
-    try self.w.print(":i {s} {}\n", .{ name, integer });
+    try self.w.interface.print(":i {s} {}\n", .{ name, integer });
 }
 
 fn readInteger(self: *@This(), name: []const u8) !i64 {
-    const line = try self.r.readUntilDelimiterAlloc(self.alloc, '\n', std.math.maxInt(usize));
+    var w = std.io.Writer.Allocating.init(self.alloc);
+    defer w.deinit();
+
+    _ = try self.r.interface.streamDelimiter(&w.writer, '\n');
+    const line = w.written();
+
+    _ = try self.r.interface.takeByte();
+
     const field = try std.fmt.allocPrint(self.alloc, ":i {s} ", .{name});
     std.debug.assert(std.mem.startsWith(u8, line, field));
     return try std.fmt.parseInt(i64, line[field.len..], 10);
 }
 
 fn readBlob(self: *@This(), name: []const u8) ![]u8 {
-    const line = try self.r.readUntilDelimiterAlloc(self.alloc, '\n', std.math.maxInt(usize));
+    var w = std.io.Writer.Allocating.init(self.alloc);
+    defer w.deinit();
+
+    _ = try self.r.interface.streamDelimiter(&w.writer, '\n');
+    const line = w.written();
+
+    _ = try self.r.interface.takeByte();
+
     const field = try std.fmt.allocPrint(self.alloc, ":b {s} ", .{name});
     std.debug.assert(std.mem.startsWith(u8, line, field));
 
@@ -146,7 +167,7 @@ fn readBlob(self: *@This(), name: []const u8) ![]u8 {
     const read = try self.r.read(buf);
 
     std.debug.assert(read == size);
-    std.debug.assert(try self.r.readByte() == '\n');
+    std.debug.assert(try self.r.interface.takeByte() == '\n');
 
     return buf;
 }
@@ -160,11 +181,11 @@ pub fn compare(expected: *@This(), actual: *@This()) !Result {
         result.returnCodeDiff = .{ expected.returnCode, actual.returnCode };
     }
 
-    const diffStdout = try Diffz.diff(Diffz.default, expected.alloc, expected.stdout, actual.stdout, true);
-    result.stdout = if (diffStdout.items.len == 0 or (diffStdout.items.len == 1 and diffStdout.items[0].operation == .equal)) null else @as(?std.ArrayListUnmanaged(Diffz.Diff), diffStdout);
+    const diffStdout = try diffz.diff(diffz.default, expected.alloc, expected.stdout, actual.stdout, true);
+    result.stdout = if (diffStdout.items.len == 0 or (diffStdout.items.len == 1 and diffStdout.items[0].operation == .equal)) null else @as(?std.ArrayListUnmanaged(diffz.Diff), diffStdout);
 
-    const diffStderr = try Diffz.diff(Diffz.default, expected.alloc, expected.stderr, actual.stderr, true);
-    result.stderr = if (diffStderr.items.len == 0 or (diffStderr.items.len == 1 and diffStderr.items[0].operation == .equal)) null else @as(?std.ArrayListUnmanaged(Diffz.Diff), diffStderr);
+    const diffStderr = try diffz.diff(diffz.default, expected.alloc, expected.stderr, actual.stderr, true);
+    result.stderr = if (diffStderr.items.len == 0 or (diffStderr.items.len == 1 and diffStderr.items[0].operation == .equal)) null else @as(?std.ArrayListUnmanaged(diffz.Diff), diffStderr);
 
     if (result.returnCodeDiff != null or result.stdout != null or result.stderr != null) result.type = .Error;
 

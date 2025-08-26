@@ -186,9 +186,9 @@ pub fn lex(alloc: std.mem.Allocator, c: [:0]const u8) std.mem.Allocator.Error![]
     var t = lexer.advance();
 
     while (t.tag != .EOF) : (t = lexer.advance()) {
-        try al.append(t);
+        try al.append(alloc, t);
     }
-    try al.append(t);
+    try al.append(alloc, t);
 
-    return try al.toOwnedSlice();
+    return try al.toOwnedSlice(alloc);
 }

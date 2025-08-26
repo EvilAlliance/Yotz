@@ -12,8 +12,9 @@ pool: *std.Thread.Pool,
 generateCheck: bool,
 tests: *Tests,
 coverage: bool,
+mutex: *std.Thread.Mutex,
 
-pub fn init(alloc: std.mem.Allocator, abs: []const u8, rel: []const u8, pool: *std.Thread.Pool, tests: *Tests, subCommand: SubCommand, generateCheck: bool, coverage: bool) @This() {
+pub fn init(alloc: std.mem.Allocator, abs: []const u8, rel: []const u8, pool: *std.Thread.Pool, mutex: *std.Thread.Mutex, tests: *Tests, subCommand: SubCommand, generateCheck: bool, coverage: bool) @This() {
     return .{
         .pool = pool,
 
@@ -27,6 +28,8 @@ pub fn init(alloc: std.mem.Allocator, abs: []const u8, rel: []const u8, pool: *s
         .generateCheck = generateCheck,
 
         .coverage = coverage,
+
+        .mutex = mutex,
     };
 }
 
@@ -64,6 +67,7 @@ pub fn testIt(self: @This()) void {
                         std.fmt.allocPrint(self.alloc, "{s}/{s}", .{ self.absolute, child.name }) catch return,
                         std.fmt.allocPrint(self.alloc, "{s}/{s}", .{ self.relative, child.name }) catch return,
                         self.pool,
+                        self.mutex,
                         self.tests,
                         self.subCommand,
                         self.generateCheck,

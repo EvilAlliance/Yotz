@@ -1,5 +1,5 @@
 const std = @import("std");
-const Diffz = @import("DiffMatchPatch.zig");
+const diffz = @import("diffz");
 const Folder = @import("Folder.zig");
 const File = @import("File.zig");
 const SubCommand = @import("SubCommand.zig").SubCommand;
@@ -14,15 +14,15 @@ fn buildZig(alloc: std.mem.Allocator) !bool {
 
     defer childs.close();
     var it = childs.iterate();
-    var arr = std.ArrayList([]const u8).init(alloc);
+    var arr: std.ArrayList([]const u8) = .{};
 
     while (try it.next()) |child| {
         std.debug.assert(child.kind == .directory);
-        try arr.append(try std.fs.path.join(alloc, &.{ ".test", child.name }));
+        try arr.append(alloc, try std.fs.path.join(alloc, &.{ ".test", child.name }));
     }
 
     const rmCommand = [_][]const u8{ "rm", "-r" };
-    var rmExec = std.process.Child.init(try std.mem.concat(alloc, []const u8, &.{ &rmCommand, try arr.toOwnedSlice() }), alloc);
+    var rmExec = std.process.Child.init(try std.mem.concat(alloc, []const u8, &.{ &rmCommand, try arr.toOwnedSlice(alloc) }), alloc);
 
     rmExec.stdout_behavior = .Ignore;
     rmExec.stderr_behavior = .Ignore;
@@ -43,8 +43,15 @@ fn buildZig(alloc: std.mem.Allocator) !bool {
     var stdout: []u8 = undefined;
     var stderr: []u8 = undefined;
 
-    stdout = try exec.stdout.?.reader().readAllAlloc(alloc, std.math.maxInt(u64));
-    stderr = try exec.stderr.?.reader().readAllAlloc(alloc, std.math.maxInt(u64));
+    var buff: [1024]u8 = undefined;
+    var w = std.io.Writer.Allocating.init(alloc);
+
+    var r = exec.stdout.?.reader(&buff);
+    _ = try r.interface.streamRemaining(&w.writer);
+    stdout = w.written();
+    r = exec.stderr.?.reader(&buff);
+    _ = try r.interface.streamRemaining(&w.writer);
+    stderr = w.written();
 
     const result = try exec.wait();
     if (switch (result) {
@@ -97,6 +104,7 @@ fn testInit(
                     absPath,
                     relative,
                     &pool,
+                    &mutex,
                     result,
                     subCommand,
                     generateCheck,
@@ -113,6 +121,7 @@ fn testInit(
                     absPath,
                     relative,
                     &pool,
+                    &mutex,
                     result,
                     subCommand,
                     generateCheck,
@@ -124,6 +133,9 @@ fn testInit(
 
     pool.deinit();
 }
+
+var mutex = std.Thread.Mutex{};
+var c = std.Thread.Mutex{};
 
 pub fn main() !u8 {
     var generalPurpose: std.heap.GeneralPurposeAllocator(.{ .thread_safe = true }) = .init;
@@ -149,8 +161,8 @@ pub fn main() !u8 {
     const firstArg = if (coverageBool) argIterator.next() orelse "run" else coverage;
     var update = false;
 
-    var result = Tests.init(alloc);
-    result.deinit();
+    var result = Tests{};
+    defer result.deinit(alloc);
 
     if (std.mem.eql(u8, "update", firstArg)) {
         const subsubcommand = argIterator.next() orelse "output";
@@ -209,22 +221,22 @@ pub fn main() !u8 {
     var childs = try std.fs.cwd().openDir(".test", .{ .iterate = true });
     defer childs.close();
     var it = childs.iterate();
-    var arr = std.ArrayList([]const u8).init(alloc);
+    var arr: std.ArrayList([]const u8) = .{};
 
     while (try it.next()) |child| {
         std.debug.assert(child.kind == .directory);
-        try arr.append(try std.fs.path.join(alloc, &.{ ".test", child.name }));
+        try arr.append(alloc, try std.fs.path.join(alloc, &.{ ".test", child.name }));
     }
 
     if (coverageBool and !update and result.items.len > 0) {
         const command = [_][]const u8{ "kcov", "--merge", ".test/merge" };
-        var exec = std.process.Child.init(try std.mem.concat(alloc, []const u8, &.{ &command, try arr.toOwnedSlice() }), alloc);
+        var exec = std.process.Child.init(try std.mem.concat(alloc, []const u8, &.{ &command, try arr.toOwnedSlice(alloc) }), alloc);
 
         try exec.spawn();
         _ = try exec.wait();
     }
 
-    printTests(&result);
+    printTests(alloc, &result);
 
     for (result.items) |case|
         for (case.results) |res|
@@ -233,7 +245,7 @@ pub fn main() !u8 {
     return 0;
 }
 
-fn printTests(result: *Tests) void {
+fn printTests(alloc: std.mem.Allocator, result: *Tests) void {
     var max: usize = 0;
     for (result.items) |value| {
         if (max < value.file.relative.len) max = value.file.relative.len;
@@ -278,12 +290,12 @@ fn printTests(result: *Tests) void {
             }
 
             if (res.stdout) |stdout| {
-                const text = Diffz.diffPrettyFormatXTerm(result.allocator, stdout) catch @panic("Try again");
+                const text = diffz.diffPrettyFormatXTerm(alloc, stdout) catch @panic("Try again");
                 std.debug.print("Stdout: \n{s}\n", .{text});
             }
 
             if (res.stderr) |stderror| {
-                const text = Diffz.diffPrettyFormatXTerm(result.allocator, stderror) catch @panic("Try Again");
+                const text = diffz.diffPrettyFormatXTerm(alloc, stderror) catch @panic("Try Again");
                 std.debug.print("Stderror: \n{s}\n", .{text});
             }
         }
