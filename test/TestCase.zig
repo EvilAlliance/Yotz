@@ -13,6 +13,7 @@ stderr: []const u8 = undefined,
 rBuff: [128]u8 = undefined,
 wBuff: [128]u8 = undefined,
 
+filePath: []const u8,
 file: std.fs.File,
 w: std.fs.File.Writer = undefined,
 r: std.fs.File.Reader = undefined,
@@ -47,6 +48,7 @@ pub fn init(
         .stderr = stderr,
 
         .file = fileAnswer.?,
+        .filePath = fileAbs,
     };
 
     self.w = fileAnswer.?.writer(&self.wBuff);
@@ -73,6 +75,7 @@ pub fn initFromFile(
             .stdout = "",
             .stderr = "",
 
+            .filePath = fileAbs,
             .file = undefined,
             .w = undefined,
             .r = undefined,
@@ -83,6 +86,7 @@ pub fn initFromFile(
         .alloc = alloc,
 
         .file = fileAnswer,
+        .filePath = fileAbs,
     };
 
     self.w = fileAnswer.writer(&self.wBuff);
@@ -100,6 +104,7 @@ pub fn readTest(self: *@This()) !void {
     for (0..@intCast(size)) |i| {
         args[i] = try self.readBlob(try std.fmt.allocPrint(self.alloc, "arg{}", .{i}));
     }
+
     self.args = args;
 
     self.stdin = try self.readBlob("stdin");
@@ -151,22 +156,23 @@ fn readInteger(self: *@This(), name: []const u8) !i64 {
 
 fn readBlob(self: *@This(), name: []const u8) ![]u8 {
     var w = std.io.Writer.Allocating.init(self.alloc);
-    defer w.deinit();
 
     _ = try self.r.interface.streamDelimiter(&w.writer, '\n');
     const line = w.written();
+    w.clearRetainingCapacity();
 
-    _ = try self.r.interface.takeByte();
+    std.debug.assert(try self.r.interface.takeByte() == '\n');
 
     const field = try std.fmt.allocPrint(self.alloc, ":b {s} ", .{name});
     std.debug.assert(std.mem.startsWith(u8, line, field));
 
-    const size = try std.fmt.parseInt(i64, line[field.len..], 10);
+    const size = try std.fmt.parseInt(u64, line[field.len..], 10);
 
-    const buf = try self.alloc.alloc(u8, @intCast(size));
-    const read = try self.r.read(buf);
+    try self.r.interface.streamExact64(&w.writer, size);
 
-    std.debug.assert(read == size);
+    const buf = try w.toOwnedSlice();
+
+    std.debug.assert(buf.len == size);
     std.debug.assert(try self.r.interface.takeByte() == '\n');
 
     return buf;

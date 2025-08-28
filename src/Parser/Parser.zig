@@ -23,7 +23,6 @@ tokens: []Lexer.Token,
 source: [:0]const u8,
 
 path: []const u8,
-absPath: []const u8,
 
 nodeList: Ast.NodeList,
 
@@ -32,13 +31,12 @@ errors: std.ArrayList(UnexpectedToken),
 depth: NodeIndex = 0,
 
 pub fn init(alloc: Allocator, path: []const u8) ?@This() {
-    const absPath, const resolvedPath, const source = Util.readEntireFile(alloc, path) catch |err| {
+    const resolvedPath, const source = Util.readEntireFile(alloc, path) catch |err| {
         switch (err) {
             error.couldNotResolvePath => Logger.log.err("Could not resolve path: {s}\n", .{path}),
             error.couldNotOpenFile => Logger.log.err("Could not open file: {s}\n", .{path}),
             error.couldNotReadFile => Logger.log.err("Could not read file: {s}]n", .{path}),
             error.couldNotGetFileSize => Logger.log.err("Could not get file ({s}) size\n", .{path}),
-            error.couldNotGetAbsolutePath => Logger.log.err("Could not get absolute path of file ({s})\n", .{path}),
         }
         return null;
     };
@@ -53,7 +51,6 @@ pub fn init(alloc: Allocator, path: []const u8) ?@This() {
         .source = source,
 
         .path = resolvedPath,
-        .absPath = absPath,
 
         .nodeList = .{},
 
@@ -64,7 +61,6 @@ pub fn init(alloc: Allocator, path: []const u8) ?@This() {
 pub fn deinit(self: *@This()) void {
     self.alloc.free(self.source);
     self.alloc.free(self.tokens);
-    self.alloc.free(self.absPath);
     self.alloc.free(self.path);
 
     self.nodeList.deinit(self.alloc);
@@ -110,7 +106,7 @@ fn pop(self: *@This()) struct { Lexer.Token, TokenIndex } {
 
 pub fn parse(self: *@This()) (std.mem.Allocator.Error)!Ast {
     try self.parseRoot();
-    return Ast.init(self.alloc, &self.nodeList, self.tokens, self.absPath, self.path, self.source);
+    return Ast.init(self.alloc, &self.nodeList, self.tokens, self.path, self.source);
 }
 
 fn parseRoot(self: *@This()) (std.mem.Allocator.Error)!void {

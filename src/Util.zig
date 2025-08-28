@@ -45,21 +45,20 @@ pub const ReadingFileError = error{
     couldNotOpenFile,
     couldNotGetFileSize,
     couldNotReadFile,
-    couldNotGetAbsolutePath,
     couldNotResolvePath,
 };
 
-// First absPath, second data of file
-pub fn readEntireFile(alloc: std.mem.Allocator, path: []const u8) ReadingFileError!struct { []const u8, []const u8, [:0]const u8 } {
-    const abspath = std.fs.realpathAlloc(alloc, path) catch return error.couldNotGetAbsolutePath;
-    errdefer alloc.free(abspath);
+// First relativePath, second data of file
+pub fn readEntireFile(alloc: std.mem.Allocator, path: []const u8) ReadingFileError!struct { []const u8, [:0]const u8 } {
     const resolvedPath = std.fs.path.resolve(alloc, &.{path}) catch return error.couldNotResolvePath;
     errdefer alloc.free(resolvedPath);
-    const f = std.fs.openFileAbsolute(abspath, .{ .mode = .read_only }) catch return error.couldNotOpenFile;
+
+    const f = std.fs.cwd().openFile(resolvedPath, .{ .mode = .read_only }) catch return error.couldNotOpenFile;
     defer f.close();
+
     const file_size = f.getEndPos() catch return error.couldNotGetFileSize;
     const max_bytes: usize = @intCast(file_size + 1);
     const c = f.readToEndAllocOptions(alloc, max_bytes, max_bytes, .@"1", 0) catch return error.couldNotReadFile;
 
-    return .{ abspath, resolvedPath, c };
+    return .{ resolvedPath, c };
 }

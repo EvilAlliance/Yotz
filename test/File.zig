@@ -104,6 +104,7 @@ fn testSubCommand(
     expected = TestCase.initFromFile(self.alloc, fileWithAnswer) catch {
         self.mutex.lock();
         defer self.mutex.unlock();
+        std.debug.print("Could not create test case\n", .{});
         self.tests.items[index].results[@intFromEnum(subCommand)].type = .Fail;
         return;
     };
@@ -152,35 +153,39 @@ fn testSubCommand(
     exec.spawn() catch {
         self.mutex.lock();
         defer self.mutex.unlock();
+        std.debug.print("Could not create spawn process\n", .{});
         self.tests.items[index].results[@intFromEnum(subCommand)].type = .Fail;
         return;
     };
 
-    var buff: [1024]u8 = undefined;
-
-    var stdout: []u8 = undefined;
-    var stderr: []u8 = undefined;
-
-    var w = exec.stdin.?.writer(&buff);
-    w.interface.writeAll(expected.stdin) catch {
+    exec.stdin.?.writeAll(expected.stdin) catch {
         self.mutex.lock();
         defer self.mutex.unlock();
+        std.debug.print("Could not write to stdin\n", .{});
         self.tests.items[index].results[@intFromEnum(subCommand)].type = .Fail;
         return;
     };
 
-    var r = exec.stdout.?.reader(&buff);
-    stdout = r.interface.readAlloc(self.alloc, std.math.maxInt(u64)) catch {
+    var stdout = std.ArrayList(u8).initCapacity(self.alloc, 50 * 1024) catch {
         self.mutex.lock();
         defer self.mutex.unlock();
+        std.debug.print("Could not to create stdout buffer\n", .{});
         self.tests.items[index].results[@intFromEnum(subCommand)].type = .Fail;
         return;
     };
 
-    r = exec.stderr.?.reader(&buff);
-    stderr = r.interface.readAlloc(self.alloc, std.math.maxInt(u64)) catch {
+    var stderr = std.ArrayList(u8).initCapacity(self.alloc, 50 * 1024) catch {
         self.mutex.lock();
         defer self.mutex.unlock();
+        std.debug.print("Could not to create stdout buffer\n", .{});
+        self.tests.items[index].results[@intFromEnum(subCommand)].type = .Fail;
+        return;
+    };
+
+    exec.collectOutput(self.alloc, &stdout, &stderr, 50 * 1024) catch {
+        self.mutex.lock();
+        defer self.mutex.unlock();
+        std.debug.print("Could not collect output\n", .{});
         self.tests.items[index].results[@intFromEnum(subCommand)].type = .Fail;
         return;
     };
@@ -188,11 +193,12 @@ fn testSubCommand(
     const result = toUniqueNumber(exec.wait() catch {
         self.mutex.lock();
         defer self.mutex.unlock();
+        std.debug.print("Could not could wait for command\n", .{});
         self.tests.items[index].results[@intFromEnum(subCommand)].type = .Fail;
         return;
     });
 
-    var actual = TestCase.init(self.alloc, fileWithAnswer, &[0][]const u8{}, expected.stdin, result, stdout, stderr);
+    var actual = TestCase.init(self.alloc, fileWithAnswer, &[0][]const u8{}, expected.stdin, result, stdout.items, stderr.items);
     defer actual.deinit();
 
     if (self.generateCheck) {

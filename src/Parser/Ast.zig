@@ -9,18 +9,16 @@ pub const FileInfo = struct { []const u8, [:0]const u8 };
 alloc: std.mem.Allocator,
 
 source: [:0]const u8,
-absPath: []const u8,
 path: []const u8,
 
 tokens: []Lexer.Token,
 
 nodeList: *NodeList,
 
-pub fn init(alloc: std.mem.Allocator, nl: *NodeList, tl: []Lexer.Token, absPath: []const u8, path: []const u8, source: [:0]const u8) @This() {
+pub fn init(alloc: std.mem.Allocator, nl: *NodeList, tl: []Lexer.Token, path: []const u8, source: [:0]const u8) @This() {
     return @This(){
         .alloc = alloc,
 
-        .absPath = absPath,
         .path = path,
         .source = source,
         .tokens = tl,

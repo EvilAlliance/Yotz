@@ -94,20 +94,20 @@ pub fn main() u8 {
     const tu, const err = TranslationUnit.initGlobal(gpa, arguments);
     if (!err) return 1;
 
-    // const bytes, const ret = tu.start() catch {
-    //     Logger.log.err("Run Out of Memory", .{});
-    //     return 1;
-    // };
+    const bytes, const ret = tu.start() catch {
+        Logger.log.err("Run Out of Memory", .{});
+        return 1;
+    };
 
-    defer tu.deinit(gpa.alloc(u8, 2) catch unreachable);
+    defer tu.deinit(bytes);
 
-    // var buf: [5 * 1024]u8 = undefined;
+    var buf: [5 * 1024]u8 = undefined;
 
-    // writeAll(
-    //     bytes,
-    //     arguments,
-    //     getName(arguments.path, arguments.subCom.getExt(), &buf),
-    // );
+    writeAll(
+        bytes,
+        arguments,
+        getName(arguments.path, arguments.subCom.getExt(), &buf),
+    );
 
-    return 0;
+    return ret;
 }

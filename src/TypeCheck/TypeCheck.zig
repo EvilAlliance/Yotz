@@ -354,7 +354,7 @@ pub const TypeChecker = struct {
                             nodeType.flags = 0;
                             nodeType.tokenIndex = leaf.tokenIndex;
                             nodeType.flags |= @intFromEnum(Parser.Node.Flag.inferedFromUse);
-                            const x = try nl.addNode(self.alloc, self.ast.nodeList, nodeType);
+                            const x = try nl.addNode(self.ast.alloc, self.ast.nodeList, nodeType);
                             self.ast.getNodePtr(x).next = variable.data[0];
                             self.ast.getNodePtr(variableI).data[0] = x;
                         }
@@ -391,6 +391,7 @@ pub const TypeChecker = struct {
         std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, expr.tag));
 
         const flat = try self.alloc.create(CheckPoint.FlattenExpression);
+        flat.* = .{};
 
         try self.flattenExpression(flat, exprI);
 
@@ -436,6 +437,7 @@ pub const TypeChecker = struct {
 
         // deinit int checkFlattenExpression
         const flat = try self.alloc.create(CheckPoint.FlattenExpression);
+        flat.* = .{};
 
         try self.flattenExpression(flat, exprI);
 

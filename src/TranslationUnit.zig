@@ -18,9 +18,8 @@ pub const Content = struct {
     subCom: ParseArgs.SubCommand = .Build,
 
     path: []const u8 = "",
-    absPath: []const u8 = "",
 
-    source: []const u8 = "",
+    source: [:0]const u8 = "",
     tokens: []Lexer.Token = undefined,
 };
 
@@ -47,20 +46,18 @@ pub fn initGlobal(alloc: std.mem.Allocator, args: ParseArgs.Arguments) struct { 
 
 pub fn readTokens(self: *Self) bool {
     const path = self.cont.path;
-    const absPath, const resolvedPath, const source = Util.readEntireFile(self.alloc, path) catch |err| {
+    const resolvedPath, const source = Util.readEntireFile(self.alloc, path) catch |err| {
         switch (err) {
             error.couldNotResolvePath => Logger.log.err("Could not resolve path: {s}\n", .{path}),
             error.couldNotOpenFile => Logger.log.err("Could not open file: {s}\n", .{path}),
             error.couldNotReadFile => Logger.log.err("Could not read file: {s}]n", .{path}),
             error.couldNotGetFileSize => Logger.log.err("Could not get file ({s}) size\n", .{path}),
-            error.couldNotGetAbsolutePath => Logger.log.err("Could not get absolute path of file ({s})\n", .{path}),
         }
         return false;
     };
     self.cont.tokens = Lexer.lex(self.alloc, source) catch {
         Logger.log.err("Out of memory", .{});
 
-        self.alloc.free(absPath);
         self.alloc.free(resolvedPath);
         self.alloc.free(source);
 
@@ -70,7 +67,6 @@ pub fn readTokens(self: *Self) bool {
     self.cont.source = source;
 
     self.cont.path = resolvedPath;
-    self.cont.absPath = absPath;
 
     return true;
 }
@@ -104,7 +100,6 @@ pub fn start(self: *const Self) std.mem.Allocator.Error!struct { []const u8, u8 
 
 pub fn deinit(self: *const Self, bytes: []const u8) void {
     self.alloc.free(bytes);
-    self.alloc.free(self.cont.absPath);
     self.alloc.free(self.cont.path);
     self.alloc.free(self.cont.tokens);
     self.alloc.free(self.cont.source);
