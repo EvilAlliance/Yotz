@@ -104,7 +104,7 @@ fn testSubCommand(
     expected = TestCase.initFromFile(self.alloc, fileWithAnswer) catch {
         self.mutex.lock();
         defer self.mutex.unlock();
-        std.debug.print("Could not create test case\n", .{});
+        std.debug.print("Could not create or open test case\n", .{});
         self.tests.items[index].results[@intFromEnum(subCommand)].type = .Fail;
         return;
     };
@@ -200,9 +200,10 @@ fn testSubCommand(
     defer actual.deinit();
 
     if (self.generateCheck) {
-        actual.saveTest() catch {
+        actual.saveTest() catch |err| {
             self.mutex.lock();
             defer self.mutex.unlock();
+            std.debug.print("Could not save test '{}'", .{err});
             self.tests.items[index].results[@intFromEnum(subCommand)].type = .Fail;
             return;
         };
@@ -213,6 +214,7 @@ fn testSubCommand(
         defer self.mutex.unlock();
         self.tests.items[index].results[@intFromEnum(subCommand)] = expected.compare(&actual) catch {
             self.tests.items[index].results[@intFromEnum(subCommand)].type = .Fail;
+            std.debug.print("Could not compare tests", .{});
             return;
         };
     }

@@ -10,13 +10,10 @@ returnCode: i64 = undefined,
 stdout: []const u8 = undefined,
 stderr: []const u8 = undefined,
 
-rBuff: [128]u8 = undefined,
-wBuff: [128]u8 = undefined,
+buff: [128]u8 = undefined,
 
 filePath: []const u8,
 file: std.fs.File,
-w: std.fs.File.Writer = undefined,
-r: std.fs.File.Reader = undefined,
 
 pub fn init(
     alloc: std.mem.Allocator,
@@ -38,7 +35,7 @@ pub fn init(
         fileAnswer = std.fs.createFileAbsolute(fileAbs, .{ .read = true }) catch @panic("Could not create file to store test");
     }
 
-    var self: @This() = .{
+    const self: @This() = .{
         .alloc = alloc,
 
         .args = args,
@@ -51,9 +48,6 @@ pub fn init(
         .filePath = fileAbs,
     };
 
-    self.w = fileAnswer.?.writer(&self.wBuff);
-    self.r = fileAnswer.?.reader(&self.rBuff);
-
     return self;
 }
 
@@ -65,7 +59,7 @@ pub fn initFromFile(
     alloc: std.mem.Allocator,
     fileAbs: []const u8,
 ) !@This() {
-    var fileAnswer = std.fs.openFileAbsolute(fileAbs, .{ .mode = .read_write }) catch {
+    const fileAnswer = std.fs.openFileAbsolute(fileAbs, .{ .mode = .read_write }) catch {
         return @This(){
             .alloc = alloc,
 
@@ -77,8 +71,6 @@ pub fn initFromFile(
 
             .filePath = fileAbs,
             .file = undefined,
-            .w = undefined,
-            .r = undefined,
         };
     };
 
@@ -89,91 +81,94 @@ pub fn initFromFile(
         .filePath = fileAbs,
     };
 
-    self.w = fileAnswer.writer(&self.wBuff);
-    self.r = fileAnswer.reader(&self.rBuff);
-
     try self.readTest();
 
     return self;
 }
 
 pub fn readTest(self: *@This()) !void {
-    const size = try self.readInteger("argc");
+    var r = self.file.reader(&self.buff);
+
+    const size = try self.readInteger("argc", &r.interface);
     var args = try self.alloc.alloc([]u8, @intCast(size));
 
     for (0..@intCast(size)) |i| {
-        args[i] = try self.readBlob(try std.fmt.allocPrint(self.alloc, "arg{}", .{i}));
+        args[i] = try self.readBlob(try std.fmt.allocPrint(self.alloc, "arg{}", .{i}), &r.interface);
     }
 
     self.args = args;
 
-    self.stdin = try self.readBlob("stdin");
+    self.stdin = try self.readBlob("stdin", &r.interface);
 
-    self.returnCode = try self.readInteger("returncode");
+    self.returnCode = try self.readInteger("returncode", &r.interface);
 
-    self.stdout = try self.readBlob("stdout");
+    self.stdout = try self.readBlob("stdout", &r.interface);
 
-    self.stderr = try self.readBlob("stderr");
+    self.stderr = try self.readBlob("stderr", &r.interface);
 }
 
 pub fn saveTest(self: *@This()) !void {
-    try self.writeInteger("argc", @intCast(self.args.len));
+    var w = self.file.writer(&self.buff);
+    try self.writeInteger("argc", @intCast(self.args.len), &w.interface);
 
     for (self.args, 0..) |arg, i| {
-        try self.writeBlob(try std.fmt.allocPrint(self.alloc, "arg{}", .{i}), arg);
+        try self.writeBlob(try std.fmt.allocPrint(self.alloc, "arg{}", .{i}), arg, &w.interface);
     }
 
-    try self.writeBlob("stdin", self.stdin);
+    try self.writeBlob("stdin", self.stdin, &w.interface);
 
-    try self.writeInteger("returncode", self.returnCode);
+    try self.writeInteger("returncode", self.returnCode, &w.interface);
 
-    try self.writeBlob("stdout", self.stdout);
+    try self.writeBlob("stdout", self.stdout, &w.interface);
 
-    try self.writeBlob("stderr", self.stderr);
+    try self.writeBlob("stderr", self.stderr, &w.interface);
 }
 
-fn writeBlob(self: *@This(), name: []const u8, blob: []const u8) !void {
-    try self.w.interface.print(":b {s} {}\n{s}\n", .{ name, blob.len, blob });
+fn writeBlob(self: *@This(), name: []const u8, blob: []const u8, w: *std.io.Writer) !void {
+    _ = .{self};
+    try w.print(":b {s} {}\n{s}\n", .{ name, blob.len, blob });
 }
 
-fn writeInteger(self: *@This(), name: []const u8, integer: i64) !void {
-    try self.w.interface.print(":i {s} {}\n", .{ name, integer });
+fn writeInteger(self: *@This(), name: []const u8, integer: i64, w: *std.io.Writer) !void {
+    _ = .{self};
+    try w.print(":i {s} {}\n", .{ name, integer });
 }
 
-fn readInteger(self: *@This(), name: []const u8) !i64 {
+fn readInteger(self: *@This(), name: []const u8, r: *std.io.Reader) !i64 {
     var w = std.io.Writer.Allocating.init(self.alloc);
     defer w.deinit();
 
-    _ = try self.r.interface.streamDelimiter(&w.writer, '\n');
+    _ = try r.streamDelimiter(&w.writer, '\n');
     const line = w.written();
 
-    _ = try self.r.interface.takeByte();
+    _ = try r.takeByte();
 
     const field = try std.fmt.allocPrint(self.alloc, ":i {s} ", .{name});
     std.debug.assert(std.mem.startsWith(u8, line, field));
     return try std.fmt.parseInt(i64, line[field.len..], 10);
 }
 
-fn readBlob(self: *@This(), name: []const u8) ![]u8 {
+fn readBlob(self: *@This(), name: []const u8, r: *std.io.Reader) ![]u8 {
     var w = std.io.Writer.Allocating.init(self.alloc);
 
-    _ = try self.r.interface.streamDelimiter(&w.writer, '\n');
+    _ = try r.streamDelimiter(&w.writer, '\n');
     const line = w.written();
     w.clearRetainingCapacity();
 
-    std.debug.assert(try self.r.interface.takeByte() == '\n');
+    std.debug.assert(try r.takeByte() == '\n');
 
     const field = try std.fmt.allocPrint(self.alloc, ":b {s} ", .{name});
     std.debug.assert(std.mem.startsWith(u8, line, field));
 
     const size = try std.fmt.parseInt(u64, line[field.len..], 10);
 
-    try self.r.interface.streamExact64(&w.writer, size);
+    try r.streamExact64(&w.writer, size);
 
-    const buf = try w.toOwnedSlice();
+    var arr = w.toArrayList();
+    const buf = try arr.toOwnedSlice(self.alloc);
 
     std.debug.assert(buf.len == size);
-    std.debug.assert(try self.r.interface.takeByte() == '\n');
+    std.debug.assert(try r.takeByte() == '\n');
 
     return buf;
 }
