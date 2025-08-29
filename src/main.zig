@@ -1,5 +1,4 @@
 const std = @import("std");
-const Logger = @import("Logger.zig");
 
 const ParseArguments = @import("ParseArgs.zig");
 const typeCheck = @import("./TypeCheck/TypeCheck.zig").typeCheck;
@@ -12,6 +11,8 @@ const TranslationUnit = @import("./TranslationUnit.zig");
 // TODO: Do not exopse the parse, only afunction parse
 const Parser = @import("./Parser/Parser.zig");
 
+const Logger = @import("Logger.zig");
+
 const by = @import("BollYotz");
 
 fn getName(absPath: []const u8, extName: []const u8, buf: []u8) []u8 {
@@ -19,7 +20,7 @@ fn getName(absPath: []const u8, extName: []const u8, buf: []u8) []u8 {
     const ext = std.mem.lastIndexOf(u8, absPath, ".").?;
     if (extName.len > 0)
         return std.fmt.bufPrint(buf, "{s}.{s}", .{ absPath[fileName + 1 .. ext], extName }) catch {
-            Logger.log.err("Name is to larger than {}\n", .{5 * 1024});
+            std.log.err("Name is to larger than {}\n", .{5 * 1024});
             return "";
         }
     else
@@ -38,7 +39,7 @@ fn writeAll(c: []const u8, arg: Arguments, name: []u8) void {
         writer = std.fs.File.stdout().writer(&.{});
     } else {
         file = std.fs.cwd().createFile(name, .{}) catch |err| {
-            Logger.log.err("could not open file ({s}) becuase {}\n", .{ arg.path, err });
+            std.log.err("could not open file ({s}) becuase {}\n", .{ arg.path, err });
             return;
         };
 
@@ -46,7 +47,7 @@ fn writeAll(c: []const u8, arg: Arguments, name: []u8) void {
     }
 
     writer.interface.writeAll(c) catch |err| {
-        Logger.log.err("Could not write to file ({s}) becuase {}\n", .{ arg.path, err });
+        std.log.err("Could not write to file ({s}) becuase {}\n", .{ arg.path, err });
         return;
     };
 }
@@ -78,6 +79,12 @@ fn writeAll(c: []const u8, arg: Arguments, name: []u8) void {
 // }
 //
 
+pub const std_options = std.Options{
+    .log_level = .debug,
+
+    .logFn = Logger.l,
+};
+
 pub fn main() u8 {
     var generalPurpose: std.heap.DebugAllocator(.{}) = .init;
     const gpa = generalPurpose.allocator();
@@ -85,17 +92,15 @@ pub fn main() u8 {
 
     const arguments = getArguments(gpa);
 
-    Logger.silence = arguments.silence;
-
     if (arguments.subCom == .Run and arguments.stdout) {
-        Logger.log.warn("Subcommand run wont print anything", .{});
+        std.log.warn("Subcommand run wont print anything", .{});
     }
 
     const tu, const err = TranslationUnit.initGlobal(gpa, arguments);
     if (!err) return 1;
 
     const bytes, const ret = tu.start() catch {
-        Logger.log.err("Run Out of Memory", .{});
+        std.log.err("Run Out of Memory", .{});
         return 1;
     };
 

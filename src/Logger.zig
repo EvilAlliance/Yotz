@@ -2,76 +2,17 @@ const std = @import("std");
 
 const Lexer = @import("./Lexer/Lexer.zig");
 
-pub var silence = false;
+pub fn l(comptime message_level: std.log.Level, comptime scope: @TypeOf(.enum_literal), comptime format: []const u8, args: anytype) void {
+    const level_txt = comptime switch (message_level) {
+        .info => "[INFO]",
+        .warn => "[WARNING]",
+        .err => "[ERROR]",
+        .debug => "[DEBUG]",
+    };
 
-pub fn placeSlice(location: Lexer.Location, content: [:0]const u8) []const u8 {
-    _ = location;
-    _ = content;
-    unreachable;
+    const prefix2 = if (scope == .default) ": " else "(" ++ @tagName(scope) ++ "): ";
+    var buffer: [256]u8 = undefined;
+    const stderr = std.debug.lockStderrWriter(&buffer);
+    defer std.debug.unlockStderrWriter();
+    nosuspend stderr.print(level_txt ++ prefix2 ++ format ++ "\n", args) catch return;
 }
-
-pub const logLocation = struct {
-    pub fn info(path: []const u8, location: Lexer.Location, comptime format: []const u8, args: anytype) void {
-        l(.info, path, location, format, args);
-    }
-    pub fn warn(path: []const u8, location: Lexer.Location, comptime format: []const u8, args: anytype) void {
-        l(.warn, path, location, format, args);
-    }
-    pub fn err(path: []const u8, location: Lexer.Location, comptime format: []const u8, args: anytype) void {
-        l(.err, path, location, format, args);
-    }
-    pub fn debug(path: []const u8, location: Lexer.Location, comptime format: []const u8, args: anytype) void {
-        l(.debug, path, location, format, args);
-    }
-
-    fn l(comptime message_level: std.log.Level, path: []const u8, location: Lexer.Location, comptime format: []const u8, args: anytype) void {
-        if (silence and message_level != .err) return;
-        const level_txt = comptime switch (message_level) {
-            .info => "[INFO]",
-            .warn => "[WARNING]",
-            .err => "[ERROR]",
-            .debug => "[DEBUG]",
-        };
-
-        var buffer: [256]u8 = undefined;
-        const stderr = std.debug.lockStderrWriter(&buffer);
-        defer std.debug.unlockStderrWriter();
-        nosuspend {
-            stderr.print("{s}:{}:{} ", .{ path, location.row, location.col }) catch return;
-            stderr.print(level_txt ++ ": " ++ format ++ "\n", args) catch return;
-        }
-        unreachable;
-    }
-};
-
-pub const log = struct {
-    pub fn info(comptime format: []const u8, args: anytype) void {
-        l(.info, format, args);
-    }
-    pub fn warn(comptime format: []const u8, args: anytype) void {
-        l(.warn, format, args);
-    }
-    pub fn err(comptime format: []const u8, args: anytype) void {
-        l(.err, format, args);
-    }
-    pub fn debug(comptime format: []const u8, args: anytype) void {
-        l(.debug, format, args);
-    }
-
-    fn l(comptime message_level: std.log.Level, comptime format: []const u8, args: anytype) void {
-        if (silence and message_level != .err) return;
-        const level_txt = comptime switch (message_level) {
-            .info => "[INFO]",
-            .warn => "[WARNING]",
-            .err => "[ERROR]",
-            .debug => "[DEBUG]",
-        };
-
-        var buffer: [256]u8 = undefined;
-        const stderr = std.debug.lockStderrWriter(&buffer);
-        defer std.debug.unlockStderrWriter();
-        nosuspend {
-            stderr.print(level_txt ++ ": " ++ format ++ "\n", args) catch return;
-        }
-    }
-};

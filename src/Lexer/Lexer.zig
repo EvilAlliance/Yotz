@@ -1,8 +1,6 @@
 const std = @import("std");
 const util = @import("./../Util.zig");
 
-const Logger = @import("../Logger.zig");
-
 const Arguments = @import("./../ParseArgs.zig").Arguments;
 
 pub const Location = @import("./Location.zig");
@@ -117,7 +115,7 @@ fn advance(self: *@This()) Token {
                 t.tag = .equal;
             },
             else => {
-                Logger.log.info("Found {s}", .{self.content[self.index .. self.index + 1]});
+                std.log.info("Found {s}", .{self.content[self.index .. self.index + 1]});
                 unreachable;
             },
         },

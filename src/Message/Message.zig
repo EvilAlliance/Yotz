@@ -1,7 +1,6 @@
 const std = @import("std");
 const Lexer = @import("./../Lexer/Lexer.zig");
 const Parser = @import("./../Parser/Parser.zig");
-const Logger = @import("./../Logger.zig");
 
 pub fn placeSlice(location: Lexer.Location, content: [:0]const u8) struct { beg: usize, end: usize, pad: usize } {
     var beg = location.start;
@@ -37,7 +36,7 @@ const Error = struct {
         const loc = self.ast.getNodeLocation(typeIndex);
         const typeNode = self.ast.getNode(typeIndex);
         const where = placeSlice(loc, self.ast.source);
-        Logger.log.err(
+        std.log.err(
             "{s}:{}:{}: {s} must return u8 instead of {c}{}\n{s}\n{[7]c: >[8]}",
             .{
                 self.ast.path,
@@ -56,7 +55,7 @@ const Error = struct {
     pub inline fn variableMustBeFunction(self: @This(), functionName: []const u8, variableI: Parser.NodeIndex) void {
         const loc = self.ast.getNodeLocation(variableI);
         const where = placeSlice(loc, self.ast.source);
-        Logger.log.err(
+        std.log.err(
             "{s}:{}:{}: {s} must be a function: \n{s}\n{[5]c: >[6]}",
             .{
                 self.ast.path,
@@ -72,7 +71,7 @@ const Error = struct {
 
     pub inline fn mainFunctionMissing(self: @This()) void {
         _ = self;
-        Logger.log.err("Main function is missing, Expected: \n{s}", .{
+        std.log.err("Main function is missing, Expected: \n{s}", .{
             \\ fn main() u8{
             \\     return 0;
             \\ }
@@ -83,7 +82,7 @@ const Error = struct {
         const locStmt = self.ast.getNode(reDefI).getLocationAst(self.ast.*);
         const varia = self.ast.getNode(varI);
         const where = placeSlice(locStmt, self.ast.source);
-        Logger.log.err(
+        std.log.err(
             "{s}:{}:{}: Identifier {s} is already in use \n{s}\n{[5]c: >[6]}",
             .{
                 self.ast.path,
@@ -101,7 +100,7 @@ const Error = struct {
         const stmt = self.ast.getNode(unkownNode);
         const locStmt = stmt.getLocationAst(self.ast.*);
         const where = placeSlice(locStmt, self.ast.source);
-        Logger.log.err(
+        std.log.err(
             "{s}:{}:{}: Unknown identifier '{s}' \n{s}\n{[5]c: >[6]}",
             .{
                 self.ast.path,
@@ -117,7 +116,7 @@ const Error = struct {
 
     pub inline fn identifierNotAvailable(self: @This(), iden: []const u8, loc: Lexer.Location) void {
         const where = placeSlice(loc, self.ast.source);
-        Logger.log.err(
+        std.log.err(
             "{s}:{}:{}: {s} is an identifier not available \n{s}\n{[5]c: >[6]}",
             .{
                 self.ast.path,
@@ -135,7 +134,7 @@ const Error = struct {
         const typeNode1 = self.ast.getNode(t1);
         const typeNode2 = self.ast.getNode(t2);
         const where = placeSlice(loc, self.ast.source);
-        Logger.log.err(
+        std.log.err(
             "{s}:{}:{}: Type {c}{}, is incompatible with {c}{} \n{s}\n{[8]c: >[9]}",
             .{
                 self.ast.path,
@@ -157,7 +156,7 @@ const Error = struct {
         const loc = node.getLocationAst(self.ast.*);
 
         const where = placeSlice(loc, self.ast.source);
-        Logger.log.err(
+        std.log.err(
             "{s}:{}:{}: Unknown or Not Supported Node {s} \n{s}\n{[5]c: >[6]}",
             .{
                 self.ast.path,
@@ -176,11 +175,12 @@ const Error = struct {
         const loc = self.ast.getNodeLocation(exprI);
         const max = std.math.pow(u64, 2, expectedType.data[0]) - 1;
         const where = placeSlice(loc, self.ast.source);
-        Logger.logLocation.err(
-            self.ast.path,
-            loc,
-            "Number does not fit into for type {c}{}, range: 0 - {} \n{s}\n{[4]c: >[5]}",
+        std.log.err(
+            "{s}:{}:{}: Number does not fit into for type {c}{}, range: 0 - {} \n{s}\n{[7]c: >[8]}",
             .{
+                self.ast.path,
+                loc.row,
+                loc.col,
                 expectedType.typeToString(),
                 expectedType.data[0],
                 max,
@@ -203,7 +203,7 @@ const Info = struct {
         const varia = self.ast.getNode(varI);
         const locVar = varia.getLocationAst(self.ast.*);
         const where = placeSlice(locVar, self.ast.source);
-        Logger.log.info(
+        std.log.info(
             "{s}:{}:{}: {s} is declared in use \n{s}\n{[5]c: >[6]}",
             .{
                 self.ast.path,
@@ -221,7 +221,7 @@ const Info = struct {
         const typeNode = self.ast.getNode(t);
         const inferedLoc = typeNode.getLocationAst(self.ast.*);
         const where = placeSlice(inferedLoc, self.ast.source);
-        Logger.log.info(
+        std.log.info(
             "{s}:{}:{}: Infered Type {c}{} here: \n{s}\n{[6]c: >[7]}",
             .{
                 self.ast.path,

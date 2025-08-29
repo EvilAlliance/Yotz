@@ -6,74 +6,6 @@ const SubCommand = @import("SubCommand.zig").SubCommand;
 const Result = @import("Result.zig").Result;
 const Test = @import("Test.zig");
 
-fn buildZig(alloc: std.mem.Allocator) !bool {
-    var childs = std.fs.cwd().openDir(".test", .{ .iterate = true }) catch res: {
-        try std.fs.cwd().makeDir(".test");
-        break :res try std.fs.cwd().openDir(".test", .{ .iterate = true });
-    };
-
-    defer childs.close();
-    var it = childs.iterate();
-    var arr: std.ArrayList([]const u8) = .{};
-
-    while (try it.next()) |child| {
-        std.debug.assert(child.kind == .directory);
-        try arr.append(alloc, try std.fs.path.join(alloc, &.{ ".test", child.name }));
-    }
-
-    const rmCommand = [_][]const u8{ "rm", "-r" };
-    var rmExec = std.process.Child.init(try std.mem.concat(alloc, []const u8, &.{ &rmCommand, try arr.toOwnedSlice(alloc) }), alloc);
-
-    rmExec.stdout_behavior = .Ignore;
-    rmExec.stderr_behavior = .Ignore;
-
-    try rmExec.spawn();
-    _ = try rmExec.wait();
-
-    std.debug.print("Trying to compile Yotz\n", .{});
-
-    const command = [_][]const u8{ "zig", "build" };
-    var exec = std.process.Child.init(&command, alloc);
-
-    exec.stdout_behavior = .Pipe;
-    exec.stderr_behavior = .Pipe;
-
-    try exec.spawn();
-
-    var stdout: []u8 = undefined;
-    var stderr: []u8 = undefined;
-
-    var buff: [1024]u8 = undefined;
-    var w = std.io.Writer.Allocating.init(alloc);
-
-    var r = exec.stdout.?.reader(&buff);
-    _ = try r.interface.streamRemaining(&w.writer);
-    stdout = w.written();
-    r = exec.stderr.?.reader(&buff);
-    _ = try r.interface.streamRemaining(&w.writer);
-    stderr = w.written();
-
-    const result = try exec.wait();
-    if (switch (result) {
-        .Exited => |e| e != 0,
-        else => true,
-    }) {
-        switch (result) {
-            .Exited => |e| std.debug.print("Exited with {}\n", .{e}),
-            .Signal => |e| std.debug.print("Signal with {}\n", .{e}),
-            .Stopped => |e| std.debug.print("Stopped with {}\n", .{e}),
-            .Unknown => |e| std.debug.print("Unknown with {}\n", .{e}),
-        }
-
-        std.debug.print("stderr:\n {s}", .{stderr});
-        std.debug.print("stdout:\n {s}", .{stdout});
-
-        return false;
-    }
-
-    return true;
-}
-
 const Tests = std.ArrayList(Test);
 
 fn testInit(
@@ -151,8 +83,6 @@ pub fn main() !u8 {
     };
 
     const alloc = allocSafe.allocator();
-
-    if (!try buildZig(alloc)) return 1;
 
     var argIterator = try std.process.ArgIterator.initWithAllocator(alloc);
     _ = argIterator.skip();

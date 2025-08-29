@@ -1,5 +1,4 @@
 const std = @import("std");
-const Logger = @import("../Logger.zig");
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
@@ -33,10 +32,10 @@ depth: NodeIndex = 0,
 pub fn init(alloc: Allocator, path: []const u8) ?@This() {
     const resolvedPath, const source = Util.readEntireFile(alloc, path) catch |err| {
         switch (err) {
-            error.couldNotResolvePath => Logger.log.err("Could not resolve path: {s}\n", .{path}),
-            error.couldNotOpenFile => Logger.log.err("Could not open file: {s}\n", .{path}),
-            error.couldNotReadFile => Logger.log.err("Could not read file: {s}]n", .{path}),
-            error.couldNotGetFileSize => Logger.log.err("Could not get file ({s}) size\n", .{path}),
+            error.couldNotResolvePath => std.log.err("Could not resolve path: {s}\n", .{path}),
+            error.couldNotOpenFile => std.log.err("Could not open file: {s}\n", .{path}),
+            error.couldNotReadFile => std.log.err("Could not read file: {s}]n", .{path}),
+            error.couldNotGetFileSize => std.log.err("Could not get file ({s}) size\n", .{path}),
         }
         return null;
     };
@@ -44,7 +43,7 @@ pub fn init(alloc: Allocator, path: []const u8) ?@This() {
     return @This(){
         .alloc = alloc,
         .tokens = Lexer.lex(alloc, source) catch {
-            Logger.log.err("Out of memory", .{});
+            std.log.err("Out of memory", .{});
             return null;
         },
 

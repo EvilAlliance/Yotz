@@ -130,7 +130,6 @@ fn testSubCommand(
             return;
         },
         self.relative,
-        "-s",
         "-p",
     } else &[_][]const u8{
         "./zig-out/bin/yot",
@@ -141,7 +140,6 @@ fn testSubCommand(
             return;
         },
         self.relative,
-        "-s",
         "-p",
     };
     var exec = std.process.Child.init(command, self.alloc);

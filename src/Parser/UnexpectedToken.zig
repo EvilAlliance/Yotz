@@ -27,13 +27,14 @@ pub fn display(self: @This(), fileInfo: Parser.Ast.FileInfo) void {
         arr.appendBounded('\"') catch return;
     }
 
-    Logger.logLocation.err(path, self.loc, "Expected: {s} but found: \'{s}\' {s}\n", .{
-        arr.items,
-        self.found.getName(),
-        Logger.placeSlice(self.loc, content),
-    });
-
+    _ = .{ path, content };
     self.deinit();
+    @panic("Must use message struct, which should be in the translation unit");
+    // Logger.log.err("{s}:{}:{}: Expected: {s} but found: \'{s}\' {s}\n", .{
+    //     path,      self.loc.row,         self.loc.col,
+    //     arr.items, self.found.getName(), ,
+    // });
+
 }
 
 pub fn deinit(self: @This()) void {

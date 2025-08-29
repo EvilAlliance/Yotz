@@ -53,7 +53,6 @@ pub const Command = enum {
 
 pub const Arguments = struct {
     stdout: bool = false,
-    silence: bool = false,
 
     subCom: SubCommand = .Build,
     path: []const u8,
@@ -66,7 +65,7 @@ const parser = .{
 
 const params = clap.parseParamsComptime(
     \\-h, --help  Display this help and exit.
-    \\-s, --silence  No output from the compiler except errors.
+    // \\-s, --silence  No output from the compiler except errors.
     \\-p, --stdout  Insted of creating a file it prints the content.
     \\ <command>  not optional [run|build|sim|lex|parse|check|ir]
     \\ <filePath> not optional
@@ -93,7 +92,7 @@ pub fn getArguments(allocator: std.mem.Allocator) Arguments {
 
     return Arguments{
         .stdout = res.args.stdout != 0,
-        .silence = res.args.silence != 0,
+        // .silence = res.args.silence != 0,
 
         .subCom = res.positionals[0].?.toSubCommand(),
         .path = res.positionals[1].?,
