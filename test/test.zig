@@ -8,6 +8,32 @@ const Test = @import("Test.zig");
 
 const Tests = std.ArrayList(Test);
 
+fn cleanTestCoverage(alloc: std.mem.Allocator) !void {
+    var childs = std.fs.cwd().openDir(".test", .{ .iterate = true }) catch folder: {
+        try std.fs.cwd().makeDir(".test");
+
+        break :folder try std.fs.cwd().openDir(".test", .{ .iterate = true });
+    };
+
+    defer childs.close();
+    var it = childs.iterate();
+    var arr = std.ArrayList([]const u8){};
+
+    while (try it.next()) |child| {
+        std.debug.assert(child.kind == .directory);
+        try arr.append(alloc, try std.fs.path.join(alloc, &.{ ".test", child.name }));
+    }
+
+    const rmCommand = [_][]const u8{ "rm", "-r" };
+    var rmExec = std.process.Child.init(try std.mem.concat(alloc, []const u8, &.{ &rmCommand, try arr.toOwnedSlice(alloc) }), alloc);
+
+    rmExec.stdout_behavior = .Ignore;
+    rmExec.stderr_behavior = .Ignore;
+
+    try rmExec.spawn();
+    _ = try rmExec.wait();
+}
+
 fn testInit(
     alloc: std.mem.Allocator,
     FolderOrFile: []const u8,
@@ -84,6 +110,8 @@ pub fn main() !u8 {
 
     const alloc = allocSafe.allocator();
 
+    try cleanTestCoverage(alloc);
+
     var argIterator = try std.process.ArgIterator.initWithAllocator(alloc);
     _ = argIterator.skip();
     const coverage = argIterator.next() orelse "run";
@@ -148,7 +176,7 @@ pub fn main() !u8 {
         testInit(alloc, "Example", .All, false, coverageBool, &result);
     }
 
-    var childs = try std.fs.cwd().openDir(".test", .{ .iterate = true });
+    var childs = std.fs.cwd().openDir(".test", .{ .iterate = true }) catch unreachable;
     defer childs.close();
     var it = childs.iterate();
     var arr: std.ArrayList([]const u8) = .{};
