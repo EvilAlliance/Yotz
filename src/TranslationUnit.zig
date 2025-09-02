@@ -12,6 +12,12 @@ pub const Content = struct {
 
     source: [:0]const u8 = "",
     tokens: []Lexer.Token = undefined,
+
+    pub const FileInfo = struct { []const u8, [:0]const u8 };
+
+    pub fn getInfo(self: @This()) FileInfo {
+        return .{ self.path, self.source };
+    }
 };
 
 alloc: std.mem.Allocator,
@@ -62,42 +68,50 @@ pub fn readTokens(self: *Self) bool {
     return true;
 }
 
-pub fn start(self: *const Self) std.mem.Allocator.Error!struct { []const u8, u8 } {
-    var parser = Parser.init(self.alloc, self.cont.path) orelse return .{ "", 1 };
-    defer parser.deinit();
+pub fn start(self: *const Self, alloc: Allocator) std.mem.Allocator.Error!struct { []const u8, u8 } {
+    var parser = try Parser.init(self, alloc);
 
     if (self.cont.subCom == .Lexer)
-        return .{ try parser.lexerToString(self.alloc), 0 };
+        return .{ try parser.lexerToString(alloc), 0 };
 
-    var ast = try parser.parse();
+    var nodelist = try parser.parse(alloc);
+    defer nodelist.deinit(alloc);
 
     for (parser.errors.items) |e| {
-        e.display(ast.getInfo());
+        e.display(alloc, self.cont.getInfo());
     }
 
+    parser.deinit(alloc);
+
+    var ast = Parser.Ast.init(&nodelist, &self.cont);
+
     if (self.cont.subCom == .Parser)
-        return .{ try ast.toString(self.alloc), 0 };
+        return .{ try ast.toString(alloc), 0 };
 
-    const err = try typeCheck(self.alloc, &ast);
+    // const err = try typeCheck(alloc, &ast);
+    //
+    // if (self.cont.subCom == .TypeCheck)
+    //     return .{ try ast.toString(alloc), if (err or (parser.errors.items.len > 1)) 1 else 0 };
+    //
+    // if (err) return .{ "", 1 };
+    // if (parser.errors.items.len > 0) return .{ "", 1 };
 
-    if (self.cont.subCom == .TypeCheck)
-        return .{ try ast.toString(self.alloc), if (err or (parser.errors.items.len > 1)) 1 else 0 };
-
-    if (err) return .{ "", 1 };
-    if (parser.errors.items.len > 0) return .{ "", 1 };
-
-    unreachable;
+    return .{ "", 1 };
 }
 
-pub fn deinit(self: *const Self, bytes: []const u8) void {
-    self.alloc.free(bytes);
-    self.alloc.free(self.cont.path);
-    self.alloc.free(self.cont.tokens);
-    self.alloc.free(self.cont.source);
+pub fn deinit(self: *const Self, alloc: Allocator, bytes: []const u8) void {
+    alloc.free(bytes);
+    alloc.free(self.cont.path);
+    alloc.free(self.cont.tokens);
+    alloc.free(self.cont.source);
 }
 
 const std = @import("std");
 const Util = @import("./Util.zig");
+
+const mem = std.mem;
+
+const Allocator = mem.Allocator;
 
 const ParseArgs = @import("ParseArgs.zig");
 const Lexer = @import("./Lexer/Lexer.zig");

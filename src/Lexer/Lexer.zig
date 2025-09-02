@@ -178,7 +178,7 @@ fn init(c: [:0]const u8) @This() {
 }
 
 pub fn lex(alloc: std.mem.Allocator, c: [:0]const u8) std.mem.Allocator.Error![]Token {
-    var al = try std.ArrayList(Token).initCapacity(alloc, 100);
+    var al = try std.ArrayList(Token).initCapacity(alloc, c.len / 4);
 
     var lexer = init(c);
     var t = lexer.advance();

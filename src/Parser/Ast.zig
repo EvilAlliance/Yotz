@@ -2,51 +2,40 @@ const std = @import("std");
 const Lexer = @import("../Lexer/Lexer.zig");
 const Logger = @import("../Logger.zig");
 const Parser = @import("Parser.zig");
+const TranslationUnit = @import("../TranslationUnit.zig");
 
-pub const NodeList = std.ArrayList(Parser.Node);
 pub const FileInfo = struct { []const u8, [:0]const u8 };
 
-alloc: std.mem.Allocator,
+nodeList: *const Parser.NodeList,
+cont: *const TranslationUnit.Content,
 
-source: [:0]const u8,
-path: []const u8,
-
-tokens: []Lexer.Token,
-
-nodeList: *NodeList,
-
-pub fn init(alloc: std.mem.Allocator, nl: *NodeList, tl: []Lexer.Token, path: []const u8, source: [:0]const u8) @This() {
+pub fn init(nl: *const Parser.NodeList, cont: *const TranslationUnit.Content) @This() {
     return @This(){
-        .alloc = alloc,
-
-        .path = path,
-        .source = source,
-        .tokens = tl,
-
         .nodeList = nl,
+        .cont = cont,
     };
 }
 
-pub inline fn getToken(self: *@This(), i: Parser.TokenIndex) Lexer.Token {
-    return self.tokens[i];
+pub inline fn getToken(self: *const @This(), i: Parser.TokenIndex) Lexer.Token {
+    return self.cont.tokens[i];
 }
 
-pub inline fn getNodeLocation(self: *@This(), i: Parser.NodeIndex) Lexer.Location {
+pub inline fn getNodeLocation(self: *const @This(), i: Parser.NodeIndex) Lexer.Location {
     const node = self.nodeList.items[i];
     return self.getToken(node.tokenIndex).loc;
 }
 
-pub inline fn getNodeText(self: *@This(), i: Parser.NodeIndex) []const u8 {
+pub inline fn getNodeText(self: *const @This(), i: Parser.NodeIndex) []const u8 {
     const node = self.nodeList.items[i];
-    return self.getToken(node.tokenIndex).getText(self.source);
+    return self.getToken(node.tokenIndex).getText(self.cont.source);
 }
 
-pub inline fn getNodeName(self: *@This(), i: Parser.NodeIndex) []const u8 {
+pub inline fn getNodeName(self: *const @This(), i: Parser.NodeIndex) []const u8 {
     const node = self.nodeList.items[i];
     return self.getToken(node.tokenIndex).tag.getName();
 }
 
-pub fn getNode(self: *@This(), i: Parser.NodeIndex) Parser.Node {
+pub fn getNode(self: *const @This(), i: Parser.NodeIndex) Parser.Node {
     return self.nodeList.items[i];
 }
 
@@ -54,7 +43,7 @@ pub inline fn getNodePtr(self: *@This(), i: Parser.NodeIndex) *Parser.Node {
     return &self.nodeList.items[i];
 }
 
-pub fn toString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Error![]const u8 {
+pub fn toString(self: *const @This(), alloc: std.mem.Allocator) std.mem.Allocator.Error![]const u8 {
     if (self.nodeList.items.len == 0) return "";
     var cont = std.ArrayList(u8){};
 
@@ -73,7 +62,7 @@ pub fn toString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Erro
     return cont.toOwnedSlice(alloc);
 }
 
-fn toStringFuncProto(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
+fn toStringFuncProto(self: *const @This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
     std.debug.assert(self.nodeList.items[i].tag == .funcProto);
     std.debug.assert(self.nodeList.items[i].data[0] == 0);
 
@@ -90,7 +79,7 @@ fn toStringFuncProto(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayL
     try self.toStringStatement(alloc, cont, d, proto.next);
 }
 
-fn toStringType(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
+fn toStringType(self: *const @This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
     _ = d;
 
     var index = i;
@@ -131,7 +120,7 @@ fn toStringType(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u
     }
 }
 
-fn toStringScope(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
+fn toStringScope(self: *const @This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
     const scope = self.nodeList.items[i];
     std.debug.assert(scope.tag == .scope);
 
@@ -151,7 +140,7 @@ fn toStringScope(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(
     try cont.appendSlice(alloc, "} \n");
 }
 
-fn toStringStatement(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
+fn toStringStatement(self: *const @This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
     for (0..d) |_| {
         try cont.append(alloc, ' ');
     }
@@ -172,7 +161,7 @@ fn toStringStatement(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayL
     try cont.appendSlice(alloc, ";\n");
 }
 
-fn tostringVariable(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
+fn tostringVariable(self: *const @This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
     const variable = self.nodeList.items[i];
     std.debug.assert(variable.tag == .constant or variable.tag == .variable);
 
@@ -198,7 +187,7 @@ fn tostringVariable(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayLi
     }
 }
 
-fn toStringExpression(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
+fn toStringExpression(self: *const @This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
     const node = self.nodeList.items[i];
     switch (node.tag) {
         .funcProto => try self.toStringFuncProto(alloc, cont, d, i),
@@ -233,8 +222,4 @@ fn toStringExpression(self: *@This(), alloc: std.mem.Allocator, cont: *std.Array
         },
         else => unreachable,
     }
-}
-
-pub fn getInfo(self: *@This()) FileInfo {
-    return .{ self.path, self.source };
 }

@@ -89,3 +89,11 @@ Silence will force bench to not work because output will be close except for err
 ## Sintax
 
 Exmples in Example folder
+
+## Perf
+
+```console
+perf stat -e   cache-references,cache-misses,L1-dcache-loads,L1-dcache-load-misses,LLC-loads,LLC-load-misses ./zig-out/bin/yot parse Example/Inference/Inference3.yt --stdout
+perf record -e cache-misses --call-graph dwarf ./zig-out/bin/yot parse Example/Inference/Inference3.yt --stdout
+hotspot --kallsyms /proc/kallsyms
+```

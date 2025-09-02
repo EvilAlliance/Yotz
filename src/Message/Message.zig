@@ -35,17 +35,17 @@ const Error = struct {
     pub inline fn funcReturnsU8(self: @This(), functionName: []const u8, typeIndex: Parser.NodeIndex) void {
         const loc = self.ast.getNodeLocation(typeIndex);
         const typeNode = self.ast.getNode(typeIndex);
-        const where = placeSlice(loc, self.ast.source);
+        const where = placeSlice(loc, self.ast.cont.source);
         std.log.err(
             "{s}:{}:{}: {s} must return u8 instead of {c}{}\n{s}\n{[7]c: >[8]}",
             .{
-                self.ast.path,
+                self.ast.cont.path,
                 loc.row,
                 loc.col,
                 functionName,
                 typeNode.typeToString(),
                 typeNode.data[0],
-                self.ast.source[where.beg..where.end],
+                self.ast.cont.source[where.beg..where.end],
                 '^',
                 where.pad,
             },
@@ -54,15 +54,15 @@ const Error = struct {
 
     pub inline fn variableMustBeFunction(self: @This(), functionName: []const u8, variableI: Parser.NodeIndex) void {
         const loc = self.ast.getNodeLocation(variableI);
-        const where = placeSlice(loc, self.ast.source);
+        const where = placeSlice(loc, self.ast.cont.source);
         std.log.err(
             "{s}:{}:{}: {s} must be a function: \n{s}\n{[5]c: >[6]}",
             .{
-                self.ast.path,
+                self.ast.cont.path,
                 loc.row,
                 loc.col,
                 functionName,
-                self.ast.source[where.beg..where.end],
+                self.ast.cont.source[where.beg..where.end],
                 '^',
                 where.pad,
             },
@@ -81,15 +81,15 @@ const Error = struct {
     pub inline fn identifierIsUsed(self: @This(), reDefI: Parser.NodeIndex, varI: Parser.NodeIndex) void {
         const locStmt = self.ast.getNode(reDefI).getLocationAst(self.ast.*);
         const varia = self.ast.getNode(varI);
-        const where = placeSlice(locStmt, self.ast.source);
+        const where = placeSlice(locStmt, self.ast.cont.source);
         std.log.err(
             "{s}:{}:{}: Identifier {s} is already in use \n{s}\n{[5]c: >[6]}",
             .{
-                self.ast.path,
+                self.ast.cont.path,
                 locStmt.row,
                 locStmt.col,
                 varia.getTextAst(self.ast),
-                self.ast.source[where.beg..where.end],
+                self.ast.cont.source[where.beg..where.end],
                 '^',
                 where.pad,
             },
@@ -99,15 +99,15 @@ const Error = struct {
     pub inline fn unknownIdentifier(self: @This(), unkownNode: Parser.NodeIndex) void {
         const stmt = self.ast.getNode(unkownNode);
         const locStmt = stmt.getLocationAst(self.ast.*);
-        const where = placeSlice(locStmt, self.ast.source);
+        const where = placeSlice(locStmt, self.ast.cont.source);
         std.log.err(
             "{s}:{}:{}: Unknown identifier '{s}' \n{s}\n{[5]c: >[6]}",
             .{
-                self.ast.path,
+                self.ast.cont.path,
                 locStmt.row,
                 locStmt.col,
                 stmt.getTextAst(self.ast),
-                self.ast.source[where.beg..where.end],
+                self.ast.cont.source[where.beg..where.end],
                 '^',
                 where.pad,
             },
@@ -115,15 +115,15 @@ const Error = struct {
     }
 
     pub inline fn identifierNotAvailable(self: @This(), iden: []const u8, loc: Lexer.Location) void {
-        const where = placeSlice(loc, self.ast.source);
+        const where = placeSlice(loc, self.ast.cont.source);
         std.log.err(
             "{s}:{}:{}: {s} is an identifier not available \n{s}\n{[5]c: >[6]}",
             .{
-                self.ast.path,
+                self.ast.cont.path,
                 loc.row,
                 loc.col,
                 iden,
-                self.ast.source[where.beg..where.end],
+                self.ast.cont.source[where.beg..where.end],
                 '^',
                 where.pad,
             },
@@ -133,18 +133,18 @@ const Error = struct {
     pub inline fn incompatibleType(self: @This(), t1: Parser.NodeIndex, t2: Parser.NodeIndex, loc: Lexer.Location) void {
         const typeNode1 = self.ast.getNode(t1);
         const typeNode2 = self.ast.getNode(t2);
-        const where = placeSlice(loc, self.ast.source);
+        const where = placeSlice(loc, self.ast.cont.source);
         std.log.err(
             "{s}:{}:{}: Type {c}{}, is incompatible with {c}{} \n{s}\n{[8]c: >[9]}",
             .{
-                self.ast.path,
+                self.ast.cont.path,
                 loc.row,
                 loc.col,
                 typeNode1.typeToString(),
                 typeNode1.data[0],
                 typeNode2.typeToString(),
                 typeNode2.data[0],
-                self.ast.source[where.beg..where.end],
+                self.ast.cont.source[where.beg..where.end],
                 '^',
                 where.pad,
             },
@@ -155,15 +155,15 @@ const Error = struct {
         const node = self.ast.getNode(nodeI);
         const loc = node.getLocationAst(self.ast.*);
 
-        const where = placeSlice(loc, self.ast.source);
+        const where = placeSlice(loc, self.ast.cont.source);
         std.log.err(
             "{s}:{}:{}: Unknown or Not Supported Node {s} \n{s}\n{[5]c: >[6]}",
             .{
-                self.ast.path,
+                self.ast.cont.path,
                 loc.row,
                 loc.col,
                 @tagName(node.tag),
-                self.ast.source[where.beg..where.end],
+                self.ast.cont.source[where.beg..where.end],
                 '^',
                 where.pad,
             },
@@ -174,17 +174,17 @@ const Error = struct {
         const expectedType = self.ast.getNode(expectedTypeI);
         const loc = self.ast.getNodeLocation(exprI);
         const max = std.math.pow(u64, 2, expectedType.data[0]) - 1;
-        const where = placeSlice(loc, self.ast.source);
+        const where = placeSlice(loc, self.ast.cont.source);
         std.log.err(
             "{s}:{}:{}: Number does not fit into for type {c}{}, range: 0 - {} \n{s}\n{[7]c: >[8]}",
             .{
-                self.ast.path,
+                self.ast.cont.path,
                 loc.row,
                 loc.col,
                 expectedType.typeToString(),
                 expectedType.data[0],
                 max,
-                self.ast.source[where.beg..where.end],
+                self.ast.cont.source[where.beg..where.end],
                 '^',
                 where.pad,
             },
@@ -202,15 +202,15 @@ const Info = struct {
     pub inline fn isDeclaredHere(self: @This(), varI: Parser.NodeIndex) void {
         const varia = self.ast.getNode(varI);
         const locVar = varia.getLocationAst(self.ast.*);
-        const where = placeSlice(locVar, self.ast.source);
+        const where = placeSlice(locVar, self.ast.cont.source);
         std.log.info(
             "{s}:{}:{}: {s} is declared in use \n{s}\n{[5]c: >[6]}",
             .{
-                self.ast.path,
+                self.ast.cont.path,
                 locVar.row,
                 locVar.col,
                 varia.getTextAst(self.ast),
-                self.ast.source[where.beg..where.end],
+                self.ast.cont.source[where.beg..where.end],
                 '^',
                 where.pad,
             },
@@ -220,16 +220,16 @@ const Info = struct {
     pub inline fn inferedType(self: @This(), t: Parser.NodeIndex) void { // type
         const typeNode = self.ast.getNode(t);
         const inferedLoc = typeNode.getLocationAst(self.ast.*);
-        const where = placeSlice(inferedLoc, self.ast.source);
+        const where = placeSlice(inferedLoc, self.ast.cont.source);
         std.log.info(
             "{s}:{}:{}: Infered Type {c}{} here: \n{s}\n{[6]c: >[7]}",
             .{
-                self.ast.path,
+                self.ast.cont.path,
                 inferedLoc.row,
                 inferedLoc.col,
                 typeNode.typeToString(),
                 typeNode.data[0],
-                self.ast.source[where.beg..where.end],
+                self.ast.cont.source[where.beg..where.end],
                 '^',
                 where.pad,
             },
