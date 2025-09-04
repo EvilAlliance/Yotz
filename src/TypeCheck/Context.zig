@@ -5,25 +5,23 @@ const std = @import("std");
 const Parser = @import("./../Parser/Parser.zig");
 const Scopes = @import("./Scopes.zig");
 
-pub const Level = enum { global, local };
+const Allocator = std.mem.Allocator;
 
-alloc: std.mem.Allocator,
+pub const Level = enum { global, local };
 
 scopes: Scopes,
 globalScope: Scopes.Scope,
 
-pub fn init(alloc: std.mem.Allocator) Self {
+pub fn init() Self {
     return .{
-        .alloc = alloc,
-
-        .globalScope = Scopes.Scope.init(alloc),
-        .scopes = Scopes.init(alloc),
+        .globalScope = Scopes.Scope{},
+        .scopes = Scopes.init(),
     };
 }
 
-pub fn deinit(self: *Self) void {
-    self.scopes.deinit();
-    self.globalScope.deinit();
+pub fn deinit(self: *Self, alloc: Allocator) void {
+    self.scopes.deinit(alloc);
+    self.globalScope.deinit(alloc);
 }
 
 pub fn swap(self: *Self, s: Scopes) Scopes {
@@ -50,23 +48,23 @@ pub fn searchVariableScope(self: *Self, name: []const u8) ?Parser.NodeIndex {
     return null;
 }
 
-pub fn addVariableScope(self: *Self, name: []const u8, nodeI: Parser.NodeIndex, level: Level) std.mem.Allocator.Error!void {
+pub fn addVariableScope(self: *Self, alloc: Allocator, name: []const u8, nodeI: Parser.NodeIndex, level: Level) std.mem.Allocator.Error!void {
     switch (level) {
         .local => {
             const scope = self.scopes.getLastPtr();
-            try scope.put(name, nodeI);
+            try scope.put(alloc, name, nodeI);
         },
         .global => {
-            try self.globalScope.put(name, nodeI);
+            try self.globalScope.put(alloc, name, nodeI);
         },
     }
 }
 
-pub fn addScope(self: *Self) std.mem.Allocator.Error!void {
-    try self.scopes.append(Scopes.Scope.init(self.alloc));
+pub fn addScope(self: *Self, alloc: Allocator) std.mem.Allocator.Error!void {
+    try self.scopes.append(alloc, Scopes.Scope{});
 }
 
-pub fn popScope(self: *Self) void {
+pub fn popScope(self: *Self, alloc: Allocator) void {
     var x = self.scopes.pop().?;
-    x.deinit();
+    x.deinit(alloc);
 }

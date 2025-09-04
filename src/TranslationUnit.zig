@@ -69,7 +69,8 @@ pub fn readTokens(self: *Self) bool {
 }
 
 pub fn start(self: *const Self, alloc: Allocator) std.mem.Allocator.Error!struct { []const u8, u8 } {
-    var parser = try Parser.init(self, alloc);
+    var parser = try Parser.init(self);
+    defer parser.deinit(alloc);
 
     if (self.cont.subCom == .Lexer)
         return .{ try parser.lexerToString(alloc), 0 };
@@ -81,20 +82,18 @@ pub fn start(self: *const Self, alloc: Allocator) std.mem.Allocator.Error!struct
         e.display(alloc, self.cont.getInfo());
     }
 
-    parser.deinit(alloc);
-
     var ast = Parser.Ast.init(&nodelist, &self.cont);
 
     if (self.cont.subCom == .Parser)
         return .{ try ast.toString(alloc), 0 };
 
-    // const err = try typeCheck(alloc, &ast);
-    //
-    // if (self.cont.subCom == .TypeCheck)
-    //     return .{ try ast.toString(alloc), if (err or (parser.errors.items.len > 1)) 1 else 0 };
-    //
-    // if (err) return .{ "", 1 };
-    // if (parser.errors.items.len > 0) return .{ "", 1 };
+    const err = try typeCheck(alloc, &ast);
+
+    if (self.cont.subCom == .TypeCheck)
+        return .{ try ast.toString(alloc), if (err or (parser.errors.items.len > 1)) 1 else 0 };
+
+    if (err) return .{ "", 1 };
+    if (parser.errors.items.len > 0) return .{ "", 1 };
 
     return .{ "", 1 };
 }

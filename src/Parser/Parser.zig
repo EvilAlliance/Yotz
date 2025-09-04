@@ -12,11 +12,11 @@ errors: std.ArrayList(UnexpectedToken),
 
 depth: NodeIndex = 0,
 
-pub fn init(tu: *const TranslationUnit, alloc: Allocator) Allocator.Error!@This() {
+pub fn init(tu: *const TranslationUnit) Allocator.Error!@This() {
     return @This(){
         .tu = tu,
 
-        .nodeList = try .initCapacity(alloc, 100),
+        .nodeList = .{},
 
         .errors = .{},
     };

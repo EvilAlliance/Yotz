@@ -1,6 +1,7 @@
 const Self = @This();
 
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 
 const Parser = @import("./../Parser/Parser.zig");
 const Scopes = @import("./Scopes.zig");
@@ -21,7 +22,7 @@ state: ?*FlattenExpression,
 
 expectedTypeI: Parser.NodeIndex,
 
-pub fn resolve(self: *Self, checker: *TypeChecker) std.mem.Allocator.Error!bool {
+pub fn resolve(self: *Self, alloc: Allocator, checker: *TypeChecker) std.mem.Allocator.Error!bool {
     switch (self.t) {
         .unknownIdentifier => {
             const node = checker.ast.getNode(self.dep);
@@ -29,17 +30,17 @@ pub fn resolve(self: *Self, checker: *TypeChecker) std.mem.Allocator.Error!bool 
 
             const temp = checker.ctx.swap(self.scopes);
 
-            try checker.checkFlattenExpression(self.state.?, self.expectedTypeI);
+            try checker.checkFlattenExpression(alloc, self.state.?, self.expectedTypeI);
 
             checker.ctx.restore(temp);
 
-            self.scopes.deinit();
+            self.scopes.deinit(alloc);
         },
     }
     return true;
 }
 
-pub fn report(self: *Self, checker: *TypeChecker) void {
+pub fn report(self: *Self, alloc: Allocator, checker: *TypeChecker) void {
     checker.message.err.unknownIdentifier(self.dep);
-    self.scopes.deinit();
+    self.scopes.deinit(alloc);
 }

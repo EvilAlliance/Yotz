@@ -6,10 +6,10 @@ const TranslationUnit = @import("../TranslationUnit.zig");
 
 pub const FileInfo = struct { []const u8, [:0]const u8 };
 
-nodeList: *const Parser.NodeList,
+nodeList: *Parser.NodeList,
 cont: *const TranslationUnit.Content,
 
-pub fn init(nl: *const Parser.NodeList, cont: *const TranslationUnit.Content) @This() {
+pub fn init(nl: *Parser.NodeList, cont: *const TranslationUnit.Content) @This() {
     return @This(){
         .nodeList = nl,
         .cont = cont,

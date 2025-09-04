@@ -86,9 +86,12 @@ pub const std_options = std.Options{
 };
 
 pub fn main() u8 {
-    var generalPurpose: std.heap.DebugAllocator(.{ .thread_safe = true }) = .init;
-    const gpa = generalPurpose.allocator();
-    defer _ = generalPurpose.deinit();
+    // var generalPurpose: std.heap.DebugAllocator(.{ .thread_safe = true }) = .init;
+    // const alloc = generalPurpose.allocator();
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    const gpa = arena.allocator();
+    // defer _ = generalPurpose.deinit();
+    defer _ = arena.deinit();
 
     const arguments = getArguments(gpa);
 

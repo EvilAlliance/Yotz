@@ -1,25 +1,24 @@
 const Self = @This();
 
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 const Parser = @import("./../Parser/Parser.zig");
 
-pub const Scope = std.StringHashMap(Parser.NodeIndex);
+pub const Scope = std.StringHashMapUnmanaged(Parser.NodeIndex);
 
-alloc: std.mem.Allocator,
 list: std.ArrayList(Scope),
 
-pub fn init(alloc: std.mem.Allocator) @This() {
+pub fn init() @This() {
     return .{
-        .alloc = alloc,
         .list = .{},
     };
 }
 
-pub fn deinit(self: *@This()) void {
+pub fn deinit(self: *@This(), alloc: Allocator) void {
     for (self.list.items) |*value| {
-        value.deinit();
+        value.deinit(alloc);
     }
-    self.list.deinit(self.alloc);
+    self.list.deinit(alloc);
 }
 
 pub inline fn len(self: @This()) usize {
@@ -30,8 +29,8 @@ pub inline fn items(self: @This()) []Scope {
     return self.list.items;
 }
 
-pub inline fn append(self: *@This(), scope: Scope) std.mem.Allocator.Error!void {
-    return self.list.append(self.alloc, scope);
+pub inline fn append(self: *@This(), alloc: Allocator, scope: Scope) std.mem.Allocator.Error!void {
+    return self.list.append(alloc, scope);
 }
 
 pub inline fn pop(self: *@This()) ?Scope {
@@ -42,10 +41,10 @@ pub inline fn getLastPtr(self: *@This()) *Scope {
     return &self.list.items[self.len() - 1];
 }
 
-pub fn deepClone(self: @This()) std.mem.Allocator.Error!@This() {
-    var x: @This() = .{ .alloc = self.alloc, .list = .{} };
+pub fn deepClone(self: @This(), alloc: Allocator) std.mem.Allocator.Error!@This() {
+    var x: @This() = @This().init();
     for (self.list.items) |value| {
-        try x.append(try value.clone());
+        try x.append(alloc, try value.clone(alloc));
     }
 
     return x;

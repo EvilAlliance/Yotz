@@ -11,14 +11,14 @@ const Scopes = @import("./Scopes.zig");
 const Context = @import("./Context.zig");
 const CheckPoint = @import("./CheckPoint.zig");
 
+const Allocator = std.mem.Allocator;
+
 pub const TypeChecker = struct {
     const Self = @This();
 
     message: Message,
 
     errs: usize = 0,
-
-    alloc: std.mem.Allocator,
 
     ast: *Parser.Ast,
 
@@ -30,17 +30,16 @@ pub const TypeChecker = struct {
 
     pub fn init(alloc: std.mem.Allocator, ast: *Parser.Ast) std.mem.Allocator.Error!bool {
         var checker = @This(){
-            .alloc = alloc,
             .ast = ast,
             .checkPoints = .{},
-            .ctx = Context.init(alloc),
+            .ctx = Context.init(),
             .message = Message.init(ast),
         };
 
-        defer checker.deinit();
+        defer checker.deinit(alloc);
 
-        try checker.checkGlobalScope();
-        try checker.resolveCheckPoint();
+        try checker.checkGlobalScope(alloc);
+        try checker.resolveCheckPoint(alloc);
 
         if (checker.ctx.searchVariableScope("main")) |mainVariableI| {
             const mainVariable = ast.getNode(mainVariableI);
@@ -73,7 +72,7 @@ pub const TypeChecker = struct {
         return checker.errs > 0;
     }
 
-    fn checkGlobalScope(self: *Self) std.mem.Allocator.Error!void {
+    fn checkGlobalScope(self: *Self, alloc: Allocator) std.mem.Allocator.Error!void {
         var variableI = self.ast.getNode(0).data[0];
         while (variableI != self.ast.getNode(0).data[1]) : (variableI = self.ast.getNode(variableI).next) {
             const variable = self.ast.getNode(variableI);
@@ -89,7 +88,7 @@ pub const TypeChecker = struct {
                 return;
             }
 
-            try self.ctx.addVariableScope(variable.getTextAst(self.ast), variableI, .global);
+            try self.ctx.addVariableScope(alloc, variable.getTextAst(self.ast), variableI, .global);
 
             switch (expr.tag) {
                 .funcProto => {
@@ -98,11 +97,11 @@ pub const TypeChecker = struct {
                             self.transformType(variable.data[0]);
                             break :result variable.data[0];
                         }
-                        const t = try self.inferFunctionType(variable.data[1]);
+                        const t = try self.inferFunctionType(alloc, variable.data[1]);
                         self.ast.getNodePtr(variableI).data[0] = t;
                         break :result t;
                     };
-                    try self.checkFunction(exprI, typeI);
+                    try self.checkFunction(alloc, exprI, typeI);
                 },
                 .addition,
                 .subtraction,
@@ -114,7 +113,7 @@ pub const TypeChecker = struct {
                 .lit,
                 => {
                     if (tI != 0) {
-                        try self.checkExpressionExpectedType(exprI, tI);
+                        try self.checkExpressionExpectedType(alloc, exprI, tI);
                     }
                     // WARNING: This can cause that this is not infered and cause problems
                 },
@@ -126,11 +125,11 @@ pub const TypeChecker = struct {
         }
     }
 
-    pub fn deinit(self: *Self) void {
-        self.ctx.deinit();
+    pub fn deinit(self: *Self, alloc: Allocator) void {
+        self.ctx.deinit(alloc);
     }
 
-    fn resolveCheckPoint(self: *Self) std.mem.Allocator.Error!void {
+    fn resolveCheckPoint(self: *Self, alloc: Allocator) std.mem.Allocator.Error!void {
         var changed = true;
 
         while (changed) {
@@ -138,7 +137,7 @@ pub const TypeChecker = struct {
             var i: usize = 0;
             while (i < self.checkPoints.items.len) {
                 var checkPoint = self.checkPoints.items[i];
-                if (try checkPoint.resolve(self)) {
+                if (try checkPoint.resolve(alloc, self)) {
                     _ = self.checkPoints.swapRemove(i);
                     changed = true;
                 } else {
@@ -148,7 +147,7 @@ pub const TypeChecker = struct {
         }
 
         for (self.checkPoints.items) |*checkPoint|
-            checkPoint.report(self);
+            checkPoint.report(alloc, self);
     }
 
     fn _transformType(t: Lexer.Token) struct { Parser.NodeIndex, Parser.NodeIndex } {
@@ -180,20 +179,20 @@ pub const TypeChecker = struct {
         }
     }
 
-    fn inferFunctionType(self: *Self, protoI: Parser.NodeIndex) std.mem.Allocator.Error!Parser.NodeIndex {
+    fn inferFunctionType(self: *Self, alloc: Allocator, protoI: Parser.NodeIndex) std.mem.Allocator.Error!Parser.NodeIndex {
         const proto = self.ast.getNode(protoI);
         std.debug.assert(proto.tag == .funcProto);
 
         const tIndex = proto.data[1];
         self.transformType(tIndex);
 
-        return try nl.addNode(self.ast.alloc, self.ast.nodeList, .{
+        return try nl.addNode(alloc, self.ast.nodeList, .{
             .tag = .funcType,
             .data = .{ 0, tIndex },
         });
     }
 
-    fn checkFunction(self: *Self, nodeI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex) std.mem.Allocator.Error!void {
+    fn checkFunction(self: *Self, alloc: Allocator, nodeI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex) std.mem.Allocator.Error!void {
         const node = self.ast.getNode(nodeI);
         std.debug.assert(node.tag == .funcProto);
 
@@ -208,22 +207,22 @@ pub const TypeChecker = struct {
         const stmtORscope = self.ast.getNode(stmtORscopeIndex);
 
         if (stmtORscope.tag == .scope) {
-            try self.checkScope(stmtORscopeIndex, tIndex);
+            try self.checkScope(alloc, stmtORscopeIndex, tIndex);
         } else {
-            try self.ctx.addScope();
-            try self.checkStatements(stmtORscopeIndex, tIndex);
+            try self.ctx.addScope(alloc);
+            try self.checkStatements(alloc, stmtORscopeIndex, tIndex);
 
-            self.ctx.popScope();
+            self.ctx.popScope(alloc);
         }
     }
 
-    fn checkScope(self: *Self, scopeI: Parser.NodeIndex, retTypeI: Parser.NodeIndex) std.mem.Allocator.Error!void {
+    fn checkScope(self: *Self, alloc: Allocator, scopeI: Parser.NodeIndex, retTypeI: Parser.NodeIndex) std.mem.Allocator.Error!void {
         const scope = self.ast.getNode(scopeI);
         const retType = self.ast.getNode(retTypeI);
 
         std.debug.assert(scope.tag == .scope and retType.tag == .type);
 
-        try self.ctx.addScope();
+        try self.ctx.addScope(alloc);
 
         var i = scope.data[0];
         const end = scope.data[1];
@@ -231,20 +230,20 @@ pub const TypeChecker = struct {
         while (i < end) {
             const stmt = self.ast.getNode(i);
 
-            try self.checkStatements(i, retTypeI);
+            try self.checkStatements(alloc, i, retTypeI);
 
             i = stmt.next;
         }
 
-        self.ctx.popScope();
+        self.ctx.popScope(alloc);
     }
 
-    fn checkStatements(self: *Self, stmtI: Parser.NodeIndex, retTypeI: Parser.NodeIndex) std.mem.Allocator.Error!void {
+    fn checkStatements(self: *Self, alloc: Allocator, stmtI: Parser.NodeIndex, retTypeI: Parser.NodeIndex) std.mem.Allocator.Error!void {
         const stmt = self.ast.getNode(stmtI);
 
         switch (stmt.tag) {
             .ret => {
-                try self.checkExpressionExpectedType(stmt.data[0], retTypeI);
+                try self.checkExpressionExpectedType(alloc, stmt.data[0], retTypeI);
             },
             .variable, .constant => {
                 if (self.ctx.searchVariableScope(stmt.getTextAst(self.ast))) |variableI| {
@@ -256,7 +255,7 @@ pub const TypeChecker = struct {
                     return;
                 }
 
-                try self.ctx.addVariableScope(stmt.getTextAst(self.ast), stmtI, .local);
+                try self.ctx.addVariableScope(alloc, stmt.getTextAst(self.ast), stmtI, .local);
 
                 const exprI = stmt.data[1];
 
@@ -264,50 +263,50 @@ pub const TypeChecker = struct {
                     const tI = stmt.data[0];
                     self.transformType(tI);
 
-                    try self.checkExpressionExpectedType(exprI, tI);
+                    try self.checkExpressionExpectedType(alloc, exprI, tI);
                 } else {
-                    const posibleType, const loc = try self.getTypeFromExpression(exprI);
+                    const posibleType, const loc = try self.getTypeFromExpression(alloc, exprI);
                     if (posibleType == 0) return;
 
                     var nodeType = self.ast.getNode(posibleType);
                     nodeType.tokenIndex = loc;
                     nodeType.flags |= @intFromEnum(Parser.Node.Flag.inferedFromExpression);
-                    const x = try nl.addNode(self.ast.alloc, self.ast.nodeList, nodeType);
+                    const x = try nl.addNode(alloc, self.ast.nodeList, nodeType);
 
                     self.ast.getNodePtr(stmtI).data[0] = x;
 
-                    try self.checkExpressionExpectedType(exprI, x);
+                    try self.checkExpressionExpectedType(alloc, exprI, x);
                 }
             },
             else => unreachable,
         }
     }
 
-    fn flattenExpression(self: *Self, stack: *CheckPoint.FlattenExpression, exprI: Parser.NodeIndex) std.mem.Allocator.Error!void {
+    fn flattenExpression(self: *Self, alloc: Allocator, stack: *CheckPoint.FlattenExpression, exprI: Parser.NodeIndex) std.mem.Allocator.Error!void {
         const expr = self.ast.getNode(exprI);
         std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, expr.tag));
 
         switch (expr.tag) {
             .lit => {
-                try stack.append(self.alloc, exprI);
+                try stack.append(alloc, exprI);
             },
             .load => {
-                try stack.append(self.alloc, exprI);
+                try stack.append(alloc, exprI);
             },
             .neg => {
                 const left = expr.data[0];
 
-                try self.flattenExpression(stack, left);
+                try self.flattenExpression(alloc, stack, left);
 
-                try stack.append(self.alloc, exprI);
+                try stack.append(alloc, exprI);
             },
             .addition, .subtraction, .multiplication, .division, .power => {
                 const left = expr.data[0];
                 const right = expr.data[1];
 
-                try self.flattenExpression(stack, left);
-                try stack.append(self.alloc, exprI);
-                try self.flattenExpression(stack, right);
+                try self.flattenExpression(alloc, stack, left);
+                try stack.append(alloc, exprI);
+                try self.flattenExpression(alloc, stack, right);
             },
             else => {
                 self.message.err.nodeNotSupported(exprI);
@@ -316,7 +315,7 @@ pub const TypeChecker = struct {
         }
     }
 
-    fn checkExpressionLeaf(self: *Self, leafI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex) std.mem.Allocator.Error!?CheckPoint.Type {
+    fn checkExpressionLeaf(self: *Self, alloc: Allocator, leafI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex) std.mem.Allocator.Error!?CheckPoint.Type {
         const leaf = self.ast.getNode(leafI);
         const expectedType = self.ast.getNode(expectedTypeI);
         std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load }, leaf.tag) and expectedType.tag == .type);
@@ -347,14 +346,14 @@ pub const TypeChecker = struct {
                     var tIndex = variable.data[0];
                     while (variable.tag == .constant and tIndex != 0 and self.canTypeBeCoerced(tIndex, expectedTypeI) and !self.typeEqual(tIndex, expectedTypeI)) : (tIndex = self.ast.getNode(tIndex).next) {}
                     if (tIndex == 0) {
-                        try self.checkExpressionExpectedType(variable.data[1], expectedTypeI);
+                        try self.checkExpressionExpectedType(alloc, variable.data[1], expectedTypeI);
                         const err = self.errs;
                         if (self.errs == err) {
                             var nodeType = self.ast.getNode(expectedTypeI);
                             nodeType.flags = 0;
                             nodeType.tokenIndex = leaf.tokenIndex;
                             nodeType.flags |= @intFromEnum(Parser.Node.Flag.inferedFromUse);
-                            const x = try nl.addNode(self.ast.alloc, self.ast.nodeList, nodeType);
+                            const x = try nl.addNode(alloc, self.ast.nodeList, nodeType);
                             self.ast.getNodePtr(x).next = variable.data[0];
                             self.ast.getNodePtr(variableI).data[0] = x;
                         }
@@ -371,7 +370,7 @@ pub const TypeChecker = struct {
                             }
                         } else {
                             const err = self.errs;
-                            try self.checkExpressionExpectedType(variable.data[1], expectedTypeI);
+                            try self.checkExpressionExpectedType(alloc, variable.data[1], expectedTypeI);
                             if (self.errs == err) {
                                 const typeNode = self.ast.getNodePtr(variable.data[0]);
                                 typeNode.tokenIndex = leaf.tokenIndex;
@@ -386,18 +385,18 @@ pub const TypeChecker = struct {
 
         return null;
     }
-    fn getTypeFromExpression(self: *Self, exprI: Parser.NodeIndex) std.mem.Allocator.Error!struct { Parser.NodeIndex, Parser.TokenIndex } {
+    fn getTypeFromExpression(self: *Self, alloc: Allocator, exprI: Parser.NodeIndex) std.mem.Allocator.Error!struct { Parser.NodeIndex, Parser.TokenIndex } {
         const expr = self.ast.getNode(exprI);
         std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, expr.tag));
 
-        const flat = try self.alloc.create(CheckPoint.FlattenExpression);
+        const flat = try alloc.create(CheckPoint.FlattenExpression);
         flat.* = .{};
 
-        try self.flattenExpression(flat, exprI);
+        try self.flattenExpression(alloc, flat, exprI);
 
         defer {
-            flat.deinit(self.alloc);
-            self.alloc.destroy(flat);
+            flat.deinit(alloc);
+            alloc.destroy(flat);
         }
 
         while (flat.items.len > 0) {
@@ -428,7 +427,7 @@ pub const TypeChecker = struct {
         return expected.data[1] == actual.data[1] and expected.data[0] >= actual.data[0];
     }
 
-    fn checkExpressionExpectedType(self: *Self, exprI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex) std.mem.Allocator.Error!void {
+    fn checkExpressionExpectedType(self: *Self, alloc: Allocator, exprI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex) std.mem.Allocator.Error!void {
         const expr = self.ast.getNode(exprI);
         const expectedType = self.ast.getNode(expectedTypeI);
 
@@ -436,19 +435,19 @@ pub const TypeChecker = struct {
         std.debug.assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, expr.tag));
 
         // deinit int checkFlattenExpression
-        const flat = try self.alloc.create(CheckPoint.FlattenExpression);
+        const flat = try alloc.create(CheckPoint.FlattenExpression);
         flat.* = .{};
 
-        try self.flattenExpression(flat, exprI);
+        try self.flattenExpression(alloc, flat, exprI);
 
-        try self.checkFlattenExpression(flat, expectedTypeI);
+        try self.checkFlattenExpression(alloc, flat, expectedTypeI);
     }
 
-    pub fn checkFlattenExpression(self: *Self, flat: *CheckPoint.FlattenExpression, expectedTypeI: Parser.NodeIndex) std.mem.Allocator.Error!void {
+    pub fn checkFlattenExpression(self: *Self, alloc: Allocator, flat: *CheckPoint.FlattenExpression, expectedTypeI: Parser.NodeIndex) std.mem.Allocator.Error!void {
         const expectedType = self.ast.getNode(expectedTypeI);
         defer if (flat.items.len == 0) {
-            flat.deinit(self.alloc);
-            self.alloc.destroy(flat);
+            flat.deinit(alloc);
+            alloc.destroy(flat);
         };
 
         std.debug.assert(expectedType.tag == .type);
@@ -458,13 +457,13 @@ pub const TypeChecker = struct {
             const first = self.ast.getNode(firstI);
 
             if (first.tag != .neg) {
-                if (try self.checkExpressionLeaf(firstI, expectedTypeI)) |t| {
+                if (try self.checkExpressionLeaf(alloc, firstI, expectedTypeI)) |t| {
                     switch (t) {
-                        .unknownIdentifier => return try self.checkPoints.append(self.alloc, .{
+                        .unknownIdentifier => return try self.checkPoints.append(alloc, .{
                             .t = .unknownIdentifier,
                             .state = flat,
                             .dep = firstI,
-                            .scopes = try self.ctx.scopes.deepClone(),
+                            .scopes = try self.ctx.scopes.deepClone(alloc),
                             .expectedTypeI = expectedTypeI,
                         }),
                         // else => unreachable,
@@ -493,13 +492,13 @@ pub const TypeChecker = struct {
 
                         if (x.tag == .neg) break;
 
-                        if (try self.checkExpressionLeaf(xI, expectedTypeI)) |t| {
+                        if (try self.checkExpressionLeaf(alloc, xI, expectedTypeI)) |t| {
                             switch (t) {
-                                .unknownIdentifier => return try self.checkPoints.append(self.alloc, .{
+                                .unknownIdentifier => return try self.checkPoints.append(alloc, .{
                                     .t = .unknownIdentifier,
                                     .state = flat,
                                     .dep = xI,
-                                    .scopes = try self.ctx.scopes.deepClone(),
+                                    .scopes = try self.ctx.scopes.deepClone(alloc),
                                     .expectedTypeI = expectedTypeI,
                                 }),
 
@@ -600,8 +599,5 @@ pub const TypeChecker = struct {
 };
 
 pub fn typeCheck(alloc: std.mem.Allocator, p: *Parser.Ast) std.mem.Allocator.Error!bool {
-    var arena = std.heap.ArenaAllocator.init(alloc);
-    defer arena.deinit();
-    const arenaAlloc = arena.allocator();
-    return try TypeChecker.init(arenaAlloc, p);
+    return try TypeChecker.init(alloc, p);
 }
