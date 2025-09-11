@@ -175,12 +175,25 @@ fn parseTypeFunction(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error 
 
 fn parseTypePrimitive(self: *@This(), alloc: Allocator) std.mem.Allocator.Error!NodeIndex {
     std.debug.assert(Util.listContains(Lexer.TokenType, &.{ .unsigned8, .unsigned16, .unsigned32, .unsigned64, .signed8, .signed16, .signed32, .signed64 }, self.peek()[0].tag));
-    _, const mainIndex = self.pop();
+    const t, const mainIndex = self.pop();
 
     const nodeIndex = try nl.addNode(alloc, &self.nodeList, .{
         .tokenIndex = mainIndex,
-        .tag = .typeExpression,
-        .data = .{ 0, 0 },
+        .tag = .type,
+        .data = .{
+            switch (t.tag) {
+                .unsigned8, .signed8 => 8,
+                .unsigned16, .signed16 => 16,
+                .unsigned32, .signed32 => 32,
+                .unsigned64, .signed64 => 64,
+                else => unreachable,
+            },
+            @intFromEnum(switch (t.tag) {
+                .signed8, .signed16, .signed32, .signed64 => Node.Primitive.int,
+                .unsigned8, .unsigned16, .unsigned32, .unsigned64 => Node.Primitive.uint,
+                else => unreachable,
+            }),
+        },
     });
 
     return nodeIndex;
