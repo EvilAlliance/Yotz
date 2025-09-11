@@ -93,10 +93,8 @@ pub const TypeChecker = struct {
             switch (expr.tag) {
                 .funcProto => {
                     const typeI = result: {
-                        if (variable.data[0] != 0) {
-                            self.transformType(variable.data[0]);
+                        if (variable.data[0] != 0)
                             break :result variable.data[0];
-                        }
                         const t = try self.inferFunctionType(alloc, variable.data[1]);
                         self.ast.getNodePtr(variableI).data[0] = t;
                         break :result t;
@@ -167,25 +165,11 @@ pub const TypeChecker = struct {
         };
     }
 
-    fn transformType(self: *Self, tI: Parser.NodeIndex) void {
-        const tConst = self.ast.getNode(tI);
-        if (tConst.tag == .funcType) {
-            self.transformType(tConst.data[1]);
-        } else {
-            const t = self.ast.getNodePtr(tI);
-            const token = self.ast.getToken(t.tokenIndex);
-            t.tag = .type;
-            t.data = _transformType(token);
-            t.next = 0;
-        }
-    }
-
     fn inferFunctionType(self: *Self, alloc: Allocator, protoI: Parser.NodeIndex) std.mem.Allocator.Error!Parser.NodeIndex {
         const proto = self.ast.getNode(protoI);
         std.debug.assert(proto.tag == .funcProto);
 
         const tIndex = proto.data[1];
-        self.transformType(tIndex);
 
         return try nl.addNode(alloc, self.ast.nodeList, .{
             .tag = .funcType,
@@ -198,7 +182,6 @@ pub const TypeChecker = struct {
         std.debug.assert(node.tag == .funcProto);
 
         const tIndex = node.data[1];
-        self.transformType(tIndex);
 
         if (!self.typeEqual(tIndex, self.ast.getNode(expectedTypeI).data[1])) {
             unreachable;
@@ -262,7 +245,6 @@ pub const TypeChecker = struct {
 
                 if (stmt.data[0] != 0) {
                     const tI = stmt.data[0];
-                    self.transformType(tI);
 
                     try self.checkExpressionExpectedType(alloc, exprI, tI);
                 } else {

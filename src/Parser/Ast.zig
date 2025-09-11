@@ -95,7 +95,6 @@ fn toStringType(self: *const @This(), alloc: std.mem.Allocator, cont: *std.Array
         const t = self.nodeList.get(index);
 
         switch (t.tag) {
-            .typeExpression => try cont.appendSlice(alloc, t.getTextAst(self)),
             .funcType => {
                 std.debug.assert(t.data[0] == 0);
                 try cont.appendSlice(alloc, "() ");

@@ -13,7 +13,6 @@ pub const Tag = enum(Parser.NodeIndex) {
     type, // data[0] size in bits, data[1] Primitive if next != 0 can have multiple types
     funcType, // data[0] argsType, data[1] type
     argType, // data[0] argsType, data[1] type
-    typeExpression,
 
     scope,
 
