@@ -1,3 +1,4 @@
+const Atomic = @import("std").atomic.Value;
 const Lexer = @import("./../Lexer/Lexer.zig");
 const Parser = @import("Parser.zig");
 
@@ -46,7 +47,7 @@ pub const Flag = enum(Parser.NodeIndex) {
 
 tag: Tag,
 tokenIndex: Parser.TokenIndex = 0,
-// 0 is invalid beacause 0 is root
+// 0 is invalid beacause 0 is a root
 data: struct { Parser.NodeIndex, Parser.NodeIndex } = .{ 0, 0 },
 flags: Parser.NodeIndex = 0,
 next: Parser.NodeIndex = 0,

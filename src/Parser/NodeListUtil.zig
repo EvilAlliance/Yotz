@@ -1,11 +1,11 @@
-pub fn addNode(alloc: Allocator, arr: *ArrayList(Parser.Node), node: Parser.Node) std.mem.Allocator.Error!Parser.NodeIndex {
-    const index: Parser.NodeIndex = @intCast(arr.items.len);
+pub fn addNode(alloc: Allocator, arr: *Parser.NodeList.Chunk, node: Parser.Node) std.mem.Allocator.Error!Parser.NodeIndex {
+    const index: Parser.NodeIndex = try arr.getNextIndex(alloc);
     try arr.append(alloc, node);
     return index;
 }
 
-pub fn reserveNode(alloc: Allocator, arr: *ArrayList(Parser.Node), node: Parser.Node) std.mem.Allocator.Error!Parser.NodeIndex {
-    const index: Parser.NodeIndex = @intCast(arr.items.len);
+pub fn reserveNode(alloc: Allocator, arr: *Parser.NodeList.Chunk, node: Parser.Node) std.mem.Allocator.Error!Parser.NodeIndex {
+    const index: Parser.NodeIndex = try arr.getNextIndex(alloc);
     try arr.append(alloc, node);
     return index;
 }

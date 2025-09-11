@@ -69,31 +69,31 @@ pub fn readTokens(self: *Self) bool {
 }
 
 pub fn start(self: *const Self, alloc: Allocator) std.mem.Allocator.Error!struct { []const u8, u8 } {
-    var parser = try Parser.init(self);
+    var nodes = Parser.NodeList.init();
+    defer nodes.deinit(alloc);
+    var parser = try Parser.init(self, try Parser.NodeList.Chunk.init(alloc, &nodes));
     defer parser.deinit(alloc);
 
     if (self.cont.subCom == .Lexer)
         return .{ try parser.lexerToString(alloc), 0 };
 
-    var nodelist = try parser.parse(alloc);
-    defer nodelist.deinit(alloc);
+    var ast = try parser.parse(alloc);
+    defer ast.deinit(alloc);
 
     for (parser.errors.items) |e| {
         e.display(alloc, self.cont.getInfo());
     }
 
-    var ast = Parser.Ast.init(&nodelist, &self.cont);
-
     if (self.cont.subCom == .Parser)
         return .{ try ast.toString(alloc), 0 };
-
-    const err = try typeCheck(alloc, &ast);
-
-    if (self.cont.subCom == .TypeCheck)
-        return .{ try ast.toString(alloc), if (err or (parser.errors.items.len > 1)) 1 else 0 };
-
-    if (err) return .{ "", 1 };
-    if (parser.errors.items.len > 0) return .{ "", 1 };
+    //
+    // const err = try typeCheck(alloc, &ast);
+    //
+    // if (self.cont.subCom == .TypeCheck)
+    //     return .{ try ast.toString(alloc), if (err or (parser.errors.items.len > 1)) 1 else 0 };
+    //
+    // if (err) return .{ "", 1 };
+    // if (parser.errors.items.len > 0) return .{ "", 1 };
 
     return .{ "", 1 };
 }

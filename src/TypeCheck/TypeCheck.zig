@@ -168,10 +168,11 @@ pub const TypeChecker = struct {
     }
 
     fn transformType(self: *Self, tI: Parser.NodeIndex) void {
-        const t = self.ast.getNodePtr(tI);
-        if (t.tag == .funcType) {
-            self.transformType(t.data[1]);
+        const tConst = self.ast.getNode(tI);
+        if (tConst.tag == .funcType) {
+            self.transformType(tConst.data[1]);
         } else {
+            const t = self.ast.getNodePtr(tI);
             const token = self.ast.getToken(t.tokenIndex);
             t.tag = .type;
             t.data = _transformType(token);
