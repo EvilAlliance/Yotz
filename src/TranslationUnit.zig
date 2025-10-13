@@ -68,10 +68,8 @@ pub fn readTokens(self: *Self) bool {
     return true;
 }
 
-pub fn start(self: *const Self, alloc: Allocator) std.mem.Allocator.Error!struct { []const u8, u8 } {
-    var nodes = Parser.NodeList.init();
-    defer nodes.deinit(alloc);
-    var parser = try Parser.init(self, try Parser.NodeList.Chunk.init(alloc, &nodes));
+pub fn start(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList) std.mem.Allocator.Error!struct { []const u8, u8 } {
+    var parser = try Parser.init(self, try Parser.NodeList.Chunk.init(alloc, nodes));
     defer parser.deinit(alloc);
 
     if (self.cont.subCom == .Lexer)

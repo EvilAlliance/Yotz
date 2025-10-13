@@ -102,7 +102,9 @@ pub fn main() u8 {
     const tu, const err = TranslationUnit.initGlobal(gpa, arguments);
     if (!err) return 1;
 
-    const bytes, const ret = tu.start(gpa) catch {
+    var nodes = Parser.NodeList.init();
+    defer nodes.deinit(gpa);
+    const bytes, const ret = tu.start(gpa, &nodes) catch {
         std.log.err("Run Out of Memory", .{});
         return 1;
     };
