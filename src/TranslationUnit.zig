@@ -20,30 +20,23 @@ pub const Content = struct {
     }
 };
 
-alloc: std.mem.Allocator,
-
 tag: Type,
-cont: Content,
+cont: *const Content,
 
-pub fn initGlobal(alloc: std.mem.Allocator, args: ParseArgs.Arguments) struct { Self, bool } {
-    var tu = Self{
+pub fn initGlobal(cont: *const Content, pool: *Thread.Pool) Self {
+    _ = pool;
+    const tu = Self{
         .tag = .Global,
-        .alloc = alloc,
 
-        .cont = .{
-            .subCom = args.subCom,
-            .path = args.path,
-        },
+        .cont = cont,
     };
 
-    if (!tu.readTokens()) return .{ undefined, false };
-
-    return .{ tu, true };
+    return tu;
 }
 
-pub fn readTokens(self: *Self) bool {
-    const path = self.cont.path;
-    const resolvedPath, const source = Util.readEntireFile(self.alloc, path) catch |err| {
+pub fn readTokens(alloc: Allocator, cont: *Content) bool {
+    const path = cont.path;
+    const resolvedPath, const source = Util.readEntireFile(alloc, path) catch |err| {
         switch (err) {
             error.couldNotResolvePath => std.log.err("Could not resolve path: {s}\n", .{path}),
             error.couldNotOpenFile => std.log.err("Could not open file: {s}\n", .{path}),
@@ -52,18 +45,18 @@ pub fn readTokens(self: *Self) bool {
         }
         return false;
     };
-    self.cont.tokens = Lexer.lex(self.alloc, source) catch {
+    cont.tokens = Lexer.lex(alloc, source) catch {
         std.log.err("Out of memory", .{});
 
-        self.alloc.free(resolvedPath);
-        self.alloc.free(source);
+        alloc.free(resolvedPath);
+        alloc.free(source);
 
         return false;
     };
 
-    self.cont.source = source;
+    cont.source = source;
 
-    self.cont.path = resolvedPath;
+    cont.path = resolvedPath;
 
     return true;
 }
@@ -114,3 +107,4 @@ const ParseArgs = @import("ParseArgs.zig");
 const Lexer = @import("./Lexer/Lexer.zig");
 const Parser = @import("./Parser/Parser.zig");
 const typeCheck = @import("./TypeCheck/TypeCheck.zig").typeCheck;
+const Thread = std.Thread;

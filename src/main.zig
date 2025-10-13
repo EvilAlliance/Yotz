@@ -99,8 +99,21 @@ pub fn main() u8 {
         std.log.warn("Subcommand run wont print anything", .{});
     }
 
-    const tu, const err = TranslationUnit.initGlobal(gpa, arguments);
-    if (!err) return 1;
+    var threadPool: std.Thread.Pool = undefined;
+    threadPool.init(.{
+        .allocator = gpa,
+        .n_jobs = 20,
+    }) catch {
+        std.log.err("Run Out of Memory", .{});
+        return 1;
+    };
+
+    var cont = TranslationUnit.Content{
+        .subCom = arguments.subCom,
+        .path = arguments.path,
+    };
+    if (!TranslationUnit.readTokens(gpa, &cont)) return 1;
+    const tu = TranslationUnit.initGlobal(&cont, &threadPool);
 
     var nodes = Parser.NodeList.init();
     defer nodes.deinit(gpa);

@@ -64,7 +64,7 @@ fn pop(self: *@This()) struct { Lexer.Token, TokenIndex } {
 
 pub fn parse(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error)!Ast {
     try self.parseRoot(alloc);
-    return Ast.init(&self.nodeList, self.rootIndex, &self.tu.cont);
+    return Ast.init(&self.nodeList, self.rootIndex, self.tu.cont);
 }
 
 fn parseRoot(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error)!void {
