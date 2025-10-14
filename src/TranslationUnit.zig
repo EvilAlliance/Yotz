@@ -20,15 +20,26 @@ pub const Content = struct {
     }
 };
 
+// TODO: Delete Type, 13/10/2025 is not use
 tag: Type,
 cont: *const Content,
+pool: *Thread.Pool,
 
 pub fn initGlobal(cont: *const Content, pool: *Thread.Pool) Self {
-    _ = pool;
     const tu = Self{
         .tag = .Global,
-
+        .pool = pool,
         .cont = cont,
+    };
+
+    return tu;
+}
+
+pub fn initFunc(self: *const Self) Self {
+    const tu = Self{
+        .tag = .Function,
+        .cont = self.cont,
+        .pool = self.pool,
     };
 
     return tu;
@@ -61,8 +72,52 @@ pub fn readTokens(alloc: Allocator, cont: *Content) bool {
     return true;
 }
 
-pub fn start(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList) std.mem.Allocator.Error!struct { []const u8, u8 } {
-    var parser = try Parser.init(self, try Parser.NodeList.Chunk.init(alloc, nodes));
+pub fn startFunction(self: Self, alloc: Allocator, nodes: *Parser.NodeList, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex) Allocator.Error!void {
+    std.debug.assert(self.tag == .Function);
+
+    const selfDupe = try Util.dupe(alloc, self);
+
+    try self.pool.spawn(_startFunction, .{ selfDupe, alloc, nodes, start, placeHolder });
+}
+
+fn _startFunction(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex) void {
+    defer alloc.destroy(self);
+    const chunk = Parser.NodeList.Chunk.init(alloc, nodes) catch {
+        std.log.err("Run Out of Memory", .{});
+        // TODO: This does not cause it to return 1 and execution keeps going
+        return;
+    };
+
+    var parser = Parser.init(self, chunk) catch {
+        std.log.err("Run Out of Memory", .{});
+        // TODO: This does not cause it to return 1 and execution keeps going
+        return;
+    };
+    defer parser.deinit(alloc);
+
+    parser.parseFunction(alloc, start, placeHolder) catch {
+        std.log.err("Run Out of Memory", .{});
+        // TODO: This does not cause it to return 1 and execution keeps going
+        return;
+    };
+
+    // TODO: This does not cause it to return 1
+    for (parser.errors.items) |e| {
+        e.display(alloc, self.cont.getInfo());
+    }
+
+    // const err = try typeCheck(alloc, &ast);
+    //
+    // if (self.cont.subCom == .TypeCheck)
+    //     return .{ try ast.toString(alloc), if (err or (parser.errors.items.len > 1)) 1 else 0 };
+    //
+    // if (err) return .{ "", 1 };
+    // if (parser.errors.items.len > 0) return .{ "", 1 };
+}
+
+pub fn startEntry(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList) std.mem.Allocator.Error!struct { []const u8, u8 } {
+    const chunk = try Parser.NodeList.Chunk.init(alloc, nodes);
+    var parser = try Parser.init(self, chunk);
     defer parser.deinit(alloc);
 
     if (self.cont.subCom == .Lexer)
@@ -75,8 +130,10 @@ pub fn start(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList) std.m
         e.display(alloc, self.cont.getInfo());
     }
 
-    if (self.cont.subCom == .Parser)
+    if (self.cont.subCom == .Parser) {
+        self.pool.deinit();
         return .{ try ast.toString(alloc), 0 };
+    }
     //
     // const err = try typeCheck(alloc, &ast);
     //
@@ -91,9 +148,7 @@ pub fn start(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList) std.m
 
 pub fn deinit(self: *const Self, alloc: Allocator, bytes: []const u8) void {
     alloc.free(bytes);
-    alloc.free(self.cont.path);
-    alloc.free(self.cont.tokens);
-    alloc.free(self.cont.source);
+    _ = self;
 }
 
 const std = @import("std");

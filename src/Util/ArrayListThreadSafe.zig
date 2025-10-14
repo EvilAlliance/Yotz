@@ -73,6 +73,23 @@ pub fn ChunkBase(debug: bool, T: type, ChunkType: type, chunkSize: ChunkType) ty
                 return self.base.items.items[index];
             }
 
+            pub fn getOutChunk(self: *const @This(), index: ChunkType) T {
+                if (debug)
+                    assert(!self.isInsideRange(index));
+
+                self.base.protec.lockShared();
+                defer self.base.protec.unlockShared();
+
+                return self.base.items.items[index];
+            }
+
+            pub fn getUncheck(self: *const @This(), index: ChunkType) T {
+                self.base.protec.lockShared();
+                defer self.base.protec.unlockShared();
+
+                return self.base.items.items[index];
+            }
+
             pub fn unlockShared(self: *@This()) void {
                 self.base.unlockShared();
             }
@@ -80,6 +97,13 @@ pub fn ChunkBase(debug: bool, T: type, ChunkType: type, chunkSize: ChunkType) ty
             pub fn getPtr(self: *const @This(), index: ChunkType) *T {
                 if (debug)
                     assert(self.isInsideRange(index));
+                self.base.protec.lockShared();
+                return &self.base.items.items[index];
+            }
+
+            pub fn getPtrOutChunk(self: *const @This(), index: ChunkType) *T {
+                if (debug)
+                    assert(!self.isInsideRange(index));
                 self.base.protec.lockShared();
                 return &self.base.items.items[index];
             }

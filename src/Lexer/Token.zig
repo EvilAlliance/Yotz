@@ -26,6 +26,7 @@ pub const TokenType = enum(u32) {
     func,
 
     //Types
+    // TODO: Take out this stuff, leave this to the typechecker (identifier)
     unsigned8,
     unsigned16,
     unsigned32,

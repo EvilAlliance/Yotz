@@ -40,11 +40,11 @@ pub fn expect(self: *@This(), alloc: Allocator, token: Lexer.Token, t: []const L
 
     return is;
 }
-fn peek(self: *@This()) struct { Lexer.Token, TokenIndex } {
+fn peek(self: *const @This()) struct { Lexer.Token, TokenIndex } {
     return self.peekMany(0);
 }
 
-fn peekMany(self: *@This(), n: NodeIndex) struct { Lexer.Token, TokenIndex } {
+fn peekMany(self: *const @This(), n: NodeIndex) struct { Lexer.Token, TokenIndex } {
     std.debug.assert(self.index + n < self.tu.cont.tokens.len);
     return .{ self.tu.cont.tokens[self.index + n], self.index };
 }
@@ -65,6 +65,23 @@ fn pop(self: *@This()) struct { Lexer.Token, TokenIndex } {
 pub fn parse(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error)!Ast {
     try self.parseRoot(alloc);
     return Ast.init(&self.nodeList, self.rootIndex, self.tu.cont);
+}
+
+pub fn parseFunction(self: *@This(), alloc: Allocator, start: TokenIndex, placeHolder: NodeIndex) (Allocator.Error)!void {
+    self.index = start;
+    std.debug.assert(self.isFunction());
+
+    const index = self.parseFuncDecl(alloc) catch |err| {
+        switch (err) {
+            error.OutOfMemory => return error.OutOfMemory,
+            // TODO: Error Recovery
+            // I think error recovery when reaches here is must fail;
+            else => @panic("Do not know what to do"),
+        }
+    };
+
+    self.nodeList.getPtrOutChunk(placeHolder).data[1] = index;
+    self.nodeList.unlockShared();
 }
 
 fn parseRoot(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error)!void {
@@ -102,9 +119,58 @@ fn parseRoot(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error)!void {
     self.nodeList.unlockShared();
 }
 
-fn parseFuncDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!?NodeIndex {
-    if (self.peek()[0].tag != .openParen or self.peekMany(1)[0].tag != .closeParen) return null;
+fn isFunction(self: *const @This()) bool {
+    // TODO: When arguments are implemented this must be changeed
+    return self.peek()[0].tag == .openParen and self.peekMany(1)[0].tag == .closeParen;
+}
 
+fn skipFunction(self: *@This()) void {
+    std.debug.assert(self.isFunction());
+
+    //TODO: Error Recovery
+    _ = self.popIf(.openParen) orelse unreachable;
+    // TODO: Arguments
+    _ = self.popIf(.closeParen) orelse unreachable;
+
+    self.skipType();
+
+    if (self.peek()[0].tag == .openBrace) {
+        const depth = self.depth;
+
+        _ = self.pop();
+        self.depth += 1;
+
+        while (depth != self.depth) {
+            const token = self.pop();
+            switch (token[0].tag) {
+                .openBrace => self.depth += 1,
+                .closeBrace => self.depth -= 1,
+                else => {},
+            }
+        }
+    } else {
+        while (self.peek()[0].tag != .semicolon) : (_ = self.pop()) {}
+        _ = self.pop();
+    }
+}
+
+fn skipType(self: *@This()) void {
+    //TODO: Error Recovery
+
+    if (!Util.listContains(Lexer.TokenType, &.{ .openParen, .unsigned8, .unsigned16, .unsigned32, .unsigned64, .signed8, .signed16, .signed32, .signed64 }, self.peek()[0].tag)) unreachable;
+
+    if (self.peek()[0].tag == .openParen) {
+        _ = self.popIf(.openParen) orelse unreachable;
+        // TODO: Arguments types
+        _ = self.popIf(.closeParen) orelse unreachable;
+
+        _ = self.pop();
+    } else {
+        _ = self.pop();
+    }
+}
+
+fn parseFuncDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
     const funcProto = self.parseFuncProto(alloc) catch |err| switch (err) {
         error.UnexpectedToken => {
             if (self.peek()[0].tag != .openBrace) {
@@ -147,9 +213,9 @@ fn parseFuncProto(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || 
         .data = .{ 0, 0 },
     });
 
-    _ = self.pop();
+    if (!try self.expect(alloc, self.pop()[0], &.{.openParen})) return error.UnexpectedToken;
     // TODO: Parse arguments
-    _ = self.pop();
+    if (!try self.expect(alloc, self.pop()[0], &.{.closeParen})) return error.UnexpectedToken;
 
     {
         const p = self.parseType(alloc) catch |err| switch (err) {
@@ -303,15 +369,25 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error 
         if (self.pop()[0].tag == .colon)
             node.tag = .constant;
 
-        node.data[1] = try self.parseExpression(alloc);
+        func = self.isFunction();
 
-        func = self.nodeList.get(node.data[1]).tag == .funcProto;
+        if (func) {
+            const start = self.index;
+
+            self.nodeList.getPtr(index).* = node;
+            self.nodeList.unlockShared();
+
+            self.skipFunction();
+            try self.tu.initFunc().startFunction(alloc, self.nodeList.base, start, index);
+        } else {
+            node.data[1] = try self.parseExpression(alloc);
+
+            self.nodeList.getPtr(index).* = node;
+            self.nodeList.unlockShared();
+        }
     }
 
     if (!func and !try self.expect(alloc, self.peek()[0], &.{.semicolon})) return error.UnexpectedToken;
-
-    self.nodeList.getPtr(index).* = node;
-    self.nodeList.unlockShared();
 
     return index;
 }
@@ -325,11 +401,17 @@ fn parseReturn(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || err
         .data = .{ 0, 0 },
     });
 
-    std.debug.assert(self.depth == 0);
-    const exp = try self.parseExpression(alloc);
+    var exp: NodeIndex = 0;
+
+    if (self.isFunction()) {
+        const start = self.index;
+        self.skipFunction();
+        try self.tu.initFunc().startFunction(alloc, self.nodeList.base, start, nodeIndex);
+    } else exp = try self.parseExpression(alloc);
+
     std.debug.assert(self.depth == 0);
 
-    self.nodeList.getPtr(nodeIndex).data[0] = exp;
+    self.nodeList.getPtr(nodeIndex).data[1] = exp;
     self.nodeList.unlockShared();
 
     if (!try self.expect(alloc, self.peek()[0], &.{.semicolon})) return error.UnexpectedToken;
@@ -338,7 +420,6 @@ fn parseReturn(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || err
 }
 
 fn parseExpression(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
-    if (try self.parseFuncDecl(alloc)) |index| return index;
     return self.parseExpr(alloc, 1);
 }
 

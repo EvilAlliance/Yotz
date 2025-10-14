@@ -112,12 +112,19 @@ pub fn main() u8 {
         .subCom = arguments.subCom,
         .path = arguments.path,
     };
+    defer gpa.free(cont.path);
+
     if (!TranslationUnit.readTokens(gpa, &cont)) return 1;
+    defer {
+        gpa.free(cont.tokens);
+        gpa.free(cont.source);
+    }
+
     const tu = TranslationUnit.initGlobal(&cont, &threadPool);
 
     var nodes = Parser.NodeList.init();
     defer nodes.deinit(gpa);
-    const bytes, const ret = tu.start(gpa, &nodes) catch {
+    const bytes, const ret = tu.startEntry(gpa, &nodes) catch {
         std.log.err("Run Out of Memory", .{});
         return 1;
     };

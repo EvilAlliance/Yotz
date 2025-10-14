@@ -28,12 +28,11 @@ pub fn display(self: @This(), alloc: std.mem.Allocator, fileInfo: Parser.Ast.Fil
 
     _ = .{ path, content };
     self.deinit(alloc);
-    @panic("Must use message struct, which should be in the translation unit");
-    // Logger.log.err("{s}:{}:{}: Expected: {s} but found: \'{s}\' {s}\n", .{
-    //     path,      self.loc.row,         self.loc.col,
-    //     arr.items, self.found.getName(), ,
-    // });
-
+    @import("std").log.err("{s}:{}:{}: Expected: {s} but found: \'{s}\'", .{
+        path,      self.loc.row,         self.loc.col,
+        arr.items, self.found.getName(),
+    });
+    std.log.debug("Must use message struct, which should be in the translation unit", .{});
 }
 
 pub fn deinit(self: @This(), alloc: std.mem.Allocator) void {
