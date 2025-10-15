@@ -125,7 +125,7 @@ pub fn ChunkBase(debug: bool, T: type, ChunkType: type, chunkSize: ChunkType) ty
             defer self.protec.unlock();
 
             const start = self.items.items.len;
-            try self.items.appendNTimes(alloc, undefined, chunkSize);
+            try self.items.appendNTimes(alloc, T{}, chunkSize);
 
             return .{
                 .start = @intCast(start),

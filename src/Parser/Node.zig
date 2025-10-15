@@ -1,4 +1,5 @@
-const Atomic = @import("std").atomic.Value;
+const std = @import("std");
+const Atomic = std.atomic.Value;
 const Lexer = @import("./../Lexer/Lexer.zig");
 const Parser = @import("Parser.zig");
 
@@ -30,6 +31,8 @@ pub const Tag = enum(Parser.NodeIndex) {
     load,
 
     lit,
+
+    poison = std.math.maxInt(Parser.NodeIndex),
 };
 
 pub const Primitive = enum(Parser.NodeIndex) {
@@ -44,7 +47,7 @@ pub const Flag = enum(Parser.NodeIndex) {
     implicitCast = 0b100,
 };
 
-tag: Tag,
+tag: Atomic(Tag) = .init(.poison),
 tokenIndex: Parser.TokenIndex = 0,
 // 0 is invalid beacause 0 is a root
 data: struct { Parser.NodeIndex, Parser.NodeIndex } = .{ 0, 0 },

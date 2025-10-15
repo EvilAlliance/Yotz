@@ -71,7 +71,7 @@ pub fn toString(self: *const @This(), alloc: std.mem.Allocator, rootIndex: Parse
     while (i < end) : (i = self.getNode(.UnCheck, i).next) {
         try self.tostringVariable(alloc, &cont, 0, i);
 
-        if (self.getNode(.UnCheck, self.getNode(.UnCheck, i).data[1]).tag != .funcProto) {
+        if (self.getNode(.UnCheck, self.getNode(.UnCheck, i).data[1]).tag.load(.acquire) != .funcProto) {
             try cont.appendSlice(alloc, ";\n");
         }
     }
@@ -80,7 +80,7 @@ pub fn toString(self: *const @This(), alloc: std.mem.Allocator, rootIndex: Parse
 }
 
 fn toStringFuncProto(self: *const @This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
-    std.debug.assert(self.getNode(.UnCheck, i).tag == .funcProto);
+    std.debug.assert(self.getNode(.UnCheck, i).tag.load(.acquire) == .funcProto);
     std.debug.assert(self.getNode(.UnCheck, i).data[0] == 0);
 
     // TODO : Put arguments
@@ -91,7 +91,7 @@ fn toStringFuncProto(self: *const @This(), alloc: std.mem.Allocator, cont: *std.
     try cont.append(alloc, ' ');
 
     const proto = self.getNode(.UnCheck, i);
-    if (self.getNode(.UnCheck, proto.next).tag == .scope) return try self.toStringScope(alloc, cont, d, proto.next);
+    if (self.getNode(.UnCheck, proto.next).tag.load(.acquire) == .scope) return try self.toStringScope(alloc, cont, d, proto.next);
 
     try self.toStringStatement(alloc, cont, d, proto.next);
 }
@@ -104,7 +104,7 @@ fn toStringType(self: *const @This(), alloc: std.mem.Allocator, cont: *std.Array
     while (true) {
         const t = self.getNode(.UnCheck, index);
 
-        switch (t.tag) {
+        switch (t.tag.load(.acquire)) {
             .funcType => {
                 std.debug.assert(t.data[0] == 0);
                 try cont.appendSlice(alloc, "() ");
@@ -138,7 +138,7 @@ fn toStringType(self: *const @This(), alloc: std.mem.Allocator, cont: *std.Array
 
 fn toStringScope(self: *const @This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
     const scope = self.getNode(.UnCheck, i);
-    std.debug.assert(scope.tag == .scope);
+    std.debug.assert(scope.tag.load(.acquire) == .scope);
 
     try cont.appendSlice(alloc, "{ \n");
 
@@ -163,7 +163,7 @@ fn toStringStatement(self: *const @This(), alloc: std.mem.Allocator, cont: *std.
 
     const stmt = self.getNode(.UnCheck, i);
 
-    switch (stmt.tag) {
+    switch (stmt.tag.load(.acquire)) {
         .ret => {
             try cont.appendSlice(alloc, "return ");
             try self.toStringExpression(alloc, cont, d, stmt.data[1]);
@@ -179,7 +179,7 @@ fn toStringStatement(self: *const @This(), alloc: std.mem.Allocator, cont: *std.
 
 fn tostringVariable(self: *const @This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
     const variable = self.getNode(.UnCheck, i);
-    std.debug.assert(variable.tag == .constant or variable.tag == .variable);
+    std.debug.assert(variable.tag.load(.acquire) == .constant or variable.tag.load(.acquire) == .variable);
 
     try cont.appendSlice(alloc, variable.getTextAst(self));
 
@@ -194,7 +194,7 @@ fn tostringVariable(self: *const @This(), alloc: std.mem.Allocator, cont: *std.A
     }
 
     if (variable.data[1] != 0) {
-        switch (variable.tag) {
+        switch (variable.tag.load(.acquire)) {
             .constant => try cont.appendSlice(alloc, ": "),
             .variable => try cont.appendSlice(alloc, "= "),
             else => unreachable,
@@ -205,7 +205,7 @@ fn tostringVariable(self: *const @This(), alloc: std.mem.Allocator, cont: *std.A
 
 fn toStringExpression(self: *const @This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
     const node = self.getNode(.UnCheck, i);
-    switch (node.tag) {
+    switch (node.tag.load(.acquire)) {
         .funcProto => try self.toStringFuncProto(alloc, cont, d, i),
         .addition, .subtraction, .multiplication, .division, .power => {
             try cont.append(alloc, '(');

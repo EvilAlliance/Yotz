@@ -81,7 +81,7 @@ pub fn parseFunction(self: *@This(), alloc: Allocator, start: TokenIndex, placeH
 
 pub fn parseRoot(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error)!void {
     const rootIndex = try self.nodeList.getNextIndex(alloc);
-    try self.nodeList.append(alloc, .{ .tag = .root });
+    try self.nodeList.append(alloc, .{ .tag = .init(.root) });
     self.nodeList.getPtr(rootIndex).data[0] = try self.nodeList.getNextIndex(alloc);
     self.nodeList.unlockShared();
 
@@ -206,7 +206,7 @@ fn parseFuncDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || e
 
 fn parseFuncProto(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
     const nodeIndex = try nl.addNode(alloc, &self.nodeList, .{
-        .tag = .funcProto,
+        .tag = .init(.funcProto),
         .data = .{ 0, 0 },
     });
 
@@ -240,7 +240,7 @@ fn parseTypeFunction(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error 
     const x = try self.parseType(alloc);
 
     const node = Node{
-        .tag = .funcType,
+        .tag = .init(.funcType),
         .data = .{ 0, x },
         .tokenIndex = initI,
     };
@@ -254,7 +254,7 @@ fn parseTypePrimitive(self: *@This(), alloc: Allocator) std.mem.Allocator.Error!
 
     const nodeIndex = try nl.addNode(alloc, &self.nodeList, .{
         .tokenIndex = mainIndex,
-        .tag = .type,
+        .tag = .init(.type),
         .data = .{
             switch (t.tag) {
                 .unsigned8, .signed8 => 8,
@@ -286,7 +286,7 @@ fn parseScope(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || erro
     _ = self.popIf(.openBrace) orelse unreachable;
 
     const nodeIndex = try nl.addNode(alloc, &self.nodeList, .{
-        .tag = .scope,
+        .tag = .init(.scope),
         .data = .{ 0, 0 },
     });
 
@@ -343,7 +343,7 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error 
     _, const nameIndex = self.popIf(.iden) orelse unreachable;
 
     var node: Node = .{
-        .tag = Node.Tag.variable,
+        .tag = .init(Node.Tag.variable),
         .tokenIndex = nameIndex,
         .data = .{ 0, 0 },
     };
@@ -364,7 +364,7 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error 
 
     if (possibleExpr.tag == .colon or possibleExpr.tag == .equal) {
         if (self.pop()[0].tag == .colon)
-            node.tag = .constant;
+            node.tag = .init(.constant);
 
         func = self.isFunction();
 
@@ -393,7 +393,7 @@ fn parseReturn(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || err
     _, const retIndex = self.popIf(.ret) orelse unreachable;
 
     const nodeIndex = try nl.addNode(alloc, &self.nodeList, .{
-        .tag = .ret,
+        .tag = .init(.ret),
         .tokenIndex = retIndex,
         .data = .{ 0, 0 },
     });
@@ -442,7 +442,7 @@ fn parseExpr(self: *@This(), alloc: Allocator, minPrecedence: u8) (std.mem.Alloc
         const right = try self.parseExpr(alloc, nextMinPrec);
 
         leftIndex = try nl.addNode(alloc, &self.nodeList, Node{
-            .tag = tag,
+            .tag = .init(tag),
             .tokenIndex = opIndex,
             .data = .{ leftIndex, right },
         });
@@ -459,14 +459,14 @@ fn parseTerm(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error
     switch (nextToken.tag) {
         .numberLiteral => {
             return try nl.addNode(alloc, &self.nodeList, .{
-                .tag = .lit,
+                .tag = .init(.lit),
                 .tokenIndex = self.pop()[1],
                 .data = .{ 0, 0 },
             });
         },
         .iden => {
             return try nl.addNode(alloc, &self.nodeList, .{
-                .tag = .load,
+                .tag = .init(.load),
                 .tokenIndex = self.pop()[1],
                 .data = .{ 0, 0 },
             });
@@ -477,10 +477,10 @@ fn parseTerm(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error
             const expr = try self.parseTerm(alloc);
 
             return try nl.addNode(alloc, &self.nodeList, .{
-                .tag = switch (op.tag) {
+                .tag = .init(switch (op.tag) {
                     .minus => .neg,
                     else => unreachable,
-                },
+                }),
                 .tokenIndex = opIndex,
                 .data = .{ expr, 0 },
             });
