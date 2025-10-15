@@ -67,11 +67,11 @@ pub fn toString(self: *const @This(), alloc: std.mem.Allocator, rootIndex: Parse
     const root = self.getNode(.UnCheck, rootIndex);
 
     var i = root.data[0].load(.acquire);
-    const end = root.data[1];
+    const end = root.data[1].load(.acquire);
     while (i < end) : (i = self.getNode(.UnCheck, i).next.load(.acquire)) {
         try self.tostringVariable(alloc, &cont, 0, i);
 
-        if (self.getNode(.UnCheck, self.getNode(.UnCheck, i).data[1]).tag.load(.acquire) != .funcProto) {
+        if (self.getNode(.UnCheck, self.getNode(.UnCheck, i).data[1].load(.acquire)).tag.load(.acquire) != .funcProto) {
             try cont.appendSlice(alloc, ";\n");
         }
     }
@@ -86,7 +86,7 @@ fn toStringFuncProto(self: *const @This(), alloc: std.mem.Allocator, cont: *std.
     // TODO : Put arguments
     try cont.appendSlice(alloc, "() ");
 
-    try self.toStringType(alloc, cont, d, self.getNode(.UnCheck, i).data[1]);
+    try self.toStringType(alloc, cont, d, self.getNode(.UnCheck, i).data[1].load(.acquire));
 
     try cont.append(alloc, ' ');
 
@@ -109,11 +109,11 @@ fn toStringType(self: *const @This(), alloc: std.mem.Allocator, cont: *std.Array
                 std.debug.assert(t.data[0].load(.acquire) == 0);
                 try cont.appendSlice(alloc, "() ");
 
-                index = t.data[1];
+                index = t.data[1].load(.acquire);
                 continue;
             },
             .type => {
-                try cont.append(alloc, switch (@as(Parser.Node.Primitive, @enumFromInt(t.data[1]))) {
+                try cont.append(alloc, switch (@as(Parser.Node.Primitive, @enumFromInt(t.data[1].load(.acquire)))) {
                     Parser.Node.Primitive.int => 'i',
                     Parser.Node.Primitive.uint => 'u',
                     Parser.Node.Primitive.float => 'f',
@@ -143,7 +143,7 @@ fn toStringScope(self: *const @This(), alloc: std.mem.Allocator, cont: *std.Arra
     try cont.appendSlice(alloc, "{ \n");
 
     var j = scope.data[0].load(.acquire);
-    const end = scope.data[1];
+    const end = scope.data[1].load(.acquire);
 
     while (j < end) {
         const node = self.getNode(.UnCheck, j);
@@ -166,7 +166,7 @@ fn toStringStatement(self: *const @This(), alloc: std.mem.Allocator, cont: *std.
     switch (stmt.tag.load(.acquire)) {
         .ret => {
             try cont.appendSlice(alloc, "return ");
-            try self.toStringExpression(alloc, cont, d, stmt.data[1]);
+            try self.toStringExpression(alloc, cont, d, stmt.data[1].load(.acquire));
         },
         .variable, .constant => {
             try self.tostringVariable(alloc, cont, d, i);
@@ -194,13 +194,13 @@ fn tostringVariable(self: *const @This(), alloc: std.mem.Allocator, cont: *std.A
         try cont.append(alloc, ' ');
     }
 
-    if (variable.data[1] != 0) {
+    if (variable.data[1].load(.acquire) != 0) {
         switch (variable.tag.load(.acquire)) {
             .constant => try cont.appendSlice(alloc, ": "),
             .variable => try cont.appendSlice(alloc, "= "),
             else => unreachable,
         }
-        try self.toStringExpression(alloc, cont, d, variable.data[1]);
+        try self.toStringExpression(alloc, cont, d, variable.data[1].load(.acquire));
     }
 }
 
@@ -218,7 +218,7 @@ fn toStringExpression(self: *const @This(), alloc: std.mem.Allocator, cont: *std
             try cont.appendSlice(alloc, node.getTokenTagAst(self.*).toSymbol().?);
             try cont.append(alloc, ' ');
 
-            const rightIndex = node.data[1];
+            const rightIndex = node.data[1].load(.acquire);
             try self.toStringExpression(alloc, cont, d, rightIndex);
 
             try cont.append(alloc, ')');
