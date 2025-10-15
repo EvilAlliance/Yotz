@@ -20,6 +20,8 @@ pub const Content = struct {
     }
 };
 
+var failed = false;
+
 // TODO: Delete Type, 13/10/2025 is not use
 tag: Type,
 cont: *const Content,
@@ -77,34 +79,32 @@ pub fn startFunction(self: Self, alloc: Allocator, nodes: *Parser.NodeList, star
 
     const selfDupe = try Util.dupe(alloc, self);
 
-    try self.pool.spawn(_startFunction, .{ selfDupe, alloc, nodes, start, placeHolder });
+    const callBack = struct {
+        fn callBack(comptime func: anytype, args: anytype) void {
+            @call(.auto, func, args) catch {
+                failed = true;
+                std.log.err("Run Out of Memory", .{});
+            };
+        }
+    }.callBack;
+
+    try self.pool.spawn(callBack, .{ _startFunction, .{ selfDupe, alloc, nodes, start, placeHolder } });
 }
 
-fn _startFunction(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex) void {
+fn _startFunction(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex) Allocator.Error!void {
     defer alloc.destroy(self);
-    const chunk = Parser.NodeList.Chunk.init(alloc, nodes) catch {
-        std.log.err("Run Out of Memory", .{});
-        // TODO: This does not cause it to return 1 and execution keeps going
-        return;
-    };
+    const chunk = try Parser.NodeList.Chunk.init(alloc, nodes);
 
-    var parser = Parser.init(self, chunk) catch {
-        std.log.err("Run Out of Memory", .{});
-        // TODO: This does not cause it to return 1 and execution keeps going
-        return;
-    };
+    var parser = try Parser.init(self, chunk);
     defer parser.deinit(alloc);
 
-    parser.parseFunction(alloc, start, placeHolder) catch {
-        std.log.err("Run Out of Memory", .{});
-        // TODO: This does not cause it to return 1 and execution keeps going
-        return;
-    };
+    try parser.parseFunction(alloc, start, placeHolder);
 
-    // TODO: This does not cause it to return 1
     for (parser.errors.items) |e| {
         e.display(alloc, self.cont.getInfo());
     }
+
+    if (parser.errors.items.len > 0) failed = true;
 
     // const err = try typeCheck(alloc, &ast);
     //
@@ -134,12 +134,13 @@ pub fn startEntry(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList) 
         self.pool.deinit();
         return .{ try ast.toString(alloc), 0 };
     }
-    //
+
     // const err = try typeCheck(alloc, &ast);
     //
     // if (self.cont.subCom == .TypeCheck)
     //     return .{ try ast.toString(alloc), if (err or (parser.errors.items.len > 1)) 1 else 0 };
     //
+    // if (failed) return .{ "", 1 };
     // if (err) return .{ "", 1 };
     // if (parser.errors.items.len > 0) return .{ "", 1 };
 
