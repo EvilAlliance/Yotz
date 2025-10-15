@@ -52,19 +52,19 @@ flags: Parser.NodeIndex = 0,
 next: Parser.NodeIndex = 0,
 
 pub inline fn getTokenAst(self: *const @This(), ast: Parser.Ast) Lexer.Token {
-    return ast.cont.tokens[self.tokenIndex];
+    return ast.tu.cont.tokens[self.tokenIndex];
 }
 
 pub inline fn getLocationAst(self: *const @This(), ast: Parser.Ast) Lexer.Location {
-    return ast.cont.tokens[self.tokenIndex].loc;
+    return ast.tu.cont.tokens[self.tokenIndex].loc;
 }
 
 pub inline fn getTokenTagAst(self: *const @This(), ast: Parser.Ast) Lexer.TokenType {
-    return ast.cont.tokens[self.tokenIndex].tag;
+    return ast.tu.cont.tokens[self.tokenIndex].tag;
 }
 
 pub inline fn getTextAst(self: *const @This(), ast: *const Parser.Ast) []const u8 {
-    return ast.cont.tokens[self.tokenIndex].getText(ast.cont.source);
+    return ast.tu.cont.tokens[self.tokenIndex].getText(ast.tu.cont.source);
 }
 
 pub inline fn getNameAst(self: *const @This(), ast: Parser.Ast) []const u8 {

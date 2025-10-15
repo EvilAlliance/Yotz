@@ -62,11 +62,6 @@ fn pop(self: *@This()) struct { Lexer.Token, TokenIndex } {
     return tuple;
 }
 
-pub fn parse(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error)!Ast {
-    try self.parseRoot(alloc);
-    return Ast.init(&self.nodeList, self.rootIndex, self.tu.cont);
-}
-
 pub fn parseFunction(self: *@This(), alloc: Allocator, start: TokenIndex, placeHolder: NodeIndex) (Allocator.Error)!void {
     self.index = start;
     std.debug.assert(self.isFunction());
@@ -84,9 +79,11 @@ pub fn parseFunction(self: *@This(), alloc: Allocator, start: TokenIndex, placeH
     self.nodeList.unlockShared();
 }
 
-fn parseRoot(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error)!void {
-    self.rootIndex = try self.nodeList.getNextIndex(alloc);
-    try self.nodeList.append(alloc, .{ .tag = .root, .data = .{ 1, 0 } });
+pub fn parseRoot(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error)!void {
+    const rootIndex = try self.nodeList.getNextIndex(alloc);
+    try self.nodeList.append(alloc, .{ .tag = .root });
+    self.nodeList.getPtr(rootIndex).data[0] = try self.nodeList.getNextIndex(alloc);
+    self.nodeList.unlockShared();
 
     var t, _ = self.peek();
     while (t.tag != .EOF) : (t, _ = self.peek()) {

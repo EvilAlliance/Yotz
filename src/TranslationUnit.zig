@@ -115,6 +115,7 @@ fn _startFunction(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList, 
     // if (parser.errors.items.len > 0) return .{ "", 1 };
 }
 
+// TODO: Create a placeholder where the entry root is stored, it will not be used
 pub fn startEntry(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList) std.mem.Allocator.Error!struct { []const u8, u8 } {
     const chunk = try Parser.NodeList.Chunk.init(alloc, nodes);
     var parser = try Parser.init(self, chunk);
@@ -123,7 +124,9 @@ pub fn startEntry(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList) 
     if (self.cont.subCom == .Lexer)
         return .{ try parser.lexerToString(alloc), 0 };
 
-    var ast = try parser.parse(alloc);
+    try parser.parseRoot(alloc);
+
+    var ast = Parser.Ast.init(&parser.nodeList, self);
     defer ast.deinit(alloc);
 
     for (parser.errors.items) |e| {
@@ -132,7 +135,7 @@ pub fn startEntry(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList) 
 
     if (self.cont.subCom == .Parser) {
         self.pool.deinit();
-        return .{ try ast.toString(alloc), 0 };
+        return .{ try ast.toString(alloc, 0), 0 };
     }
 
     // const err = try typeCheck(alloc, &ast);
@@ -144,6 +147,7 @@ pub fn startEntry(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList) 
     // if (err) return .{ "", 1 };
     // if (parser.errors.items.len > 0) return .{ "", 1 };
 
+    self.pool.deinit();
     return .{ "", 1 };
 }
 

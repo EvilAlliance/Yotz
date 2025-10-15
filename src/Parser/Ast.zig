@@ -13,14 +13,12 @@ pub const Mode = enum {
 };
 
 nodeList: *Parser.NodeList.Chunk,
-rootIndex: Parser.NodeIndex,
-cont: *const TranslationUnit.Content,
+tu: *const TranslationUnit,
 
-pub fn init(nl: *Parser.NodeList.Chunk, rootIndex: Parser.NodeIndex, cont: *const TranslationUnit.Content) @This() {
+pub fn init(nl: *Parser.NodeList.Chunk, tu: *const TranslationUnit) @This() {
     return @This(){
         .nodeList = nl,
-        .rootIndex = rootIndex,
-        .cont = cont,
+        .tu = tu,
     };
 }
 
@@ -29,7 +27,7 @@ pub fn deinit(self: *@This(), alloc: std.mem.Allocator) void {
 }
 
 pub inline fn getToken(self: *const @This(), i: Parser.TokenIndex) Lexer.Token {
-    return self.cont.tokens[i];
+    return self.tu.cont.tokens[i];
 }
 
 pub inline fn getNodeLocation(self: *const @This(), comptime mode: Mode, i: Parser.NodeIndex) Lexer.Location {
@@ -39,7 +37,7 @@ pub inline fn getNodeLocation(self: *const @This(), comptime mode: Mode, i: Pars
 
 pub inline fn getNodeText(self: *const @This(), comptime mode: Mode, i: Parser.NodeIndex) []const u8 {
     const node = self.getNode(mode, i);
-    return self.getToken(node.tokenIndex).getText(self.cont.source);
+    return self.getToken(node.tokenIndex).getText(self.tu.cont.source);
 }
 
 pub inline fn getNodeName(self: *const @This(), comptime mode: Mode, i: Parser.NodeIndex) []const u8 {
@@ -55,16 +53,18 @@ pub fn getNode(self: *const @This(), comptime mode: Mode, i: Parser.NodeIndex) P
     };
 }
 
-pub inline fn getNodePtr(self: *@This(), i: Parser.NodeIndex) *Parser.Node {
-    _ = .{ self, i };
-    @panic("Do not kwow how to do this");
-    // return &self.nodeList.items[i];
+pub inline fn getNodePtr(self: *@This(), comptime mode: Mode, i: Parser.NodeIndex) *Parser.Node {
+    return switch (mode) {
+        .Bound => self.getNode(.UnCheck, i),
+        .UnBound => self.nodeList.getOutChunk(i),
+        .UnCheck => self.nodeList.getUncheck(i),
+    };
 }
 
-pub fn toString(self: *const @This(), alloc: std.mem.Allocator) std.mem.Allocator.Error![]const u8 {
+pub fn toString(self: *const @This(), alloc: std.mem.Allocator, rootIndex: Parser.NodeIndex) std.mem.Allocator.Error![]const u8 {
     var cont = std.ArrayList(u8){};
 
-    const root = self.getNode(.UnCheck, self.rootIndex);
+    const root = self.getNode(.UnCheck, rootIndex);
 
     var i = root.data[0];
     const end = root.data[1];
