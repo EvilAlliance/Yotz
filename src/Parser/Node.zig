@@ -51,7 +51,7 @@ pub const Flag = enum(Parser.NodeIndex) {
 tag: Atomic(Tag) = .init(.poison),
 tokenIndex: Atomic(Parser.TokenIndex) = .init(0),
 // 0 is invalid beacause 0 is a root
-data: struct { Parser.NodeIndex, Parser.NodeIndex } = .{ 0, 0 },
+data: struct { Atomic(Parser.NodeIndex), Parser.NodeIndex } = .{ .init(0), 0 },
 flags: Atomic(Parser.NodeIndex) = .init(0),
 next: Atomic(Parser.NodeIndex) = .init(0),
 

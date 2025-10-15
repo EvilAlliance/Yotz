@@ -82,7 +82,7 @@ pub fn parseFunction(self: *@This(), alloc: Allocator, start: TokenIndex, placeH
 pub fn parseRoot(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error)!void {
     const rootIndex = try self.nodeList.getNextIndex(alloc);
     try self.nodeList.append(alloc, .{ .tag = .init(.root) });
-    self.nodeList.getPtr(rootIndex).data[0] = try self.nodeList.getNextIndex(alloc);
+    if (self.nodeList.getPtr(rootIndex).data[0].cmpxchgWeak(0, try self.nodeList.getNextIndex(alloc), .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
     self.nodeList.unlockShared();
 
     var t, _ = self.peek();
@@ -207,7 +207,6 @@ fn parseFuncDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || e
 fn parseFuncProto(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
     const nodeIndex = try nl.addNode(alloc, &self.nodeList, .{
         .tag = .init(.funcProto),
-        .data = .{ 0, 0 },
     });
 
     if (!try self.expect(alloc, self.pop()[0], &.{.openParen})) return error.UnexpectedToken;
@@ -241,7 +240,7 @@ fn parseTypeFunction(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error 
 
     const node = Node{
         .tag = .init(.funcType),
-        .data = .{ 0, x },
+        .data = .{ .init(0), x },
         .tokenIndex = .init(initI),
     };
 
@@ -256,13 +255,13 @@ fn parseTypePrimitive(self: *@This(), alloc: Allocator) std.mem.Allocator.Error!
         .tokenIndex = .init(mainIndex),
         .tag = .init(.type),
         .data = .{
-            switch (t.tag) {
+            .init(switch (t.tag) {
                 .unsigned8, .signed8 => 8,
                 .unsigned16, .signed16 => 16,
                 .unsigned32, .signed32 => 32,
                 .unsigned64, .signed64 => 64,
                 else => unreachable,
-            },
+            }),
             @intFromEnum(switch (t.tag) {
                 .signed8, .signed16, .signed32, .signed64 => Node.Primitive.int,
                 .unsigned8, .unsigned16, .unsigned32, .unsigned64 => Node.Primitive.uint,
@@ -287,12 +286,11 @@ fn parseScope(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || erro
 
     const nodeIndex = try nl.addNode(alloc, &self.nodeList, .{
         .tag = .init(.scope),
-        .data = .{ 0, 0 },
     });
 
     {
         const p = try self.nodeList.getNextIndex(alloc);
-        self.nodeList.getPtr(nodeIndex).data[0] = p;
+        if (self.nodeList.getPtr(nodeIndex).data[0].cmpxchgWeak(0, p, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
         self.nodeList.unlockShared();
     }
 
@@ -345,7 +343,6 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error 
     var node: Node = .{
         .tag = .init(Node.Tag.variable),
         .tokenIndex = .init(nameIndex),
-        .data = .{ 0, 0 },
     };
 
     const index = try nl.addNode(alloc, &self.nodeList, node);
@@ -356,7 +353,7 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error 
     const possibleType = self.peek()[0];
 
     if (possibleType.tag != .colon and possibleType.tag != .equal) {
-        node.data[0] = try self.parseType(alloc);
+        if (node.data[0].cmpxchgWeak(0, try self.parseType(alloc), .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
     }
 
     const possibleExpr = self.peek()[0];
@@ -395,7 +392,6 @@ fn parseReturn(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || err
     const nodeIndex = try nl.addNode(alloc, &self.nodeList, .{
         .tag = .init(.ret),
         .tokenIndex = .init(retIndex),
-        .data = .{ 0, 0 },
     });
 
     var exp: NodeIndex = 0;
@@ -444,7 +440,7 @@ fn parseExpr(self: *@This(), alloc: Allocator, minPrecedence: u8) (std.mem.Alloc
         leftIndex = try nl.addNode(alloc, &self.nodeList, Node{
             .tag = .init(tag),
             .tokenIndex = .init(opIndex),
-            .data = .{ leftIndex, right },
+            .data = .{ .init(leftIndex), right },
         });
     }
 
@@ -461,14 +457,12 @@ fn parseTerm(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error
             return try nl.addNode(alloc, &self.nodeList, .{
                 .tag = .init(.lit),
                 .tokenIndex = .init(self.pop()[1]),
-                .data = .{ 0, 0 },
             });
         },
         .iden => {
             return try nl.addNode(alloc, &self.nodeList, .{
                 .tag = .init(.load),
                 .tokenIndex = .init(self.pop()[1]),
-                .data = .{ 0, 0 },
             });
         },
         .minus => {
@@ -482,7 +476,7 @@ fn parseTerm(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error
                     else => unreachable,
                 }),
                 .tokenIndex = .init(opIndex),
-                .data = .{ expr, 0 },
+                .data = .{ .init(expr), 0 },
             });
         },
         .openParen => {

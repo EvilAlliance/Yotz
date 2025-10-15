@@ -66,7 +66,7 @@ pub fn toString(self: *const @This(), alloc: std.mem.Allocator, rootIndex: Parse
 
     const root = self.getNode(.UnCheck, rootIndex);
 
-    var i = root.data[0];
+    var i = root.data[0].load(.acquire);
     const end = root.data[1];
     while (i < end) : (i = self.getNode(.UnCheck, i).next.load(.acquire)) {
         try self.tostringVariable(alloc, &cont, 0, i);
@@ -81,7 +81,7 @@ pub fn toString(self: *const @This(), alloc: std.mem.Allocator, rootIndex: Parse
 
 fn toStringFuncProto(self: *const @This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
     std.debug.assert(self.getNode(.UnCheck, i).tag.load(.acquire) == .funcProto);
-    std.debug.assert(self.getNode(.UnCheck, i).data[0] == 0);
+    std.debug.assert(self.getNode(.UnCheck, i).data[0].load(.acquire) == 0);
 
     // TODO : Put arguments
     try cont.appendSlice(alloc, "() ");
@@ -106,7 +106,7 @@ fn toStringType(self: *const @This(), alloc: std.mem.Allocator, cont: *std.Array
 
         switch (t.tag.load(.acquire)) {
             .funcType => {
-                std.debug.assert(t.data[0] == 0);
+                std.debug.assert(t.data[0].load(.acquire) == 0);
                 try cont.appendSlice(alloc, "() ");
 
                 index = t.data[1];
@@ -119,7 +119,7 @@ fn toStringType(self: *const @This(), alloc: std.mem.Allocator, cont: *std.Array
                     Parser.Node.Primitive.float => 'f',
                 });
 
-                const size = try std.fmt.allocPrint(alloc, "{}", .{t.data[0]});
+                const size = try std.fmt.allocPrint(alloc, "{}", .{t.data[0].load(.acquire)});
                 try cont.appendSlice(alloc, size);
                 alloc.free(size);
             },
@@ -142,7 +142,7 @@ fn toStringScope(self: *const @This(), alloc: std.mem.Allocator, cont: *std.Arra
 
     try cont.appendSlice(alloc, "{ \n");
 
-    var j = scope.data[0];
+    var j = scope.data[0].load(.acquire);
     const end = scope.data[1];
 
     while (j < end) {
@@ -183,13 +183,14 @@ fn tostringVariable(self: *const @This(), alloc: std.mem.Allocator, cont: *std.A
 
     try cont.appendSlice(alloc, variable.getTextAst(self));
 
-    if (variable.data[0] == 0)
+    const variableLeft = variable.data[0].load(.acquire);
+    if (variableLeft == 0)
         try cont.append(alloc, ' ');
 
     try cont.append(alloc, ':');
-    if (variable.data[0] != 0) {
+    if (variableLeft != 0) {
         try cont.append(alloc, ' ');
-        try self.toStringType(alloc, cont, d, variable.data[0]);
+        try self.toStringType(alloc, cont, d, variableLeft);
         try cont.append(alloc, ' ');
     }
 
@@ -210,7 +211,7 @@ fn toStringExpression(self: *const @This(), alloc: std.mem.Allocator, cont: *std
         .addition, .subtraction, .multiplication, .division, .power => {
             try cont.append(alloc, '(');
 
-            const leftIndex = node.data[0];
+            const leftIndex = node.data[0].load(.acquire);
             try self.toStringExpression(alloc, cont, d, leftIndex);
 
             try cont.append(alloc, ' ');
@@ -225,7 +226,7 @@ fn toStringExpression(self: *const @This(), alloc: std.mem.Allocator, cont: *std
         .neg => {
             try cont.appendSlice(alloc, node.getTokenTagAst(self.*).toSymbol().?);
             try cont.append(alloc, '(');
-            const leftIndex = node.data[0];
+            const leftIndex = node.data[0].load(.acquire);
 
             try self.toStringExpression(alloc, cont, d, leftIndex);
             try cont.append(alloc, ')');
