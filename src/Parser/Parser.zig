@@ -105,7 +105,7 @@ pub fn parseRoot(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error)!voi
         };
 
         const p = try self.nodeList.getNextIndex(alloc);
-        self.nodeList.getPtr(nodeIndex).next = p;
+        if (self.nodeList.getPtr(nodeIndex).next.cmpxchgWeak(0, p, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
         self.nodeList.unlockShared();
 
         _ = self.popIf(.semicolon);
@@ -191,13 +191,13 @@ fn parseFuncDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || e
 
     if (self.peek()[0].tag != .openBrace) {
         const p = try self.nodeList.getNextIndex(alloc);
-        self.nodeList.getPtr(funcProto).next = p;
+        if (self.nodeList.getPtr(funcProto).next.cmpxchgWeak(0, p, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
         self.nodeList.unlockShared();
 
         try self.parseStatement(alloc);
     } else {
         const p = try self.parseScope(alloc);
-        self.nodeList.getPtr(funcProto).next = p;
+        if (self.nodeList.getPtr(funcProto).next.cmpxchgWeak(0, p, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
         self.nodeList.unlockShared();
     }
 
@@ -333,7 +333,7 @@ fn parseStatement(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || 
     _ = self.pop();
 
     const p = try self.nodeList.getNextIndex(alloc);
-    self.nodeList.getPtr(nodeIndex).next = p;
+    if (self.nodeList.getPtr(nodeIndex).next.cmpxchgWeak(0, p, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
     self.nodeList.unlockShared();
 
     return;

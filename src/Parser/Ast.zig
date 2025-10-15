@@ -68,7 +68,7 @@ pub fn toString(self: *const @This(), alloc: std.mem.Allocator, rootIndex: Parse
 
     var i = root.data[0];
     const end = root.data[1];
-    while (i < end) : (i = self.getNode(.UnCheck, i).next) {
+    while (i < end) : (i = self.getNode(.UnCheck, i).next.load(.acquire)) {
         try self.tostringVariable(alloc, &cont, 0, i);
 
         if (self.getNode(.UnCheck, self.getNode(.UnCheck, i).data[1]).tag.load(.acquire) != .funcProto) {
@@ -90,10 +90,10 @@ fn toStringFuncProto(self: *const @This(), alloc: std.mem.Allocator, cont: *std.
 
     try cont.append(alloc, ' ');
 
-    const proto = self.getNode(.UnCheck, i);
-    if (self.getNode(.UnCheck, proto.next).tag.load(.acquire) == .scope) return try self.toStringScope(alloc, cont, d, proto.next);
+    const protoNext = self.getNode(.UnCheck, i).next.load(.acquire);
+    if (self.getNode(.UnCheck, protoNext).tag.load(.acquire) == .scope) return try self.toStringScope(alloc, cont, d, protoNext);
 
-    try self.toStringStatement(alloc, cont, d, proto.next);
+    try self.toStringStatement(alloc, cont, d, protoNext);
 }
 
 fn toStringType(self: *const @This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
@@ -126,9 +126,9 @@ fn toStringType(self: *const @This(), alloc: std.mem.Allocator, cont: *std.Array
             else => unreachable,
         }
 
-        index = t.next;
+        index = t.next.load(.acquire);
 
-        if (t.next != 0) {
+        if (index != 0) {
             try cont.appendSlice(alloc, ", ");
         } else {
             break;
@@ -150,7 +150,7 @@ fn toStringScope(self: *const @This(), alloc: std.mem.Allocator, cont: *std.Arra
 
         try self.toStringStatement(alloc, cont, d + 4, j);
 
-        j = node.next;
+        j = node.next.load(.acquire);
     }
 
     try cont.appendSlice(alloc, "} \n");

@@ -53,7 +53,7 @@ tokenIndex: Atomic(Parser.TokenIndex) = .init(0),
 // 0 is invalid beacause 0 is a root
 data: struct { Parser.NodeIndex, Parser.NodeIndex } = .{ 0, 0 },
 flags: Atomic(Parser.NodeIndex) = .init(0),
-next: Parser.NodeIndex = 0,
+next: Atomic(Parser.NodeIndex) = .init(0),
 
 pub inline fn getTokenAst(self: *const @This(), ast: Parser.Ast) Lexer.Token {
     return ast.tu.cont.tokens[self.tokenIndex.load(.acquire)];
