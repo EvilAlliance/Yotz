@@ -48,30 +48,30 @@ pub const Flag = enum(Parser.NodeIndex) {
 };
 
 tag: Atomic(Tag) = .init(.poison),
-tokenIndex: Parser.TokenIndex = 0,
+tokenIndex: Atomic(Parser.TokenIndex) = .init(0),
 // 0 is invalid beacause 0 is a root
 data: struct { Parser.NodeIndex, Parser.NodeIndex } = .{ 0, 0 },
 flags: Parser.NodeIndex = 0,
 next: Parser.NodeIndex = 0,
 
 pub inline fn getTokenAst(self: *const @This(), ast: Parser.Ast) Lexer.Token {
-    return ast.tu.cont.tokens[self.tokenIndex];
+    return ast.tu.cont.tokens[self.tokenIndex.load(.acquire)];
 }
 
 pub inline fn getLocationAst(self: *const @This(), ast: Parser.Ast) Lexer.Location {
-    return ast.tu.cont.tokens[self.tokenIndex].loc;
+    return ast.tu.cont.tokens[self.tokenIndex.load(.acquire)].loc;
 }
 
 pub inline fn getTokenTagAst(self: *const @This(), ast: Parser.Ast) Lexer.TokenType {
-    return ast.tu.cont.tokens[self.tokenIndex].tag;
+    return ast.tu.cont.tokens[self.tokenIndex.load(.acquire)].tag;
 }
 
 pub inline fn getTextAst(self: *const @This(), ast: *const Parser.Ast) []const u8 {
-    return ast.tu.cont.tokens[self.tokenIndex].getText(ast.tu.cont.source);
+    return ast.tu.cont.tokens[self.tokenIndex.load(.acquire)].getText(ast.tu.cont.source);
 }
 
 pub inline fn getNameAst(self: *const @This(), ast: Parser.Ast) []const u8 {
-    return ast.cont.tokens[self.tokenIndex].tag.getName();
+    return ast.cont.tokens[self.tokenIndex.load(.acquire)].tag.getName();
 }
 
 pub fn typeToString(self: @This()) u8 {
