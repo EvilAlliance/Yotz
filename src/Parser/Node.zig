@@ -41,18 +41,18 @@ pub const Primitive = enum(Parser.NodeIndex) {
     float,
 };
 
-// TODO: Use a packed struct
-pub const Flag = enum(Parser.NodeIndex) {
-    inferedFromUse = 0b1,
-    inferedFromExpression = 0b10,
-    implicitCast = 0b100,
+pub const Flags = packed struct {
+    inferedFromUse: u1 = 0,
+    inferedFromExpression: u1 = 0,
+    implicitCast: u1 = 0,
+    reserved: u29 = undefined,
 };
 
 tag: Atomic(Tag) = .init(.poison),
 tokenIndex: Atomic(Parser.TokenIndex) = .init(0),
 // 0 is invalid beacause 0 is a root
 data: struct { Atomic(Parser.NodeIndex), Atomic(Parser.NodeIndex) } = .{ .init(0), .init(0) },
-flags: Atomic(Parser.NodeIndex) = .init(0),
+flags: Atomic(Flags) = .init(Flags{}),
 next: Atomic(Parser.NodeIndex) = .init(0),
 
 pub inline fn getTokenAst(self: *const @This(), ast: Parser.Ast) Lexer.Token {
