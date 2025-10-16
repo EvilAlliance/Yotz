@@ -6,13 +6,13 @@ tu: *const TranslationUnit,
 
 index: TokenIndex = 0,
 
-nodeList: NodeList.Chunk,
+nodeList: *NodeList.Chunk,
 
 errors: std.ArrayList(UnexpectedToken),
 
 depth: NodeIndex = 0,
 
-pub fn init(tu: *const TranslationUnit, chunk: NodeList.Chunk) Allocator.Error!@This() {
+pub fn init(tu: *const TranslationUnit, chunk: *NodeList.Chunk) Allocator.Error!@This() {
     return @This(){
         .tu = tu,
 
@@ -218,7 +218,7 @@ fn parseFuncDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || e
 }
 
 fn parseFuncProto(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
-    const nodeIndex = try nl.addNode(alloc, &self.nodeList, .{
+    const nodeIndex = try nl.addNode(alloc, self.nodeList, .{
         .tag = .init(.funcProto),
     });
 
@@ -257,7 +257,7 @@ fn parseTypeFunction(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error 
         .tokenIndex = .init(initI),
     };
 
-    return try nl.addNode(alloc, &self.nodeList, node);
+    return try nl.addNode(alloc, self.nodeList, node);
 }
 
 fn parseType(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
@@ -266,7 +266,7 @@ fn parseType(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error
         return try self.parseTypeFunction(alloc);
     } else {
         _, const tokenIndex = self.pop();
-        return try nl.addNode(alloc, &self.nodeList, .{
+        return try nl.addNode(alloc, self.nodeList, .{
             .tag = .init(.type),
             .tokenIndex = .init(tokenIndex),
         });
@@ -276,7 +276,7 @@ fn parseType(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error
 fn parseScope(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
     _ = self.popIf(.openBrace) orelse unreachable;
 
-    const nodeIndex = try nl.addNode(alloc, &self.nodeList, .{
+    const nodeIndex = try nl.addNode(alloc, self.nodeList, .{
         .tag = .init(.scope),
     });
 
@@ -337,7 +337,7 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error 
         .tokenIndex = .init(nameIndex),
     };
 
-    const index = try nl.addNode(alloc, &self.nodeList, node);
+    const index = try nl.addNode(alloc, self.nodeList, node);
 
     if (!try self.expect(alloc, self.peek()[0], &.{.colon})) return error.UnexpectedToken;
     _ = self.pop();
@@ -381,7 +381,7 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error 
 fn parseReturn(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
     _, const retIndex = self.popIf(.ret) orelse unreachable;
 
-    const nodeIndex = try nl.addNode(alloc, &self.nodeList, .{
+    const nodeIndex = try nl.addNode(alloc, self.nodeList, .{
         .tag = .init(.ret),
         .tokenIndex = .init(retIndex),
     });
@@ -429,7 +429,7 @@ fn parseExpr(self: *@This(), alloc: Allocator, minPrecedence: u8) (std.mem.Alloc
 
         const right = try self.parseExpr(alloc, nextMinPrec);
 
-        leftIndex = try nl.addNode(alloc, &self.nodeList, Node{
+        leftIndex = try nl.addNode(alloc, self.nodeList, Node{
             .tag = .init(tag),
             .tokenIndex = .init(opIndex),
             .data = .{ .init(leftIndex), .init(right) },
@@ -446,13 +446,13 @@ fn parseTerm(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error
 
     switch (nextToken.tag) {
         .numberLiteral => {
-            return try nl.addNode(alloc, &self.nodeList, .{
+            return try nl.addNode(alloc, self.nodeList, .{
                 .tag = .init(.lit),
                 .tokenIndex = .init(self.pop()[1]),
             });
         },
         .iden => {
-            return try nl.addNode(alloc, &self.nodeList, .{
+            return try nl.addNode(alloc, self.nodeList, .{
                 .tag = .init(.load),
                 .tokenIndex = .init(self.pop()[1]),
             });
@@ -462,7 +462,7 @@ fn parseTerm(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error
 
             const expr = try self.parseTerm(alloc);
 
-            return try nl.addNode(alloc, &self.nodeList, .{
+            return try nl.addNode(alloc, self.nodeList, .{
                 .tag = .init(switch (op.tag) {
                     .minus => .neg,
                     else => unreachable,

@@ -95,9 +95,9 @@ fn _startFunction(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList, 
     if (self.cont.subCom == .Lexer) unreachable;
 
     defer alloc.destroy(self);
-    const chunk = try Parser.NodeList.Chunk.init(alloc, nodes);
+    var chunk = try Parser.NodeList.Chunk.init(alloc, nodes);
 
-    var parser = try Parser.init(self, chunk);
+    var parser = try Parser.init(self, &chunk);
     defer parser.deinit(alloc);
 
     try parser.parseFunction(alloc, start, placeHolder);
@@ -106,9 +106,17 @@ fn _startFunction(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList, 
         e.display(alloc, self.cont.getInfo());
     }
 
-    if (parser.errors.items.len > 0) failed = true;
+    if (parser.errors.items.len > 0) {
+        failed = true;
+        return;
+    }
     if (self.cont.subCom == .Parser) return;
 
+    // unreachable;
+    //
+    // if (self.cont.subCom == .TypeCheck) return;
+    //
+    // unreachable;
     // const err = try typeCheck(alloc, &ast);
     //
     // if (self.cont.subCom == .TypeCheck)
@@ -122,9 +130,9 @@ fn _startRoot(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList, star
     if (self.cont.subCom == .Lexer) unreachable;
 
     defer alloc.destroy(self);
-    const chunk = try Parser.NodeList.Chunk.init(alloc, nodes);
+    var chunk = try Parser.NodeList.Chunk.init(alloc, nodes);
 
-    var parser = try Parser.init(self, chunk);
+    var parser = try Parser.init(self, &chunk);
     defer parser.deinit(alloc);
 
     try parser.parseRoot(alloc, start, placeHolder);
@@ -133,9 +141,20 @@ fn _startRoot(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList, star
         e.display(alloc, self.cont.getInfo());
     }
 
-    if (parser.errors.items.len > 0) failed = true;
+    if (parser.errors.items.len > 0) {
+        failed = true;
+        return;
+    }
     if (self.cont.subCom == .Parser) return;
 
+    var ast = Parser.Ast.init(&chunk, self);
+    const checker = TypeCheck.init(&ast);
+    checker.checkRoot(alloc, ast.getNode(.UnBound, placeHolder).data[1].load(.acquire));
+
+    if (self.cont.subCom == .TypeCheck) return;
+
+    unreachable;
+    //
     // const err = try typeCheck(alloc, &ast);
     //
     // if (self.cont.subCom == .TypeCheck)
@@ -145,16 +164,15 @@ fn _startRoot(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList, star
     // if (parser.errors.items.len > 0) return .{ "", 1 };
 }
 
-// TODO: Create a placeholder where the entry root is stored, it will not be used, variable place holder
 pub fn startEntry(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList) std.mem.Allocator.Error!struct { []const u8, u8 } {
+    var chunk = try Parser.NodeList.Chunk.init(alloc, nodes);
+
     if (self.cont.subCom == .Lexer) {
-        const chunk = try Parser.NodeList.Chunk.init(alloc, nodes);
-        var parser = try Parser.init(self, chunk);
+        var parser = try Parser.init(self, &chunk);
         defer parser.deinit(alloc);
         return .{ try parser.lexerToString(alloc), 0 };
     }
 
-    var chunk = try Parser.NodeList.Chunk.init(alloc, nodes);
     const index = try chunk.getNextIndex(alloc);
     try chunk.append(alloc, Parser.Node{ .tag = .init(.entry) });
 
@@ -162,9 +180,13 @@ pub fn startEntry(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList) 
 
     self.pool.deinit();
 
+    if (failed) return .{ "", 1 };
+
     const ast = Parser.Ast.init(&chunk, self);
 
     if (self.cont.subCom == .Parser) return .{ try ast.toString(alloc, chunk.get(index).data[1].load(.acquire)), 0 };
+
+    if (self.cont.subCom == .TypeCheck) return .{ try ast.toString(alloc, chunk.get(index).data[1].load(.acquire)), 0 };
 
     // const err = try typeCheck(alloc, &ast);
     //
@@ -175,7 +197,6 @@ pub fn startEntry(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList) 
     // if (err) return .{ "", 1 };
     // if (parser.errors.items.len > 0) return .{ "", 1 };
 
-    self.pool.deinit();
     return .{ "", 1 };
 }
 
@@ -194,5 +215,5 @@ const Allocator = mem.Allocator;
 const ParseArgs = @import("ParseArgs.zig");
 const Lexer = @import("./Lexer/Lexer.zig");
 const Parser = @import("./Parser/Parser.zig");
-const typeCheck = @import("./TypeCheck/TypeCheck.zig").typeCheck;
+const TypeCheck = @import("./TypeCheck/TypeCheck.zig");
 const Thread = std.Thread;
