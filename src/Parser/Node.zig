@@ -5,7 +5,7 @@ const Parser = @import("Parser.zig");
 
 pub const Tag = enum(Parser.NodeIndex) {
     // Mark begining and end
-    root, // Placeholder in 0 so any 0 value it cant be an index
+    root, // data[0] start, and when the index is equal to data[1] stops
 
     empty,
 
@@ -15,7 +15,7 @@ pub const Tag = enum(Parser.NodeIndex) {
     funcType, // data[0] argsType, data[1] type
     argType, // data[0] argsType, data[1] type
 
-    scope,
+    scope, // data[0] start, and when the index is equal to data[1] stops
 
     ret, // right expression
     variable, // left type, right expr
@@ -50,7 +50,6 @@ pub const Flags = packed struct {
 
 tag: Atomic(Tag) = .init(.poison),
 tokenIndex: Atomic(Parser.TokenIndex) = .init(0),
-// 0 is invalid beacause 0 is a root
 data: struct { Atomic(Parser.NodeIndex), Atomic(Parser.NodeIndex) } = .{ .init(0), .init(0) },
 flags: Atomic(Flags) = .init(Flags{}),
 next: Atomic(Parser.NodeIndex) = .init(0),
