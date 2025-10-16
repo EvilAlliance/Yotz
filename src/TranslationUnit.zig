@@ -115,7 +115,7 @@ fn _startFunction(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList, 
     // if (parser.errors.items.len > 0) return .{ "", 1 };
 }
 
-// TODO: Create a placeholder where the entry root is stored, it will not be used
+// TODO: Create a placeholder where the entry root is stored, it will not be used, variable place holder
 pub fn startEntry(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList) std.mem.Allocator.Error!struct { []const u8, u8 } {
     const chunk = try Parser.NodeList.Chunk.init(alloc, nodes);
     var parser = try Parser.init(self, chunk);

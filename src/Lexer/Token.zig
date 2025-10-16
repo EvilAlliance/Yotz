@@ -24,7 +24,7 @@ pub const TokenType = enum(u32) {
     func,
 
     //Types
-    // TODO: Take out this stuff, leave this to the typechecker (identifier)
+    // TODO: this functions is for the typechecker
     // fn _transformType(t: Lexer.Token, source: [:0]const u8) !struct { Parser.NodeIndex, Parser.NodeIndex } {
     //     if (t.tag != .iden) return error.ExpectedIdentifier;
     //

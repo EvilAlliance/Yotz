@@ -78,6 +78,7 @@ pub fn parseFunction(self: *@This(), alloc: Allocator, start: TokenIndex, placeH
     self.nodeList.unlockShared();
 }
 
+// TODO: This will change when import is implemented
 pub fn parseRoot(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error)!void {
     const rootIndex = try self.nodeList.getNextIndex(alloc);
     try self.nodeList.append(alloc, .{ .tag = .init(.root) });

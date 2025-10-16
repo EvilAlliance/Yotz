@@ -52,7 +52,9 @@
         "id": "t83KaQZh",
         "title": "Make a translation unit, for file (global) and for each functions",
         "desc": "Use a stack of pending which later is gonna be used with a ThreadPool",
-        "time_created": "2025-05-22 09:47:03.222463911 -03:00:00"
+        "time_created": "2025-05-22 09:47:03.222463911 -03:00:00",
+        "time_started": "2025-10-16 09:07:40.621999692 -03:00:00",
+        "time_completed": "2025-10-16 09:07:41.114854234 -03:00:00"
       },
       {
         "dependencies": [
@@ -61,7 +63,9 @@
         "id": "d3oGBsNm",
         "title": "Change the implementation of the queue to use ThreadPool",
         "desc": "",
-        "time_created": "2025-05-22 09:48:30.418908665 -03:00:00"
+        "time_created": "2025-05-22 09:48:30.418908665 -03:00:00",
+        "time_started": "2025-10-16 09:07:43.719127449 -03:00:00",
+        "time_completed": "2025-10-16 09:07:44.164004332 -03:00:00"
       },
       {
         "id": "qHWGKNaH",
@@ -200,7 +204,9 @@
         "id": "tqBwd6e3",
         "title": "Create queue for functions",
         "desc": "",
-        "time_created": "2025-07-08 21:56:27.569254334 -03:00:00"
+        "time_created": "2025-07-08 21:56:27.569254334 -03:00:00",
+        "time_started": "2025-10-16 09:07:35.600203993 -03:00:00",
+        "time_completed": "2025-10-16 09:07:37.643109944 -03:00:00"
       },
       {
         "dependencies": [
@@ -209,7 +215,9 @@
         "id": "Lmkgqp3z",
         "title": "Start With the global scope, then the functions",
         "desc": "",
-        "time_created": "2025-07-08 21:56:52.749179986 -03:00:00"
+        "time_created": "2025-07-08 21:56:52.749179986 -03:00:00",
+        "time_started": "2025-10-16 09:07:36.380955029 -03:00:00",
+        "time_completed": "2025-10-16 09:07:38.196407372 -03:00:00"
       },
       {
         "id": "thBRxrSZ",
