@@ -251,9 +251,10 @@ fn parseType(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error
     if (self.peek()[0].tag == .openParen) {
         return try self.parseTypeFunction(alloc);
     } else {
+        _, const tokenIndex = self.pop();
         return try nl.addNode(alloc, &self.nodeList, .{
             .tag = .init(.type),
-            .tokenIndex = .init(self.pop()[1]),
+            .tokenIndex = .init(tokenIndex),
         });
     }
 }

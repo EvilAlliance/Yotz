@@ -113,7 +113,8 @@ fn toStringType(self: *const @This(), alloc: std.mem.Allocator, cont: *std.Array
                 continue;
             },
             .type => {
-                try cont.appendSlice(alloc, self.getNodeText(.UnCheck, i));
+                const x = self.getNodeText(.UnCheck, index);
+                try cont.appendSlice(alloc, x);
             },
             else => unreachable,
         }
