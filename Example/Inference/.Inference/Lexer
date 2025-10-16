@@ -2,13 +2,13 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 1626
+:b stdout 1615
 Example/Inference/Inference.yt:1:1 main (iden)
 Example/Inference/Inference.yt:1:6 : (colon)
 Example/Inference/Inference.yt:1:7 : (colon)
 Example/Inference/Inference.yt:1:9 ( (openParen)
 Example/Inference/Inference.yt:1:10 ) (closeParen)
-Example/Inference/Inference.yt:1:12 u8 (unsigned8)
+Example/Inference/Inference.yt:1:12 u8 (iden)
 Example/Inference/Inference.yt:1:15 { (openBrace)
 Example/Inference/Inference.yt:2:5 a (iden)
 Example/Inference/Inference.yt:2:7 : (colon)
@@ -17,7 +17,7 @@ Example/Inference/Inference.yt:2:10 10 (numberLiteral)
 Example/Inference/Inference.yt:2:12 ; (semicolon)
 Example/Inference/Inference.yt:3:5 b (iden)
 Example/Inference/Inference.yt:3:7 : (colon)
-Example/Inference/Inference.yt:3:8 u16 (unsigned16)
+Example/Inference/Inference.yt:3:8 u16 (iden)
 Example/Inference/Inference.yt:3:11 = (equal)
 Example/Inference/Inference.yt:3:13 30 (numberLiteral)
 Example/Inference/Inference.yt:3:15 ; (semicolon)

@@ -153,7 +153,7 @@ fn skipFunction(self: *@This()) void {
 fn skipType(self: *@This()) void {
     //TODO: Error Recovery
 
-    if (!Util.listContains(Lexer.TokenType, &.{ .openParen, .unsigned8, .unsigned16, .unsigned32, .unsigned64, .signed8, .signed16, .signed32, .signed64 }, self.peek()[0].tag)) unreachable;
+    if (!Util.listContains(Lexer.TokenType, &.{ .openParen, .iden }, self.peek()[0].tag)) unreachable;
 
     if (self.peek()[0].tag == .openParen) {
         _ = self.popIf(.openParen) orelse unreachable;
@@ -246,37 +246,15 @@ fn parseTypeFunction(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error 
     return try nl.addNode(alloc, &self.nodeList, node);
 }
 
-fn parseTypePrimitive(self: *@This(), alloc: Allocator) std.mem.Allocator.Error!NodeIndex {
-    std.debug.assert(Util.listContains(Lexer.TokenType, &.{ .unsigned8, .unsigned16, .unsigned32, .unsigned64, .signed8, .signed16, .signed32, .signed64 }, self.peek()[0].tag));
-    const t, const mainIndex = self.pop();
-
-    const nodeIndex = try nl.addNode(alloc, &self.nodeList, .{
-        .tokenIndex = .init(mainIndex),
-        .tag = .init(.type),
-        .data = .{
-            .init(switch (t.tag) {
-                .unsigned8, .signed8 => 8,
-                .unsigned16, .signed16 => 16,
-                .unsigned32, .signed32 => 32,
-                .unsigned64, .signed64 => 64,
-                else => unreachable,
-            }),
-            .init(@intFromEnum(switch (t.tag) {
-                .signed8, .signed16, .signed32, .signed64 => Node.Primitive.int,
-                .unsigned8, .unsigned16, .unsigned32, .unsigned64 => Node.Primitive.uint,
-                else => unreachable,
-            })),
-        },
-    });
-
-    return nodeIndex;
-}
 fn parseType(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
-    if (!try self.expect(alloc, self.peek()[0], &.{ .openParen, .unsigned8, .unsigned16, .unsigned32, .unsigned64, .signed8, .signed16, .signed32, .signed64 })) return error.UnexpectedToken;
+    if (!try self.expect(alloc, self.peek()[0], &.{ .openParen, .iden })) return error.UnexpectedToken;
     if (self.peek()[0].tag == .openParen) {
         return try self.parseTypeFunction(alloc);
     } else {
-        return try self.parseTypePrimitive(alloc);
+        return try nl.addNode(alloc, &self.nodeList, .{
+            .tag = .init(.type),
+            .tokenIndex = .init(self.pop()[1]),
+        });
     }
 }
 

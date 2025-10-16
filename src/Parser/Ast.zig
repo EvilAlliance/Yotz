@@ -37,7 +37,7 @@ pub inline fn getNodeLocation(self: *const @This(), comptime mode: Mode, i: Pars
 
 pub inline fn getNodeText(self: *const @This(), comptime mode: Mode, i: Parser.NodeIndex) []const u8 {
     const node = self.getNode(mode, i);
-    return self.getToken(node.tokenIndex).getText(self.tu.cont.source);
+    return self.getToken(node.tokenIndex.load(.acquire)).getText(self.tu.cont.source);
 }
 
 pub inline fn getNodeName(self: *const @This(), comptime mode: Mode, i: Parser.NodeIndex) []const u8 {
@@ -113,15 +113,7 @@ fn toStringType(self: *const @This(), alloc: std.mem.Allocator, cont: *std.Array
                 continue;
             },
             .type => {
-                try cont.append(alloc, switch (@as(Parser.Node.Primitive, @enumFromInt(t.data[1].load(.acquire)))) {
-                    Parser.Node.Primitive.int => 'i',
-                    Parser.Node.Primitive.uint => 'u',
-                    Parser.Node.Primitive.float => 'f',
-                });
-
-                const size = try std.fmt.allocPrint(alloc, "{}", .{t.data[0].load(.acquire)});
-                try cont.appendSlice(alloc, size);
-                alloc.free(size);
+                try cont.appendSlice(alloc, self.getNodeText(.UnCheck, i));
             },
             else => unreachable,
         }

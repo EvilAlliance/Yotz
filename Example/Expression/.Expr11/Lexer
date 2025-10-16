@@ -2,13 +2,13 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 755
+:b stdout 750
 Example/Expression/Expr11.yt:1:1 main (iden)
 Example/Expression/Expr11.yt:1:6 : (colon)
 Example/Expression/Expr11.yt:1:7 : (colon)
 Example/Expression/Expr11.yt:1:9 ( (openParen)
 Example/Expression/Expr11.yt:1:10 ) (closeParen)
-Example/Expression/Expr11.yt:1:12 u8 (unsigned8)
+Example/Expression/Expr11.yt:1:12 u8 (iden)
 Example/Expression/Expr11.yt:1:15 { (openBrace)
 Example/Expression/Expr11.yt:2:5 return (ret)
 Example/Expression/Expr11.yt:2:12 2 (numberLiteral)

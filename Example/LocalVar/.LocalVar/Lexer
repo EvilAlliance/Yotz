@@ -2,17 +2,17 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 1021
+:b stdout 1011
 Example/LocalVar/LocalVar.yt:1:1 main (iden)
 Example/LocalVar/LocalVar.yt:1:6 : (colon)
 Example/LocalVar/LocalVar.yt:1:7 : (colon)
 Example/LocalVar/LocalVar.yt:1:9 ( (openParen)
 Example/LocalVar/LocalVar.yt:1:10 ) (closeParen)
-Example/LocalVar/LocalVar.yt:1:12 u8 (unsigned8)
+Example/LocalVar/LocalVar.yt:1:12 u8 (iden)
 Example/LocalVar/LocalVar.yt:1:15 { (openBrace)
 Example/LocalVar/LocalVar.yt:2:5 a (iden)
 Example/LocalVar/LocalVar.yt:2:6 : (colon)
-Example/LocalVar/LocalVar.yt:2:8 u8 (unsigned8)
+Example/LocalVar/LocalVar.yt:2:8 u8 (iden)
 Example/LocalVar/LocalVar.yt:2:11 : (colon)
 Example/LocalVar/LocalVar.yt:2:13 10 (numberLiteral)
 Example/LocalVar/LocalVar.yt:2:16 + (plus)

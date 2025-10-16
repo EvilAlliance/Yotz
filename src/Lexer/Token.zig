@@ -20,21 +20,51 @@ pub const TokenType = enum(u32) {
     colon,
 
     //keyword
-    let,
-    mut,
     ret,
     func,
 
     //Types
     // TODO: Take out this stuff, leave this to the typechecker (identifier)
-    unsigned8,
-    unsigned16,
-    unsigned32,
-    unsigned64,
-    signed8,
-    signed16,
-    signed32,
-    signed64,
+    // fn _transformType(t: Lexer.Token, source: [:0]const u8) !struct { Parser.NodeIndex, Parser.NodeIndex } {
+    //     if (t.tag != .iden) return error.ExpectedIdentifier;
+    //
+    //     const name = t.loc.getText(source);
+    //
+    //     const type_info = std.meta.stringToEnum(TypeName, name) orelse
+    //         return error.UnknownType;
+    //
+    //     return .{
+    //         type_info.bit_size,
+    //         @intFromEnum(type_info.node_kind),
+    //     };
+    // }
+    //
+    // const TypeName = enum {
+    //     u8,
+    //     u16,
+    //     u32,
+    //     u64,
+    //     s8,
+    //     s16,
+    //     s32,
+    //     s64,
+    //
+    //     pub fn bit_size(self: TypeName) Parser.NodeIndex {
+    //         return switch (self) {
+    //             .u8, .s8 => 8,
+    //             .u16, .s16 => 16,
+    //             .u32, .s32 => 32,
+    //             .u64, .s64 => 64,
+    //         };
+    //     }
+    //
+    //     pub fn node_kind(self: TypeName) Parser.Node.Primitive {
+    //         return switch (self) {
+    //             .s8, .s16, .s32, .s64 => .int,
+    //             .u8, .u16, .u32, .u64 => .uint,
+    //         };
+    //     }
+    // };
 
     //Can be many things
     numberLiteral,
@@ -69,19 +99,8 @@ pub const TokenType = enum(u32) {
             .colon => ":",
             .semicolon => ";",
 
-            .let => "let",
-            .mut => "mut",
             .ret => "return",
             .func => "fn",
-
-            .unsigned8 => "u8",
-            .unsigned16 => "u16",
-            .unsigned32 => "u32",
-            .unsigned64 => "u64",
-            .signed8 => "s8",
-            .signed16 => "s16",
-            .signed32 => "s32",
-            .signed64 => "s64",
 
             .numberLiteral => null,
             .iden => null,
@@ -99,20 +118,8 @@ pub const TokenType = enum(u32) {
 };
 
 const keyword = std.StaticStringMap(TokenType).initComptime(.{
-    .{ "let", .let },
-    .{ "mut", .mut },
     .{ "return", .ret },
     .{ "fn", .func },
-
-    .{ "u8", .unsigned8 },
-    .{ "u16", .unsigned16 },
-    .{ "u32", .unsigned32 },
-    .{ "u64", .unsigned64 },
-
-    .{ "s8", .signed8 },
-    .{ "s16", .signed16 },
-    .{ "s32", .signed32 },
-    .{ "s64", .signed64 },
 });
 
 tag: TokenType,

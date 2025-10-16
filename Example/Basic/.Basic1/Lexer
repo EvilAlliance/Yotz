@@ -2,13 +2,13 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 416
+:b stdout 411
 Example/Basic/Basic1.yt:1:1 main (iden)
 Example/Basic/Basic1.yt:1:6 : (colon)
 Example/Basic/Basic1.yt:1:7 : (colon)
 Example/Basic/Basic1.yt:1:9 ( (openParen)
 Example/Basic/Basic1.yt:1:10 ) (closeParen)
-Example/Basic/Basic1.yt:1:12 u8 (unsigned8)
+Example/Basic/Basic1.yt:1:12 u8 (iden)
 Example/Basic/Basic1.yt:1:15 return (ret)
 Example/Basic/Basic1.yt:1:22 1 (numberLiteral)
 Example/Basic/Basic1.yt:1:23 ; (semicolon)

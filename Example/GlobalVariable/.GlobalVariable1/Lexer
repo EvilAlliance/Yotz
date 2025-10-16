@@ -2,13 +2,13 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 1000
+:b stdout 995
 Example/GlobalVariable/GlobalVariable1.yt:1:1 main (iden)
 Example/GlobalVariable/GlobalVariable1.yt:1:6 : (colon)
 Example/GlobalVariable/GlobalVariable1.yt:1:7 : (colon)
 Example/GlobalVariable/GlobalVariable1.yt:1:9 ( (openParen)
 Example/GlobalVariable/GlobalVariable1.yt:1:10 ) (closeParen)
-Example/GlobalVariable/GlobalVariable1.yt:1:12 u8 (unsigned8)
+Example/GlobalVariable/GlobalVariable1.yt:1:12 u8 (iden)
 Example/GlobalVariable/GlobalVariable1.yt:1:15 { (openBrace)
 Example/GlobalVariable/GlobalVariable1.yt:2:5 return (ret)
 Example/GlobalVariable/GlobalVariable1.yt:2:12 a (iden)

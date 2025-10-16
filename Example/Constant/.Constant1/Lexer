@@ -2,13 +2,13 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 1761
+:b stdout 1744
 Example/Constant/Constant1.yt:1:1 main (iden)
 Example/Constant/Constant1.yt:1:5 : (colon)
 Example/Constant/Constant1.yt:1:6 : (colon)
 Example/Constant/Constant1.yt:1:8 ( (openParen)
 Example/Constant/Constant1.yt:1:9 ) (closeParen)
-Example/Constant/Constant1.yt:1:11 u8 (unsigned8)
+Example/Constant/Constant1.yt:1:11 u8 (iden)
 Example/Constant/Constant1.yt:1:14 { (openBrace)
 Example/Constant/Constant1.yt:2:5 a (iden)
 Example/Constant/Constant1.yt:2:7 : (colon)
@@ -24,13 +24,13 @@ Example/Constant/Constant1.yt:4:15 a (iden)
 Example/Constant/Constant1.yt:4:16 ; (semicolon)
 Example/Constant/Constant1.yt:6:5 c (iden)
 Example/Constant/Constant1.yt:6:6 : (colon)
-Example/Constant/Constant1.yt:6:8 u16 (unsigned16)
+Example/Constant/Constant1.yt:6:8 u16 (iden)
 Example/Constant/Constant1.yt:6:12 = (equal)
 Example/Constant/Constant1.yt:6:14 a (iden)
 Example/Constant/Constant1.yt:6:15 ; (semicolon)
 Example/Constant/Constant1.yt:7:5 d (iden)
 Example/Constant/Constant1.yt:7:6 : (colon)
-Example/Constant/Constant1.yt:7:8 u16 (unsigned16)
+Example/Constant/Constant1.yt:7:8 u16 (iden)
 Example/Constant/Constant1.yt:7:12 = (equal)
 Example/Constant/Constant1.yt:7:14 b (iden)
 Example/Constant/Constant1.yt:7:15 ; (semicolon)
