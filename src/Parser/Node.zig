@@ -5,6 +5,7 @@ const Parser = @import("Parser.zig");
 
 pub const Tag = enum(Parser.NodeIndex) {
     // Mark begining and end
+    entry, // right is the first root
     root, // data[0] start, and when the index is equal to data[1] stops
 
     empty,

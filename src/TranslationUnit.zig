@@ -92,6 +92,8 @@ pub fn startFunction(self: Self, alloc: Allocator, nodes: *Parser.NodeList, star
 }
 
 fn _startFunction(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex) Allocator.Error!void {
+    if (self.cont.subCom == .Lexer) unreachable;
+
     defer alloc.destroy(self);
     const chunk = try Parser.NodeList.Chunk.init(alloc, nodes);
 
@@ -105,6 +107,34 @@ fn _startFunction(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList, 
     }
 
     if (parser.errors.items.len > 0) failed = true;
+    if (self.cont.subCom == .Parser) return;
+
+    // const err = try typeCheck(alloc, &ast);
+    //
+    // if (self.cont.subCom == .TypeCheck)
+    //     return .{ try ast.toString(alloc), if (err or (parser.errors.items.len > 1)) 1 else 0 };
+    //
+    // if (err) return .{ "", 1 };
+    // if (parser.errors.items.len > 0) return .{ "", 1 };
+}
+
+fn _startRoot(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex) Allocator.Error!void {
+    if (self.cont.subCom == .Lexer) unreachable;
+
+    defer alloc.destroy(self);
+    const chunk = try Parser.NodeList.Chunk.init(alloc, nodes);
+
+    var parser = try Parser.init(self, chunk);
+    defer parser.deinit(alloc);
+
+    try parser.parseRoot(alloc, start, placeHolder);
+
+    for (parser.errors.items) |e| {
+        e.display(alloc, self.cont.getInfo());
+    }
+
+    if (parser.errors.items.len > 0) failed = true;
+    if (self.cont.subCom == .Parser) return;
 
     // const err = try typeCheck(alloc, &ast);
     //
@@ -117,26 +147,24 @@ fn _startFunction(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList, 
 
 // TODO: Create a placeholder where the entry root is stored, it will not be used, variable place holder
 pub fn startEntry(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList) std.mem.Allocator.Error!struct { []const u8, u8 } {
-    const chunk = try Parser.NodeList.Chunk.init(alloc, nodes);
-    var parser = try Parser.init(self, chunk);
-    defer parser.deinit(alloc);
-
-    if (self.cont.subCom == .Lexer)
+    if (self.cont.subCom == .Lexer) {
+        const chunk = try Parser.NodeList.Chunk.init(alloc, nodes);
+        var parser = try Parser.init(self, chunk);
+        defer parser.deinit(alloc);
         return .{ try parser.lexerToString(alloc), 0 };
-
-    try parser.parseRoot(alloc);
-
-    var ast = Parser.Ast.init(&parser.nodeList, self);
-    defer ast.deinit(alloc);
-
-    for (parser.errors.items) |e| {
-        e.display(alloc, self.cont.getInfo());
     }
 
-    if (self.cont.subCom == .Parser) {
-        self.pool.deinit();
-        return .{ try ast.toString(alloc, 0), 0 };
-    }
+    var chunk = try Parser.NodeList.Chunk.init(alloc, nodes);
+    const index = try chunk.getNextIndex(alloc);
+    try chunk.append(alloc, Parser.Node{ .tag = .init(.entry) });
+
+    try self._startRoot(alloc, nodes, 0, index);
+
+    self.pool.deinit();
+
+    const ast = Parser.Ast.init(&chunk, self);
+
+    if (self.cont.subCom == .Parser) return .{ try ast.toString(alloc, chunk.get(index).data[1].load(.acquire)), 0 };
 
     // const err = try typeCheck(alloc, &ast);
     //

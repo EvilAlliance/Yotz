@@ -78,16 +78,27 @@ pub fn parseFunction(self: *@This(), alloc: Allocator, start: TokenIndex, placeH
     self.nodeList.unlockShared();
 }
 
-// TODO: This will change when import is implemented
-pub fn parseRoot(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error)!void {
+pub fn parseRoot(self: *@This(), alloc: Allocator, start: TokenIndex, placeHolder: NodeIndex) (std.mem.Allocator.Error)!void {
+    self.index = start;
+
+    const index = try self._parseRoot(alloc);
+
+    if (self.nodeList.getPtrOutChunk(placeHolder).data[1].cmpxchgWeak(0, index, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
+    self.nodeList.unlockShared();
+}
+
+fn _parseRoot(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error)!NodeIndex {
     const rootIndex = try self.nodeList.getNextIndex(alloc);
+
     try self.nodeList.append(alloc, .{ .tag = .init(.root) });
-    if (self.nodeList.getPtr(rootIndex).data[0].cmpxchgWeak(0, try self.nodeList.getNextIndex(alloc), .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
+    const nextNodeIndex = try self.nodeList.getNextIndex(alloc);
+
+    if (self.nodeList.getPtr(rootIndex).data[0].cmpxchgWeak(0, nextNodeIndex, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
     self.nodeList.unlockShared();
 
     var t, _ = self.peek();
     while (t.tag != .EOF) : (t, _ = self.peek()) {
-        if (!try self.expect(alloc, t, &.{.iden})) return;
+        if (!try self.expect(alloc, t, &.{.iden})) return rootIndex;
         const top = try self.nodeList.getNextIndex(alloc);
 
         const nodeIndex = switch (t.tag) {
@@ -114,6 +125,8 @@ pub fn parseRoot(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error)!voi
     const p = try self.nodeList.getNextIndex(alloc);
     if (self.nodeList.getPtr(rootIndex).data[1].cmpxchgWeak(0, p, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
     self.nodeList.unlockShared();
+
+    return rootIndex;
 }
 
 fn isFunction(self: *const @This()) bool {
