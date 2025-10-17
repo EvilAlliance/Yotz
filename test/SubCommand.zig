@@ -14,7 +14,8 @@ pub const SubCommand = enum(usize) {
         return switch (self) {
             .Lexer => "lex",
             .Parser => "parse",
-            .Check => "check",
+            // .Check => "check",
+            .Check => error.NotYet,
             .Ir => error.NotYet,
             .Build => error.NotYet,
             .Interprete => error.NotYet,

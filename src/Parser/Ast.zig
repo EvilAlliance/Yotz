@@ -67,8 +67,7 @@ pub fn toString(self: *const @This(), alloc: std.mem.Allocator, rootIndex: Parse
     const root = self.getNode(.UnCheck, rootIndex);
 
     var i = root.data[0].load(.acquire);
-    const end = root.data[1].load(.acquire);
-    while (i < end) : (i = self.getNode(.UnCheck, i).next.load(.acquire)) {
+    while (i != 0) : (i = self.getNode(.UnCheck, i).next.load(.acquire)) {
         try self.tostringVariable(alloc, &cont, 0, i);
 
         if (self.getNode(.UnCheck, self.getNode(.UnCheck, i).data[1].load(.acquire)).tag.load(.acquire) != .funcProto) {
@@ -136,9 +135,8 @@ fn toStringScope(self: *const @This(), alloc: std.mem.Allocator, cont: *std.Arra
     try cont.appendSlice(alloc, "{ \n");
 
     var j = scope.data[0].load(.acquire);
-    const end = scope.data[1].load(.acquire);
 
-    while (j < end) {
+    while (j != 0) {
         const node = self.getNode(.UnCheck, j);
 
         try self.toStringStatement(alloc, cont, d + 4, j);

@@ -173,8 +173,7 @@ pub fn startEntry(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList) 
         return .{ try parser.lexerToString(alloc), 0 };
     }
 
-    const index = try chunk.getNextIndex(alloc);
-    try chunk.append(alloc, Parser.Node{ .tag = .init(.entry) });
+    const index = try chunk.appendIndex(alloc, Parser.Node{ .tag = .init(.entry) });
 
     try self._startRoot(alloc, nodes, 0, index);
 

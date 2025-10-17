@@ -36,10 +36,28 @@ pub fn ChunkBase(debug: bool, T: type, ChunkType: type, chunkSize: ChunkType) ty
                     try self.ranges.append(alloc, try self.base.getChunk(alloc));
                     self.len = self.ranges.getLast().start;
                 }
+
                 self.base.protec.lockShared();
                 defer self.base.protec.unlockShared();
+
                 self.base.items.items[self.len] = item;
                 self.len += 1;
+            }
+
+            pub fn appendIndex(self: *@This(), alloc: Allocator, item: T) Allocator.Error!ChunkType {
+                if (self.len == self.ranges.getLast().end) {
+                    try self.ranges.append(alloc, try self.base.getChunk(alloc));
+                    self.len = self.ranges.getLast().start;
+                }
+
+                self.base.protec.lockShared();
+                defer self.base.protec.unlockShared();
+
+                const index = self.len;
+                self.base.items.items[index] = item;
+                self.len += 1;
+
+                return index;
             }
 
             pub fn isInsideRange(self: *const @This(), index: ChunkType) bool {

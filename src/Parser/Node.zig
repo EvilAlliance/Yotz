@@ -6,7 +6,7 @@ const Parser = @import("Parser.zig");
 pub const Tag = enum(Parser.NodeIndex) {
     // Mark begining and end
     entry, // right is the first root
-    root, // data[0] start, and when the index is equal to data[1] stops
+    root, // data[0] start, when next is zero of the children stop
 
     empty,
 
@@ -16,7 +16,7 @@ pub const Tag = enum(Parser.NodeIndex) {
     funcType, // data[0] argsType, data[1] type
     argType, // data[0] argsType, data[1] type
 
-    scope, // data[0] start, and when the index is equal to data[1] stops
+    scope, // data[0] start, when next is zero of the children stop
 
     ret, // right expression
     variable, // left type, right expr

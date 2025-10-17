@@ -88,26 +88,21 @@ pub fn parseRoot(self: *@This(), alloc: Allocator, start: TokenIndex, placeHolde
 }
 
 fn _parseRoot(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error)!NodeIndex {
-    const rootIndex = try self.nodeList.getNextIndex(alloc);
-
-    try self.nodeList.append(alloc, .{ .tag = .init(.root) });
-    const nextNodeIndex = try self.nodeList.getNextIndex(alloc);
-
-    if (self.nodeList.getPtr(rootIndex).data[0].cmpxchgWeak(0, nextNodeIndex, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
-    self.nodeList.unlockShared();
+    var firstIndex: NodeIndex = 0;
+    var lastNodeParsed: NodeIndex = 0;
 
     var t, _ = self.peek();
+
+    t, _ = self.peek();
+
     while (t.tag != .EOF) : (t, _ = self.peek()) {
-        if (!try self.expect(alloc, t, &.{.iden})) return rootIndex;
-        const top = try self.nodeList.getNextIndex(alloc);
+        if (!try self.expect(alloc, t, &.{.iden})) @panic("Error recovery");
 
         const nodeIndex = switch (t.tag) {
             .iden => self.parseVariableDecl(alloc),
-            // .let => unreachable,
             else => unreachable,
         } catch |err| switch (err) {
             error.UnexpectedToken => {
-                _ = top;
                 @panic("Can not do this when is multithreaded");
                 // self.nodeList.shrinkRetainingCapacity(top);
                 // continue;
@@ -115,18 +110,25 @@ fn _parseRoot(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error)!NodeIn
             error.OutOfMemory => return error.OutOfMemory,
         };
 
-        const p = try self.nodeList.getNextIndex(alloc);
-        if (self.nodeList.getPtr(nodeIndex).next.cmpxchgWeak(0, p, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
-        self.nodeList.unlockShared();
+        if (firstIndex == 0) {
+            firstIndex = nodeIndex;
+        } else {
+            if (self.nodeList.getPtr(lastNodeParsed).next.cmpxchgWeak(0, nodeIndex, .acq_rel, .monotonic) != null) @panic("This is controlled by this thread and it should not be influenced by others");
+            self.nodeList.unlockShared();
+        }
 
+        lastNodeParsed = nodeIndex;
         _ = self.popIf(.semicolon);
     }
 
-    const p = try self.nodeList.getNextIndex(alloc);
-    if (self.nodeList.getPtr(rootIndex).data[1].cmpxchgWeak(0, p, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
-    self.nodeList.unlockShared();
-
-    return rootIndex;
+    return try nl.addNode(
+        alloc,
+        self.nodeList,
+        .{
+            .tag = .init(.root),
+            .data = .{ .init(firstIndex), .init(0) },
+        },
+    );
 }
 
 fn isFunction(self: *const @This()) bool {
@@ -203,11 +205,9 @@ fn parseFuncDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || e
     };
 
     if (self.peek()[0].tag != .openBrace) {
-        const p = try self.nodeList.getNextIndex(alloc);
+        const p = try self.parseStatement(alloc);
         if (self.nodeList.getPtr(funcProto).next.cmpxchgWeak(0, p, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
         self.nodeList.unlockShared();
-
-        try self.parseStatement(alloc);
     } else {
         const p = try self.parseScope(alloc);
         if (self.nodeList.getPtr(funcProto).next.cmpxchgWeak(0, p, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
@@ -274,23 +274,14 @@ fn parseType(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error
 }
 
 fn parseScope(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
+    var firstIndex: NodeIndex = 0;
+    var lastNodeParsed: NodeIndex = 0;
+
     _ = self.popIf(.openBrace) orelse unreachable;
 
-    const nodeIndex = try nl.addNode(alloc, self.nodeList, .{
-        .tag = .init(.scope),
-    });
-
-    {
-        const p = try self.nodeList.getNextIndex(alloc);
-        if (self.nodeList.getPtr(nodeIndex).data[0].cmpxchgWeak(0, p, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
-        self.nodeList.unlockShared();
-    }
-
     while (self.peek()[0].tag != .closeBrace) {
-        const top = try self.nodeList.getNextIndex(alloc);
-        self.parseStatement(alloc) catch |err| switch (err) {
+        const nodeIndex = self.parseStatement(alloc) catch |err| switch (err) {
             error.UnexpectedToken => {
-                _ = top;
                 @panic("Can not do this when is multithreaded");
                 // self.nodeList.shrinkRetainingCapacity(top);
                 // while (self.peek()[0].tag != .semicolon) : (_ = self.pop()) {}
@@ -298,19 +289,29 @@ fn parseScope(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || erro
             },
             error.OutOfMemory => return error.OutOfMemory,
         };
+
+        if (firstIndex == 0) {
+            firstIndex = nodeIndex;
+        } else {
+            if (self.nodeList.getPtr(lastNodeParsed).next.cmpxchgWeak(0, nodeIndex, .acq_rel, .monotonic) != null) @panic("This is controlled by this thread and it should not be influenced by others");
+            self.nodeList.unlockShared();
+        }
+
+        lastNodeParsed = nodeIndex;
     }
 
     if (!try self.expect(alloc, self.peek()[0], &.{.closeBrace})) return error.UnexpectedToken;
     _ = self.pop();
 
-    const p = try self.nodeList.getNextIndex(alloc);
-    if (self.nodeList.getPtr(nodeIndex).data[1].cmpxchgWeak(0, p, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
-    self.nodeList.unlockShared();
+    const nodeIndex = try nl.addNode(alloc, self.nodeList, .{
+        .tag = .init(.scope),
+        .data = .{ .init(firstIndex), .init(0) },
+    });
 
     return nodeIndex;
 }
 
-fn parseStatement(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!void {
+fn parseStatement(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
     if (!try self.expect(alloc, self.peek()[0], &.{ .ret, .iden })) return error.UnexpectedToken;
 
     const nodeIndex = switch (self.peek()[0].tag) {
@@ -322,11 +323,7 @@ fn parseStatement(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || 
     if (!try self.expect(alloc, self.peek()[0], &.{.semicolon})) return error.UnexpectedToken;
     _ = self.pop();
 
-    const p = try self.nodeList.getNextIndex(alloc);
-    if (self.nodeList.getPtr(nodeIndex).next.cmpxchgWeak(0, p, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
-    self.nodeList.unlockShared();
-
-    return;
+    return nodeIndex;
 }
 
 fn parseVariableDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
@@ -337,16 +334,15 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error 
         .tokenIndex = .init(nameIndex),
     };
 
-    const index = try nl.addNode(alloc, self.nodeList, node);
-
     if (!try self.expect(alloc, self.peek()[0], &.{.colon})) return error.UnexpectedToken;
     _ = self.pop();
 
     const possibleType = self.peek()[0];
 
-    if (possibleType.tag != .colon and possibleType.tag != .equal) {
-        if (node.data[0].cmpxchgWeak(0, try self.parseType(alloc), .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
-    }
+    if (possibleType.tag != .colon and possibleType.tag != .equal)
+        node.data[0].store(try self.parseType(alloc), .release);
+
+    var index: NodeIndex = 0;
 
     const possibleExpr = self.peek()[0];
     var func = false;
@@ -360,16 +356,15 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error 
         if (func) {
             const start = self.index;
 
-            self.nodeList.getPtr(index).* = node;
-            self.nodeList.unlockShared();
-
             self.skipFunction();
+
+            index = try nl.addNode(alloc, self.nodeList, node);
+            // NOTE: For this to be successful the item must be sotred
             try self.tu.initFunc().startFunction(alloc, self.nodeList.base, start, index);
         } else {
             node.data[1].store(try self.parseExpression(alloc), .release);
 
-            self.nodeList.getPtr(index).* = node;
-            self.nodeList.unlockShared();
+            index = try nl.addNode(alloc, self.nodeList, node);
         }
     }
 
