@@ -184,7 +184,7 @@ fn skipType(self: *@This()) void {
 
 // TODO: Join fuction parseFuncDecl and ParseFuncProto
 fn parseFuncDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
-    const funcProtoNode = self.parseFuncProto(alloc) catch |err| switch (err) {
+    var funcProtoNode = self.parseFuncProto(alloc) catch |err| switch (err) {
         error.UnexpectedToken => {
             if (self.peek()[0].tag != .openBrace) {
                 var depth: usize = 1;
@@ -205,7 +205,10 @@ fn parseFuncDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || e
         else => return error.OutOfMemory,
     };
 
-    funcProtoNode.next = if (self.peek()[0].tag == .openBrace) try self.parseScope(alloc) else try self.parseStatement(alloc);
+    funcProtoNode.next.store(
+        if (self.peek()[0].tag == .openBrace) try self.parseScope(alloc) else try self.parseStatement(alloc),
+        .release,
+    );
 
     return nl.addNode(alloc, self.nodeList, funcProtoNode);
 }
@@ -223,7 +226,7 @@ fn parseFuncProto(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || 
         else => return err,
     };
 
-    const nodeIndex = try nl.addNode(alloc, self.nodeList, .{ .tag = .init(.funcProto), .data = .{ .init(0), .init(p) } });
+    const nodeIndex: Node = .{ .tag = .init(.funcProto), .data = .{ .init(0), .init(p) } };
 
     return nodeIndex;
 }
