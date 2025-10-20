@@ -183,10 +183,10 @@
         "time_created": "2025-06-28 15:39:59.30718597 -03:00:00"
       },
       {
-        "id": "p8Vb6w5M",
-        "title": "Make CheckPoint Stop TypeCheck for later check, MAYBE",
-        "desc": "This will be needed",
-        "time_created": "2025-07-07 22:57:11.167685918 -03:00:00"
+        "id": "6dUeBfJ5",
+        "title": "Print flag in the ToString of the AST",
+        "desc": "like #inferd from use",
+        "time_created": "2025-10-20 11:03:52.053675129 -03:00:00"
       },
       {
         "id": "64poMgL9",
@@ -226,12 +226,6 @@
         "time_created": "2025-07-19 11:36:30.378030209 -03:00:00",
         "time_started": "2025-07-24 09:43:05.650639043 -03:00:00",
         "time_completed": "2025-07-24 09:43:08.591257542 -03:00:00"
-      },
-      {
-        "id": "RHR9QeoW",
-        "title": "Take out next in node, and add proto for the pieces and other things to make available",
-        "desc": "Check if the reductions of space is possible",
-        "time_created": "2025-07-24 10:02:19.25990257 -03:00:00"
       },
       {
         "id": "4BeTKmdF",

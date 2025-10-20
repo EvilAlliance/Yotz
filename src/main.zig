@@ -10,7 +10,6 @@ const TranslationUnit = @import("./TranslationUnit.zig");
 
 // TODO: Do not exopse the parse, only afunction parse
 const Parser = @import("./Parser/Parser.zig");
-
 const Logger = @import("Logger.zig");
 
 const by = @import("BollYotz");

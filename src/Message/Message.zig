@@ -130,21 +130,42 @@ const Error = struct {
         );
     }
 
-    pub inline fn incompatibleType(self: @This(), t1: Parser.NodeIndex, t2: Parser.NodeIndex, loc: Lexer.Location) void {
-        const typeNode1 = self.ast.getNode(t1);
-        const typeNode2 = self.ast.getNode(t2);
-        const where = placeSlice(loc, self.ast.cont.source);
+    pub inline fn incompatibleFunctionType(self: @This(), t1: Parser.NodeIndex, t2: Parser.NodeIndex, loc: Lexer.Location) void {
+        const typeNode1 = self.ast.getNode(.UnCheck, t1);
+        const typeNode2 = self.ast.getNode(.UnCheck, t2);
+        const where = placeSlice(loc, self.ast.tu.cont.source);
         std.log.err(
             "{s}:{}:{}: Type {c}{}, is incompatible with {c}{} \n{s}\n{[8]c: >[9]}",
             .{
-                self.ast.cont.path,
+                self.ast.tu.cont.path,
                 loc.row,
                 loc.col,
                 typeNode1.typeToString(),
-                typeNode1.data[0],
+                typeNode1.data[0].load(.acquire),
                 typeNode2.typeToString(),
-                typeNode2.data[0],
-                self.ast.cont.source[where.beg..where.end],
+                typeNode2.data[0].load(.acquire),
+                self.ast.tu.cont.source[where.beg..where.end],
+                '^',
+                where.pad,
+            },
+        );
+    }
+
+    pub inline fn incompatibleType(self: @This(), t1: Parser.NodeIndex, t2: Parser.NodeIndex, loc: Lexer.Location) void {
+        const typeNode1 = self.ast.getNode(.UnCheck, t1);
+        const typeNode2 = self.ast.getNode(.UnCheck, t2);
+        const where = placeSlice(loc, self.ast.tu.cont.source);
+        std.log.err(
+            "{s}:{}:{}: Type {c}{}, is incompatible with {c}{} \n{s}\n{[8]c: >[9]}",
+            .{
+                self.ast.tu.cont.path,
+                loc.row,
+                loc.col,
+                typeNode1.typeToString(),
+                typeNode1.data[0].load(.acquire),
+                typeNode2.typeToString(),
+                typeNode2.data[0].load(.acquire),
+                self.ast.tu.cont.source[where.beg..where.end],
                 '^',
                 where.pad,
             },

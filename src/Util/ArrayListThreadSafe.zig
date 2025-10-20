@@ -125,6 +125,11 @@ pub fn ChunkBase(debug: bool, T: type, ChunkType: type, chunkSize: ChunkType) ty
                 self.base.protec.lockShared();
                 return &self.base.items.items[index];
             }
+
+            pub fn getPtrUnCheck(self: *const @This(), index: ChunkType) *T {
+                self.base.protec.lockShared();
+                return &self.base.items.items[index];
+            }
         };
 
         items: ArrayList(T) = .{},

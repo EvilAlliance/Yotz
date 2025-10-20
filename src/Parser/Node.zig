@@ -12,6 +12,7 @@ pub const Tag = enum(Parser.NodeIndex) {
 
     funcProto, // data[0] args data[1] retutn type next scope
     args,
+    fakeType, // indentifier in token
     type, // data[0] size in bits, data[1] Primitive if next != 0 can have multiple types
     funcType, // data[0] argsType, data[1] type
     argType, // data[0] argsType, data[1] type
@@ -43,9 +44,9 @@ pub const Primitive = enum(Parser.NodeIndex) {
 };
 
 pub const Flags = packed struct {
-    inferedFromUse: u1 = 0,
-    inferedFromExpression: u1 = 0,
-    implicitCast: u1 = 0,
+    inferedFromUse: bool = false,
+    inferedFromExpression: bool = false,
+    implicitCast: bool = false,
     reserved: u29 = undefined,
 };
 
@@ -76,7 +77,7 @@ pub inline fn getNameAst(self: *const @This(), ast: Parser.Ast) []const u8 {
 }
 
 pub fn typeToString(self: @This()) u8 {
-    return @as(u8, switch (@as(Parser.Node.Primitive, @enumFromInt(self.data[1]))) {
+    return @as(u8, switch (@as(Parser.Node.Primitive, @enumFromInt(self.data[1].load(.acquire)))) {
         .int => 'i',
         .uint => 'u',
         .float => 'f',

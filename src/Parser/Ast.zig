@@ -32,7 +32,7 @@ pub inline fn getToken(self: *const @This(), i: Parser.TokenIndex) Lexer.Token {
 
 pub inline fn getNodeLocation(self: *const @This(), comptime mode: Mode, i: Parser.NodeIndex) Lexer.Location {
     const node = self.getNode(mode, i);
-    return self.getToken(node.tokenIndex).loc;
+    return self.getToken(node.tokenIndex.load(.acquire)).loc;
 }
 
 pub inline fn getNodeText(self: *const @This(), comptime mode: Mode, i: Parser.NodeIndex) []const u8 {
@@ -55,10 +55,14 @@ pub fn getNode(self: *const @This(), comptime mode: Mode, i: Parser.NodeIndex) P
 
 pub inline fn getNodePtr(self: *@This(), comptime mode: Mode, i: Parser.NodeIndex) *Parser.Node {
     return switch (mode) {
-        .Bound => self.getNode(.UnCheck, i),
-        .UnBound => self.nodeList.getOutChunk(i),
-        .UnCheck => self.nodeList.getUncheck(i),
+        .Bound => self.getNodePtr(.UnCheck, i),
+        .UnBound => self.nodeList.getPtrOutChunk(i),
+        .UnCheck => self.nodeList.getPtrUnCheck(i),
     };
+}
+
+pub inline fn unlockShared(self: *@This()) void {
+    self.nodeList.unlockShared();
 }
 
 pub fn toString(self: *const @This(), alloc: std.mem.Allocator, rootIndex: Parser.NodeIndex) std.mem.Allocator.Error![]const u8 {
@@ -111,7 +115,7 @@ fn toStringType(self: *const @This(), alloc: std.mem.Allocator, cont: *std.Array
                 index = t.data[1].load(.acquire);
                 continue;
             },
-            .type => {
+            .type, .fakeType => {
                 const x = self.getNodeText(.UnCheck, index);
                 try cont.appendSlice(alloc, x);
             },

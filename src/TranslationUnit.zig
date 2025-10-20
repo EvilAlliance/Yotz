@@ -148,8 +148,8 @@ fn _startRoot(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList, star
     if (self.cont.subCom == .Parser) return;
 
     var ast = Parser.Ast.init(&chunk, self);
-    const checker = TypeCheck.init(&ast);
-    checker.checkRoot(alloc, ast.getNode(.UnBound, placeHolder).data[1].load(.acquire));
+    var checker = TypeCheck.init(&ast);
+    try checker.checkRoot(alloc, ast.getNode(.UnBound, placeHolder).data[1].load(.acquire));
 
     if (self.cont.subCom == .TypeCheck) return;
 

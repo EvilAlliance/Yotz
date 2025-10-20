@@ -74,7 +74,7 @@ pub fn parseFunction(self: *@This(), alloc: Allocator, start: TokenIndex, placeH
         }
     };
 
-    if (self.nodeList.getPtrOutChunk(placeHolder).data[1].cmpxchgWeak(0, index, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
+    if (self.nodeList.getPtrOutChunk(placeHolder).data[1].cmpxchgStrong(0, index, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
     self.nodeList.unlockShared();
 }
 
@@ -83,7 +83,7 @@ pub fn parseRoot(self: *@This(), alloc: Allocator, start: TokenIndex, placeHolde
 
     const index = try self._parseRoot(alloc);
 
-    if (self.nodeList.getPtrOutChunk(placeHolder).data[1].cmpxchgWeak(0, index, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
+    if (self.nodeList.getPtrOutChunk(placeHolder).data[1].cmpxchgStrong(0, index, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
     self.nodeList.unlockShared();
 }
 
@@ -113,7 +113,7 @@ fn _parseRoot(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error)!NodeIn
         if (firstIndex == 0) {
             firstIndex = nodeIndex;
         } else {
-            if (self.nodeList.getPtr(lastNodeParsed).next.cmpxchgWeak(0, nodeIndex, .acq_rel, .monotonic) != null) @panic("This is controlled by this thread and it should not be influenced by others");
+            if (self.nodeList.getPtr(lastNodeParsed).next.cmpxchgStrong(0, nodeIndex, .acq_rel, .monotonic) != null) @panic("This is controlled by this thread and it should not be influenced by others");
             self.nodeList.unlockShared();
         }
 
@@ -257,7 +257,7 @@ fn parseType(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error
     } else {
         _, const tokenIndex = self.pop();
         return try nl.addNode(alloc, self.nodeList, .{
-            .tag = .init(.type),
+            .tag = .init(.fakeType),
             .tokenIndex = .init(tokenIndex),
         });
     }
@@ -283,7 +283,7 @@ fn parseScope(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || erro
         if (firstIndex == 0) {
             firstIndex = nodeIndex;
         } else {
-            if (self.nodeList.getPtr(lastNodeParsed).next.cmpxchgWeak(0, nodeIndex, .acq_rel, .monotonic) != null) @panic("This is controlled by this thread and it should not be influenced by others");
+            if (self.nodeList.getPtr(lastNodeParsed).next.cmpxchgStrong(0, nodeIndex, .acq_rel, .monotonic) != null) @panic("This is controlled by this thread and it should not be influenced by others");
             self.nodeList.unlockShared();
         }
 
