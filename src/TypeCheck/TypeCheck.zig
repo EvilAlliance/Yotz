@@ -2,11 +2,13 @@ const Self = @This();
 
 ast: *Parser.Ast,
 message: Message,
+tu: *const TranslationUnit,
 
-pub fn init(ast: *Parser.Ast) Self {
+pub fn init(ast: *Parser.Ast, tu: *const TranslationUnit) Self {
     return Self{
         .ast = ast,
         .message = Message.init(ast),
+        .tu = tu,
     };
 }
 
@@ -23,30 +25,53 @@ pub fn checkRoot(self: *Self, alloc: Allocator, rootIndex: Parser.NodeIndex) All
         switch (node.tag.load(.acquire)) {
             .variable, .constant => {
                 // NOTE: At the time being this is not changed so it should be fine;
-                const functionIndex = node.data.@"1".load(.acquire);
-                if (functionIndex == 0) @panic("Fuck this is multithraded and the function was not parsed yet, what do I do, make a checkpoint system that saves this and then does it");
+                const expressionIndex = node.data.@"1".load(.acquire);
+                const expressionNode = self.ast.getNode(.UnCheck, expressionIndex);
+                const expressionTag = expressionNode.tag.load(.acquire);
 
-                while (true) {
-                    Type.transformType(self, self.ast.getNode(.UnBound, functionIndex).data[1].load(.acquire));
-
-                    const typeIndex = node.data[0].load(.acquire);
-                    if (typeIndex != 0) {
-                        Type.transformType(self, typeIndex);
-                        self.checkTypeFunction(alloc, typeIndex, functionIndex);
-                        break;
-                    } else {
-                        const functionTypeIndex = try self.inferTypeFunction(alloc, functionIndex);
-                        const nodePtr = self.ast.getNodePtr(.Bound, nodeIndex);
-                        const result = nodePtr.data.@"0".cmpxchgWeak(0, functionTypeIndex, .acq_rel, .monotonic);
-                        self.ast.unlockShared();
-
-                        if (result == null)
-                            break;
-                    }
+                if (expressionIndex == 0 or expressionTag == .funcProto) {
+                    try self.checkFunctionOuter(alloc, nodeIndex);
+                } else if (expressionTag == .constant or expressionTag == .variable) {
+                    @panic("Not messing with this yet");
+                } else {
+                    unreachable;
                 }
             },
 
             else => unreachable,
+        }
+    }
+}
+
+pub fn checkFunctionOuter(self: *Self, alloc: Allocator, variableIndex: Parser.NodeIndex) Allocator.Error!void {
+    const variable = self.ast.getNode(.Bound, variableIndex);
+    const funcIndex = variable.data.@"1".load(.acquire);
+    if (funcIndex == 0) {
+        const callBack = struct {
+            fn callBack(args: getTupleFromParams(checkFunctionOuter)) void {
+                @call(.auto, checkFunctionOuter, args) catch {
+                    TranslationUnit.failed = true;
+                    std.log.err("Run Out of Memory", .{});
+                };
+            }
+        }.callBack;
+
+        try self.tu.observer.push(alloc, variableIndex, callBack, .{ self, alloc, variableIndex });
+    }
+
+    while (true) {
+        Type.transformType(self, self.ast.getNode(.UnBound, funcIndex).data[1].load(.acquire));
+
+        const typeIndex = variable.data[0].load(.acquire);
+        if (typeIndex != 0) {
+            Type.transformType(self, typeIndex);
+            self.checkTypeFunction(alloc, typeIndex, funcIndex);
+            break;
+        } else {
+            const result = try self.inferTypeFunction(alloc, variableIndex, funcIndex);
+
+            if (result)
+                break;
         }
     }
 }
@@ -72,7 +97,7 @@ pub fn checkTypeFunction(self: *const Self, alloc: Allocator, funcTypeIndex: Par
 
 // TODO: It would be nice that this does not return the function type index and set it inside of it
 // TODO: tIndex is an idenfier not a type itself
-pub fn inferTypeFunction(self: *Self, alloc: Allocator, funcIndex: Parser.NodeIndex) Allocator.Error!Parser.NodeIndex {
+pub fn inferTypeFunction(self: *Self, alloc: Allocator, variableIndex: Parser.NodeIndex, funcIndex: Parser.NodeIndex) Allocator.Error!bool {
     const proto = self.ast.getNode(.UnBound, funcIndex);
     std.debug.assert(proto.tag.load(.acquire) == .funcProto);
 
@@ -87,18 +112,36 @@ pub fn inferTypeFunction(self: *Self, alloc: Allocator, funcIndex: Parser.NodeIn
         .flags = .init(.{ .inferedFromExpression = true }),
     });
 
-    return functionTypeIndex;
+    const nodePtr = self.ast.getNodePtr(.Bound, variableIndex);
+    const result = nodePtr.data.@"0".cmpxchgWeak(0, functionTypeIndex, .acq_rel, .monotonic);
+    self.ast.unlockShared();
+
+    return result == null;
 }
 
-pub fn checkFunction(self: *Self, alloc: Allocator, funcIndex: Parser.NodeIndex) void {
+pub fn checkFunction(self: *Self, alloc: Allocator, funcIndex: Parser.NodeIndex) type {
     _ = .{ self, alloc, funcIndex };
 }
 
-const Observer = @import("./Observer.zig").Observer;
+fn getTupleFromParams(comptime func: anytype) type {
+    const typeFunc = @TypeOf(func);
+    const typeInfo = @typeInfo(typeFunc);
+
+    const params = typeInfo.@"fn".params;
+    var typeArr: [params.len]type = undefined;
+
+    for (params, 0..) |param, i|
+        typeArr[i] = param.type.?;
+
+    return std.meta.Tuple(&typeArr);
+}
+
+pub const Observer = @import("./Observer.zig").Observer(Parser.NodeIndex, getTupleFromParams(checkFunctionOuter));
 const Type = @import("Type.zig");
 
 const Parser = @import("./../Parser/Parser.zig");
 const Message = @import("../Message/Message.zig");
+const TranslationUnit = @import("../TranslationUnit.zig");
 
 const std = @import("std");
 

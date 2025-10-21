@@ -20,12 +20,13 @@ pub const Content = struct {
     }
 };
 
-var failed = false;
+pub var failed = false;
 
 // TODO: Delete Type, 13/10/2025 is not use
 tag: Type,
 cont: *const Content,
 pool: *Thread.Pool,
+observer: *TypeCheck.Observer = undefined,
 
 pub fn initGlobal(cont: *const Content, pool: *Thread.Pool) Self {
     const tu = Self{
@@ -112,9 +113,10 @@ fn _startFunction(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList, 
     }
     if (self.cont.subCom == .Parser) return;
 
-    // unreachable;
-    //
-    // if (self.cont.subCom == .TypeCheck) return;
+    var ast = Parser.Ast.init(&chunk, self);
+    var checker = TypeCheck.init(&ast, self);
+    _ = &checker;
+    if (self.cont.subCom == .TypeCheck) return;
     //
     // unreachable;
     // const err = try typeCheck(alloc, &ast);
@@ -148,7 +150,7 @@ fn _startRoot(self: *const Self, alloc: Allocator, nodes: *Parser.NodeList, star
     if (self.cont.subCom == .Parser) return;
 
     var ast = Parser.Ast.init(&chunk, self);
-    var checker = TypeCheck.init(&ast);
+    var checker = TypeCheck.init(&ast, self);
     try checker.checkRoot(alloc, ast.getNode(.UnBound, placeHolder).data[1].load(.acquire));
 
     if (self.cont.subCom == .TypeCheck) return;

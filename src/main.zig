@@ -1,7 +1,6 @@
 const std = @import("std");
 
 const ParseArguments = @import("ParseArgs.zig");
-const typeCheck = @import("./TypeCheck/TypeCheck.zig").typeCheck;
 
 const getArguments = ParseArguments.getArguments;
 const Arguments = ParseArguments.Arguments;

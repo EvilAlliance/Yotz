@@ -2,12 +2,12 @@ pub fn Observer(Key: type, Args: type) type {
     return struct {
         const Self = @This();
         const Handler = struct {
-            func: fn (Args) void,
+            func: *const fn (Args) void,
             args: Args,
-            node: std.SinglyLinkedList.Node,
+            node: std.SinglyLinkedList.Node = .{},
         };
 
-        listHandler: std.ArrayList(*Handler),
+        nodeList: std.ArrayList(*std.SinglyLinkedList.Node),
 
         pool: *std.Thread.Pool,
         mutex: std.Thread.Mutex = .{},
@@ -20,7 +20,7 @@ pub fn Observer(Key: type, Args: type) type {
         // PERF: Later check if listHandler is worth it
         pub fn init(alloc: Allocator, pool: *std.Thread.Pool) Self {
             return .{
-                .listHandler = .initCapacity(alloc, std.math.pow(2, 7)),
+                .nodeList = .initCapacity(alloc, std.math.pow(2, 7)),
 
                 .pool = pool,
 
@@ -32,7 +32,7 @@ pub fn Observer(Key: type, Args: type) type {
             self.mutex.lock();
             defer self.mutex.unlock();
 
-            const handler: *Handler = if (self.listHandler.getLastOrNull()) |handlerOld| handlerOld else alloc.create(Handler);
+            const handler: *Handler = if (self.nodeList.getLastOrNull()) |handlerOld| @fieldParentPtr("node", handlerOld) else try alloc.create(Handler);
 
             handler.* = .{
                 .func = func,
