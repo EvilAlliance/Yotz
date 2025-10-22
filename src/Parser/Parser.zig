@@ -121,9 +121,8 @@ fn _parseRoot(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error)!NodeIn
         _ = self.popIf(.semicolon);
     }
 
-    return try nl.addNode(
+    return try self.nodeList.appendIndex(
         alloc,
-        self.nodeList,
         .{
             .tag = .init(.root),
             .data = .{ .init(firstIndex), .init(0) },
@@ -210,7 +209,7 @@ fn parseFuncDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || e
         .release,
     );
 
-    return nl.addNode(alloc, self.nodeList, funcProtoNode);
+    return self.nodeList.appendIndex(alloc, funcProtoNode);
 }
 
 fn parseFuncProto(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!Node {
@@ -247,7 +246,7 @@ fn parseTypeFunction(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error 
         .tokenIndex = .init(initI),
     };
 
-    return try nl.addNode(alloc, self.nodeList, node);
+    return try self.nodeList.appendIndex(alloc, node);
 }
 
 fn parseType(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!NodeIndex {
@@ -256,7 +255,7 @@ fn parseType(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error
         return try self.parseTypeFunction(alloc);
     } else {
         _, const tokenIndex = self.pop();
-        return try nl.addNode(alloc, self.nodeList, .{
+        return try self.nodeList.appendIndex(alloc, .{
             .tag = .init(.fakeType),
             .tokenIndex = .init(tokenIndex),
         });
@@ -293,7 +292,7 @@ fn parseScope(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || erro
     if (!try self.expect(alloc, self.peek()[0], &.{.closeBrace})) return error.UnexpectedToken;
     _ = self.pop();
 
-    const nodeIndex = try nl.addNode(alloc, self.nodeList, .{
+    const nodeIndex = try self.nodeList.appendIndex(alloc, .{
         .tag = .init(.scope),
         .data = .{ .init(firstIndex), .init(0) },
     });
@@ -348,13 +347,13 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error 
 
             self.skipFunction();
 
-            index = try nl.addNode(alloc, self.nodeList, node);
+            index = try self.nodeList.appendIndex(alloc, node);
             // NOTE: For this to be successful the item must be sotred
             try self.tu.initFunc().startFunction(alloc, self.nodeList.base, start, index);
         } else {
             node.data[1].store(try self.parseExpression(alloc), .release);
 
-            index = try nl.addNode(alloc, self.nodeList, node);
+            index = try self.nodeList.appendIndex(alloc, node);
         }
     }
 
@@ -370,7 +369,7 @@ fn parseReturn(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || err
         const start = self.index;
         self.skipFunction();
 
-        const nodeIndex = try nl.addNode(alloc, self.nodeList, .{
+        const nodeIndex = try self.nodeList.appendIndex(alloc, .{
             .tag = .init(.ret),
             .tokenIndex = .init(retIndex),
         });
@@ -381,7 +380,7 @@ fn parseReturn(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || err
     } else {
         const exp = try self.parseExpression(alloc);
 
-        const nodeIndex = try nl.addNode(alloc, self.nodeList, .{
+        const nodeIndex = try self.nodeList.appendIndex(alloc, .{
             .tag = .init(.ret),
             .tokenIndex = .init(retIndex),
             .data = .{ .init(0), .init(exp) },
@@ -418,7 +417,7 @@ fn parseExpr(self: *@This(), alloc: Allocator, minPrecedence: u8) (std.mem.Alloc
 
         const right = try self.parseExpr(alloc, nextMinPrec);
 
-        leftIndex = try nl.addNode(alloc, self.nodeList, Node{
+        leftIndex = try self.nodeList.appendIndex(alloc, Node{
             .tag = .init(tag),
             .tokenIndex = .init(opIndex),
             .data = .{ .init(leftIndex), .init(right) },
@@ -435,13 +434,13 @@ fn parseTerm(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error
 
     switch (nextToken.tag) {
         .numberLiteral => {
-            return try nl.addNode(alloc, self.nodeList, .{
+            return try self.nodeList.appendIndex(alloc, .{
                 .tag = .init(.lit),
                 .tokenIndex = .init(self.pop()[1]),
             });
         },
         .iden => {
-            return try nl.addNode(alloc, self.nodeList, .{
+            return try self.nodeList.appendIndex(alloc, .{
                 .tag = .init(.load),
                 .tokenIndex = .init(self.pop()[1]),
             });
@@ -451,7 +450,7 @@ fn parseTerm(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error
 
             const expr = try self.parseTerm(alloc);
 
-            return try nl.addNode(alloc, self.nodeList, .{
+            return try self.nodeList.appendIndex(alloc, .{
                 .tag = .init(switch (op.tag) {
                     .minus => .neg,
                     else => unreachable,
@@ -501,7 +500,6 @@ const TranslationUnit = @import("../TranslationUnit.zig");
 
 pub const Node = @import("Node.zig");
 pub const UnexpectedToken = @import("UnexpectedToken.zig");
-pub const nl = @import("./NodeListUtil.zig");
 pub const Expression = @import("Expression.zig");
 pub const Ast = @import("Ast.zig");
 
