@@ -80,4 +80,4 @@ pub fn typeEqual(self: *const TypeChecker, actualI: Parser.NodeIndex, expectedI:
 const std = @import("std");
 
 const TypeChecker = @import("./TypeCheck.zig");
-const Parser = @import("../Parser/Parser.zig");
+const Parser = @import("../Parser/mod.zig");

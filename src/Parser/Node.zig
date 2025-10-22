@@ -1,9 +1,9 @@
 const std = @import("std");
 const Atomic = std.atomic.Value;
-const Lexer = @import("./../Lexer/Lexer.zig");
-const Parser = @import("Parser.zig");
+const Lexer = @import("./../Lexer/mod.zig");
+const mod = @import("mod.zig");
 
-pub const Tag = enum(Parser.NodeIndex) {
+pub const Tag = enum(mod.NodeIndex) {
     // Mark begining and end
     entry, // right is the first root
     root, // data[0] start, when next is zero of the children stop
@@ -34,10 +34,10 @@ pub const Tag = enum(Parser.NodeIndex) {
 
     lit,
 
-    poison = std.math.maxInt(Parser.NodeIndex),
+    poison = std.math.maxInt(mod.NodeIndex),
 };
 
-pub const Primitive = enum(Parser.NodeIndex) {
+pub const Primitive = enum(mod.NodeIndex) {
     int,
     uint,
     float,
@@ -51,33 +51,33 @@ pub const Flags = packed struct {
 };
 
 tag: Atomic(Tag) = .init(.poison),
-tokenIndex: Atomic(Parser.TokenIndex) = .init(0),
-data: struct { Atomic(Parser.NodeIndex), Atomic(Parser.NodeIndex) } = .{ .init(0), .init(0) },
+tokenIndex: Atomic(mod.TokenIndex) = .init(0),
+data: struct { Atomic(mod.NodeIndex), Atomic(mod.NodeIndex) } = .{ .init(0), .init(0) },
 flags: Atomic(Flags) = .init(Flags{}),
-next: Atomic(Parser.NodeIndex) = .init(0),
+next: Atomic(mod.NodeIndex) = .init(0),
 
-pub inline fn getTokenAst(self: *const @This(), ast: Parser.Ast) Lexer.Token {
+pub inline fn getTokenAst(self: *const @This(), ast: mod.Ast) Lexer.Token {
     return ast.tu.cont.tokens[self.tokenIndex.load(.acquire)];
 }
 
-pub inline fn getLocationAst(self: *const @This(), ast: Parser.Ast) Lexer.Location {
+pub inline fn getLocationAst(self: *const @This(), ast: mod.Ast) Lexer.Location {
     return ast.tu.cont.tokens[self.tokenIndex.load(.acquire)].loc;
 }
 
-pub inline fn getTokenTagAst(self: *const @This(), ast: Parser.Ast) Lexer.TokenType {
+pub inline fn getTokenTagAst(self: *const @This(), ast: mod.Ast) Lexer.Token.Type {
     return ast.tu.cont.tokens[self.tokenIndex.load(.acquire)].tag;
 }
 
-pub inline fn getTextAst(self: *const @This(), ast: *const Parser.Ast) []const u8 {
+pub inline fn getTextAst(self: *const @This(), ast: *const mod.Ast) []const u8 {
     return ast.tu.cont.tokens[self.tokenIndex.load(.acquire)].getText(ast.tu.cont.source);
 }
 
-pub inline fn getNameAst(self: *const @This(), ast: Parser.Ast) []const u8 {
+pub inline fn getNameAst(self: *const @This(), ast: mod.Ast) []const u8 {
     return ast.cont.tokens[self.tokenIndex.load(.acquire)].tag.getName();
 }
 
 pub fn typeToString(self: @This()) u8 {
-    return @as(u8, switch (@as(Parser.Node.Primitive, @enumFromInt(self.data[1].load(.acquire)))) {
+    return @as(u8, switch (@as(mod.Node.Primitive, @enumFromInt(self.data[1].load(.acquire)))) {
         .int => 'i',
         .uint => 'u',
         .float => 'f',

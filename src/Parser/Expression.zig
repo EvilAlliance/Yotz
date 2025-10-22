@@ -1,9 +1,9 @@
-const Parser = @import("Parser.zig");
+const Node = @import("Node.zig");
 
-const Lexer = @import("../Lexer/Lexer.zig");
+const Lexer = @import("../Lexer/mod.zig");
 
 //https://en.cppreference.com/w/c/language/operator_precedence
-pub fn operandPresedence(t: Parser.Node.Tag) u8 {
+pub fn operandPresedence(t: Node.Tag) u8 {
     return switch (t) {
         .power => 3,
         .multiplication => 2,
@@ -19,7 +19,7 @@ pub const Associativity = enum {
     right,
 };
 
-pub fn operandAssociativity(t: Parser.Node.Tag) Associativity {
+pub fn operandAssociativity(t: Node.Tag) Associativity {
     return switch (t) {
         .power => Associativity.right,
         .multiplication => Associativity.left,
@@ -30,7 +30,7 @@ pub fn operandAssociativity(t: Parser.Node.Tag) Associativity {
     };
 }
 
-pub fn tokenTagToNodeTag(tag: Lexer.Token.TokenType) Parser.Node.Tag {
+pub fn tokenTagToNodeTag(tag: Lexer.Token.Type) Node.Tag {
     return switch (tag) {
         .minus => .subtraction,
         .plus => .addition,

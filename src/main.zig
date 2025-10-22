@@ -6,9 +6,10 @@ const getArguments = ParseArguments.getArguments;
 const Arguments = ParseArguments.Arguments;
 
 const TranslationUnit = @import("./TranslationUnit.zig");
+const TypeCheck = @import("./TypeCheck/mod.zig");
 
 // TODO: Do not exopse the parse, only afunction parse
-const Parser = @import("./Parser/Parser.zig");
+const Parser = @import("./Parser/mod.zig");
 const Logger = @import("Logger.zig");
 
 const by = @import("BollYotz");
@@ -117,6 +118,8 @@ pub fn main() u8 {
         gpa.free(cont.tokens);
         gpa.free(cont.source);
     }
+
+    _ = TypeCheck.Observer.init(gpa, &threadPool);
 
     const tu = TranslationUnit.initGlobal(&cont, &threadPool);
 

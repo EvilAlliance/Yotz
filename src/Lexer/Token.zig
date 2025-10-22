@@ -4,11 +4,10 @@ const Allocator = std.mem.Allocator;
 
 const Util = @import("../Util.zig");
 
-const Lexer = @import("Lexer.zig");
-const Location = Lexer.Location;
-const Token = Lexer.Token;
+const Location = @import("Location.zig");
+const Token = @This();
 
-pub const TokenType = enum(u32) {
+pub const Type = enum(u32) {
     //symbols delimeters
     openParen,
     closeParen,
@@ -117,19 +116,19 @@ pub const TokenType = enum(u32) {
     }
 };
 
-const keyword = std.StaticStringMap(TokenType).initComptime(.{
+const keyword = std.StaticStringMap(Type).initComptime(.{
     .{ "return", .ret },
     .{ "fn", .func },
 });
 
-tag: TokenType,
+tag: Type,
 loc: Location,
 
-pub fn getKeyWord(w: []const u8) ?TokenType {
+pub fn getKeyWord(w: []const u8) ?Type {
     return keyword.get(w);
 }
 
-pub fn init(tag: TokenType, loc: Location) Token {
+pub fn init(tag: Type, loc: Location) Token {
     return Token{
         .tag = tag,
         .loc = loc,

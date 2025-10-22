@@ -1,16 +1,14 @@
 const std = @import("std");
 const Logger = @import("../Logger.zig");
-const Parser = @import("../Parser/Parser.zig");
+const Ast = @import("../Parser/Ast.zig");
 
-const Lexer = @import("../Lexer/Lexer.zig");
-const TokenType = Lexer.TokenType;
-const Location = Lexer.Location;
+const Lexer = @import("../Lexer/mod.zig");
 
-expected: []TokenType,
-found: TokenType,
-loc: Location,
+expected: []Lexer.Token.Type,
+found: Lexer.Token.Type,
+loc: Lexer.Location,
 
-pub fn display(self: @This(), alloc: std.mem.Allocator, fileInfo: Parser.Ast.FileInfo) void {
+pub fn display(self: @This(), alloc: std.mem.Allocator, fileInfo: Ast.FileInfo) void {
     const path = fileInfo[0];
     const content = fileInfo[1];
     var buff: [1024]u8 = undefined;

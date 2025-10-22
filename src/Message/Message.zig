@@ -1,6 +1,6 @@
 const std = @import("std");
-const Lexer = @import("./../Lexer/Lexer.zig");
-const Parser = @import("./../Parser/Parser.zig");
+const Lexer = @import("./../Lexer/mod.zig");
+const Parser = @import("./../Parser/mod.zig");
 
 pub fn placeSlice(location: Lexer.Location, content: [:0]const u8) struct { beg: usize, end: usize, pad: usize } {
     var beg = location.start;

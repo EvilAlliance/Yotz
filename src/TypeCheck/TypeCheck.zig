@@ -136,10 +136,10 @@ fn getTupleFromParams(comptime func: anytype) type {
     return std.meta.Tuple(&typeArr);
 }
 
-pub const Observer = @import("./Observer.zig").Observer(Parser.NodeIndex, getTupleFromParams(checkFunctionOuter));
+pub const ObserverParams = getTupleFromParams(checkFunctionOuter);
 const Type = @import("Type.zig");
 
-const Parser = @import("./../Parser/Parser.zig");
+const Parser = @import("./../Parser/mod.zig");
 const Message = @import("../Message/Message.zig");
 const TranslationUnit = @import("../TranslationUnit.zig");
 

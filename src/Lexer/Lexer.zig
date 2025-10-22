@@ -3,9 +3,9 @@ const util = @import("./../Util.zig");
 
 const Arguments = @import("./../ParseArgs.zig").Arguments;
 
-pub const Location = @import("./Location.zig");
-pub const Token = @import("./Token.zig");
-pub const TokenType = Token.TokenType;
+const Location = @import("./Location.zig");
+const Token = @import("./Token.zig");
+const TokenType = Token.TokenType;
 
 const Allocator = std.mem.Allocator;
 const print = std.debug.print;
@@ -30,7 +30,7 @@ fn advanceIndex(self: *@This()) void {
     self.loc.col += 1;
 }
 
-fn advance(self: *@This()) Token {
+pub fn advance(self: *@This()) Token {
     var t = Token.init(undefined, self.loc.shallowCopy(self.index, undefined));
 
     state: switch (Status.start) {
@@ -168,25 +168,11 @@ fn advance(self: *@This()) Token {
     return t;
 }
 
-fn init(c: [:0]const u8) @This() {
+pub fn init(c: [:0]const u8) @This() {
     const l = @This(){
         .content = c,
         .loc = Location.init(),
     };
 
     return l;
-}
-
-pub fn lex(alloc: std.mem.Allocator, c: [:0]const u8) std.mem.Allocator.Error![]Token {
-    var al = try std.ArrayList(Token).initCapacity(alloc, c.len / 4);
-
-    var lexer = init(c);
-    var t = lexer.advance();
-
-    while (t.tag != .EOF) : (t = lexer.advance()) {
-        try al.append(alloc, t);
-    }
-    try al.append(alloc, t);
-
-    return try al.toOwnedSlice(alloc);
 }
