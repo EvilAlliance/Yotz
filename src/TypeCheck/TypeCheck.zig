@@ -43,12 +43,31 @@ pub fn checkRoot(self: *Self, alloc: Allocator, rootIndex: Parser.NodeIndex) All
     }
 }
 
+fn dupe(self: *const Self, alloc: Allocator) Allocator.Error!*Self {
+    const selfDupe = try Util.dupe(alloc, self.*);
+    const chunk = try alloc.create(Parser.NodeList.Chunk);
+    chunk.* = try Parser.NodeList.Chunk.init(alloc, self.ast.nodeList.base);
+
+    const ast = try alloc.create(Parser.Ast);
+    ast.* = Parser.Ast.init(chunk, self.tu);
+    selfDupe.ast = ast;
+
+    return selfDupe;
+}
+
+fn destroyDupe(self: *const Self, alloc: Allocator) void {
+    alloc.destroy(self.ast.nodeList);
+    alloc.destroy(self.ast);
+    alloc.destroy(self);
+}
+
 pub fn checkFunctionOuter(self: *Self, alloc: Allocator, variableIndex: Parser.NodeIndex) Allocator.Error!void {
     const variable = self.ast.getNode(.Bound, variableIndex);
     const funcIndex = variable.data.@"1".load(.acquire);
     if (funcIndex == 0) {
         const callBack = struct {
             fn callBack(args: getTupleFromParams(checkFunctionOuter)) void {
+                defer args[0].destroyDupe(args[1]);
                 @call(.auto, checkFunctionOuter, args) catch {
                     TranslationUnit.failed = true;
                     std.log.err("Run Out of Memory", .{});
@@ -56,7 +75,8 @@ pub fn checkFunctionOuter(self: *Self, alloc: Allocator, variableIndex: Parser.N
             }
         }.callBack;
 
-        try TranslationUnit.observer.push(alloc, variableIndex, callBack, .{ self, alloc, variableIndex });
+        try TranslationUnit.observer.push(alloc, variableIndex, callBack, .{ try self.dupe(alloc), alloc, variableIndex });
+
         return;
     }
 
@@ -96,8 +116,6 @@ pub fn checkTypeFunction(self: *const Self, alloc: Allocator, funcTypeIndex: Par
     }
 }
 
-// TODO: It would be nice that this does not return the function type index and set it inside of it
-// TODO: tIndex is an idenfier not a type itself
 pub fn inferTypeFunction(self: *Self, alloc: Allocator, variableIndex: Parser.NodeIndex, funcIndex: Parser.NodeIndex) Allocator.Error!bool {
     const proto = self.ast.getNode(.UnBound, funcIndex);
     std.debug.assert(proto.tag.load(.acquire) == .funcProto);
