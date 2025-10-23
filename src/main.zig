@@ -98,8 +98,7 @@ pub fn main() u8 {
         std.log.warn("Subcommand run wont print anything", .{});
     }
 
-    var threadPool: std.Thread.Pool = undefined;
-    threadPool.init(.{
+    TranslationUnit.threadPool.init(.{
         .allocator = gpa,
         .n_jobs = 20,
     }) catch {
@@ -119,9 +118,10 @@ pub fn main() u8 {
         gpa.free(cont.source);
     }
 
-    _ = TypeCheck.Observer.init(gpa, &threadPool);
+    TranslationUnit.observer.init(&TranslationUnit.threadPool);
+    defer TranslationUnit.observer.deinit(gpa);
 
-    const tu = TranslationUnit.initGlobal(&cont, &threadPool);
+    const tu = TranslationUnit.initGlobal(&cont);
 
     var nodes = Parser.NodeList.init();
     defer nodes.deinit(gpa);

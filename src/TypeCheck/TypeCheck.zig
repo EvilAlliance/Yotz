@@ -56,7 +56,8 @@ pub fn checkFunctionOuter(self: *Self, alloc: Allocator, variableIndex: Parser.N
             }
         }.callBack;
 
-        try self.tu.observer.push(alloc, variableIndex, callBack, .{ self, alloc, variableIndex });
+        try TranslationUnit.observer.push(alloc, variableIndex, callBack, .{ self, alloc, variableIndex });
+        return;
     }
 
     while (true) {
@@ -128,6 +129,29 @@ fn getTupleFromParams(comptime func: anytype) type {
     const typeInfo = @typeInfo(typeFunc);
 
     const params = typeInfo.@"fn".params;
+    // var fieldArr: [params.len]std.builtin.Type.StructField = undefined;
+    // for (params, 0..) |param, i| {
+    //     const name = std.fmt.comptimePrint("f{}", .{i});
+    //
+    //     fieldArr[i] = .{
+    //         .name = name,
+    //         .type = param.type.?,
+    //         .default_value_ptr = null,
+    //         .is_comptime = false,
+    //         .alignment = @alignOf(param.type.?),
+    //     };
+    // }
+    //
+    // return @Type(.{
+    //     .@"struct" = .{
+    //         .fields = &fieldArr,
+    //         .layout = .auto,
+    //         .decls = &.{},
+    //         .is_tuple = false,
+    //         .backing_integer = null,
+    //     },
+    // });
+
     var typeArr: [params.len]type = undefined;
 
     for (params, 0..) |param, i|
@@ -137,11 +161,14 @@ fn getTupleFromParams(comptime func: anytype) type {
 }
 
 pub const ObserverParams = getTupleFromParams(checkFunctionOuter);
+
 const Type = @import("Type.zig");
 
 const Parser = @import("./../Parser/mod.zig");
 const Message = @import("../Message/Message.zig");
 const TranslationUnit = @import("../TranslationUnit.zig");
+
+const Util = @import("../Util.zig");
 
 const std = @import("std");
 

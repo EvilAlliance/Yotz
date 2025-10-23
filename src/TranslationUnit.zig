@@ -22,16 +22,16 @@ pub const Content = struct {
 
 pub var failed = false;
 
+pub var threadPool: Thread.Pool = undefined;
+pub var observer: TypeCheck.Observer = .{};
+
 // TODO: Delete Type, 13/10/2025 is not use
 tag: Type,
 cont: *const Content,
-pool: *Thread.Pool,
-observer: *TypeCheck.Observer = undefined,
 
-pub fn initGlobal(cont: *const Content, pool: *Thread.Pool) Self {
+pub fn initGlobal(cont: *const Content) Self {
     const tu = Self{
         .tag = .Global,
-        .pool = pool,
         .cont = cont,
     };
 
@@ -42,7 +42,6 @@ pub fn initFunc(self: *const Self) Self {
     const tu = Self{
         .tag = .Function,
         .cont = self.cont,
-        .pool = self.pool,
     };
 
     return tu;
@@ -89,19 +88,21 @@ pub fn startFunction(self: Self, alloc: Allocator, nodes: *mod.NodeList, start: 
         }
     }.callBack;
 
-    try self.pool.spawn(callBack, .{ _startFunction, .{ selfDupe, alloc, nodes, start, placeHolder } });
+    try threadPool.spawn(callBack, .{ _startFunction, .{ selfDupe, alloc, nodes, start, placeHolder } });
 }
 
 fn _startFunction(self: *const Self, alloc: Allocator, nodes: *mod.NodeList, start: mod.TokenIndex, placeHolder: mod.NodeIndex) Allocator.Error!void {
+    defer alloc.destroy(self);
     if (self.cont.subCom == .Lexer) unreachable;
 
-    defer alloc.destroy(self);
     var chunk = try mod.NodeList.Chunk.init(alloc, nodes);
 
     var parser = try mod.Parser.init(self, &chunk);
     defer parser.deinit(alloc);
 
     try parser.parseFunction(alloc, start, placeHolder);
+
+    try observer.alert(alloc, placeHolder);
 
     for (parser.errors.items) |e| {
         e.display(alloc, self.cont.getInfo());
@@ -179,7 +180,7 @@ pub fn startEntry(self: *const Self, alloc: Allocator, nodes: *mod.NodeList) std
 
     try self._startRoot(alloc, nodes, 0, index);
 
-    self.pool.deinit();
+    threadPool.deinit();
 
     if (failed) return .{ "", 1 };
 

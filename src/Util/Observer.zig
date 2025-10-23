@@ -7,28 +7,24 @@ pub fn Observer(Key: type, Args: type) type {
             node: std.SinglyLinkedList.Node = .{},
         };
 
-        nodeList: std.ArrayList(*std.SinglyLinkedList.Node),
+        bytes: [std.math.pow(usize, 2, 7)]*std.SinglyLinkedList.Node = undefined,
+        nodeList: std.ArrayList(*std.SinglyLinkedList.Node) = undefined,
 
-        pool: *std.Thread.Pool,
+        pool: *std.Thread.Pool = undefined,
         mutex: std.Thread.Mutex = .{},
 
         eventToFunc: std.AutoHashMapUnmanaged(
             Key,
             std.SinglyLinkedList,
-        ),
+        ) = .{},
 
         // PERF: Later check if listHandler is worth it
-        pub fn init(alloc: Allocator, pool: *std.Thread.Pool) Self {
-            return .{
-                .nodeList = .initCapacity(alloc, std.math.pow(2, 7)),
-
-                .pool = pool,
-
-                .eventToFunc = .init(),
-            };
+        pub fn init(self: *Self, pool: *std.Thread.Pool) void {
+            self.nodeList = .initBuffer(&self.bytes);
+            self.pool = pool;
         }
 
-        pub fn push(self: *Self, alloc: Allocator, wait: Key, func: fn (Args) void, args: Args) Allocator.Error!void {
+        pub fn push(self: *Self, alloc: Allocator, wait: Key, func: *const fn (Args) void, args: Args) Allocator.Error!void {
             self.mutex.lock();
             defer self.mutex.unlock();
 
@@ -49,9 +45,29 @@ pub fn Observer(Key: type, Args: type) type {
             }
         }
 
+        fn exevuteHandler(func: *const fn (Args) void, args: Args) void {
+            func(args);
+        }
+
+        pub fn alert(self: *Self, alloc: Allocator, waited: Key) Allocator.Error!void {
+            self.mutex.lock();
+            defer self.mutex.unlock();
+
+            var link = self.eventToFunc.fetchRemove(waited) orelse return;
+
+            while (link.value.popFirst()) |node| {
+                const handler: *Handler = @fieldParentPtr("node", node);
+
+                try self.pool.spawn(exevuteHandler, .{ handler.func, handler.args });
+
+                self.nodeList.appendBounded(node) catch {
+                    alloc.destroy(handler);
+                };
+            }
+        }
+
         pub fn deinit(self: *Self, alloc: Allocator) void {
             self.eventToFunc.deinit(alloc);
-            self.listHandler.deinit(alloc);
         }
     };
 }
