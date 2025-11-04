@@ -238,6 +238,12 @@
         "title": "How do I bench ",
         "desc": "If i compile everything at the same time, how do i bench it, before it was benching the stages",
         "time_created": "2025-08-17 21:32:14.658980263 -03:00:00"
+      },
+      {
+        "id": "SFU8jY3M",
+        "title": "Tratar funciones como expression",
+        "desc": "En vez de analizar la funcion y  si no esta una expression, tratar la funcion como una expression",
+        "time_created": "2025-11-04 16:47:29.170974824 -03:00:00"
       }
     ]
   }
