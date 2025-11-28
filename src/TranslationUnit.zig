@@ -112,11 +112,15 @@ fn _startFunction(self: *const Self, alloc: Allocator, nodes: *mod.NodeList, sta
         failed = true;
         return;
     }
+
     if (self.cont.subCom == .Parser) return;
 
     var ast = mod.Ast.init(&chunk, self);
+
     var checker = TypeCheck.TypeCheck.init(&ast, self);
-    _ = &checker;
+    try checker.checkFunction(alloc, ast.getNode(.UnBound, placeHolder).data[1].load(.acquire));
+    if (failed) return;
+
     if (self.cont.subCom == .TypeCheck) return;
     //
     // unreachable;

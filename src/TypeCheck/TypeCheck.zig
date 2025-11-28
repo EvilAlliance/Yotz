@@ -23,21 +23,7 @@ pub fn checkRoot(self: *Self, alloc: Allocator, rootIndex: Parser.NodeIndex) All
         defer nodeIndex = node.next.load(.acquire);
 
         switch (node.tag.load(.acquire)) {
-            .variable, .constant => {
-                // NOTE: At the time being this is not changed so it should be fine;
-                const expressionIndex = node.data.@"1".load(.acquire);
-                const expressionNode = self.ast.getNode(.UnCheck, expressionIndex);
-                const expressionTag = expressionNode.tag.load(.acquire);
-
-                if (expressionIndex == 0 or expressionTag == .funcProto) {
-                    try self.checkFunctionOuter(alloc, nodeIndex);
-                } else if (expressionTag == .constant or expressionTag == .variable) {
-                    @panic("Not messing with this yet");
-                } else {
-                    unreachable;
-                }
-            },
-
+            .variable, .constant => try self.checkVariable(alloc, nodeIndex),
             else => unreachable,
         }
     }
@@ -61,6 +47,7 @@ fn destroyDupe(self: *const Self, alloc: Allocator) void {
     alloc.destroy(self);
 }
 
+// TODO: I have to add this variable to the context
 pub fn checkFunctionOuter(self: *Self, alloc: Allocator, variableIndex: Parser.NodeIndex) Allocator.Error!void {
     const variable = self.ast.getNode(.Bound, variableIndex);
     const funcIndex = variable.data.@"1".load(.acquire);
@@ -81,6 +68,7 @@ pub fn checkFunctionOuter(self: *Self, alloc: Allocator, variableIndex: Parser.N
     }
 
     while (true) {
+        // Return Type
         Type.transformType(self, self.ast.getNode(.UnBound, funcIndex).data[1].load(.acquire));
 
         const typeIndex = variable.data[0].load(.acquire);
@@ -138,8 +126,97 @@ pub fn inferTypeFunction(self: *Self, alloc: Allocator, variableIndex: Parser.No
     return result == null;
 }
 
-pub fn checkFunction(self: *Self, alloc: Allocator, funcIndex: Parser.NodeIndex) type {
-    _ = .{ self, alloc, funcIndex };
+pub fn checkFunction(self: *Self, alloc: Allocator, funcIndex: Parser.NodeIndex) Allocator.Error!void {
+    const func = self.ast.getNode(.Bound, funcIndex);
+    std.debug.assert(func.tag.load(.acquire) == .funcProto);
+
+    const tIndex = func.data[1].load(.acquire);
+    Type.transformType(self, tIndex);
+
+    const stmtORscopeIndex = func.next.load(.acquire);
+    const stmtORscope = self.ast.getNode(.Bound, stmtORscopeIndex);
+
+    if (stmtORscope.tag.load(.acquire) == .scope) {
+        try self.checkScope(alloc, stmtORscopeIndex, tIndex);
+    } else {
+        try self.checkStatements(alloc, stmtORscopeIndex, tIndex);
+    }
+}
+
+// TODO: Add scope to this
+fn checkScope(self: *Self, alloc: Allocator, scopeIndex: Parser.NodeIndex, typeI: Parser.NodeIndex) Allocator.Error!void {
+    const scope = self.ast.getNode(.Bound, scopeIndex);
+    const retType = self.ast.getNode(.Bound, typeI);
+
+    std.debug.assert(scope.tag.load(.acquire) == .scope and retType.tag.load(.acquire) == .type);
+
+    var i = scope.data[0].load(.acquire);
+
+    while (i != 0) {
+        const stmt = self.ast.getNode(.Bound, i);
+
+        try self.checkStatements(alloc, i, typeI);
+
+        i = stmt.next.load(.acquire);
+    }
+}
+
+fn checkStatements(self: *Self, alloc: Allocator, stmtI: Parser.NodeIndex, retTypeI: Parser.NodeIndex) Allocator.Error!void {
+    _ = .{ alloc, retTypeI };
+    const stmt = self.ast.getNode(.Bound, stmtI);
+
+    switch (stmt.tag.load(.acquire)) {
+        .ret => try self.checkReturn(alloc, stmtI, retTypeI),
+        .variable, .constant => try self.checkVariable(alloc, stmtI),
+        else => unreachable,
+    }
+}
+
+fn checkReturn(self: *const Self, alloc: Allocator, nodeI: Parser.NodeIndex, typeI: Parser.NodeIndex) Allocator.Error!void {
+    const stmt = self.ast.getNode(.Bound, nodeI);
+    try Expression.checkExpressionType(self, alloc, stmt.data[1].load(.acquire), typeI);
+}
+
+fn checkVariable(self: *Self, alloc: Allocator, nodeIndex: Parser.NodeIndex) Allocator.Error!void {
+    const node = self.ast.getNode(.Bound, nodeIndex);
+    // NOTE: At the time being this is not changed so it should be fine;
+    const expressionIndex = node.data.@"1".load(.acquire);
+    const expressionNode = self.ast.getNode(.UnCheck, expressionIndex);
+    const expressionTag = expressionNode.tag.load(.acquire);
+
+    if (expressionIndex == 0 or expressionTag == .funcProto) {
+        try self.checkFunctionOuter(alloc, nodeIndex);
+    } else {
+        try self.checkPureVariable(alloc, nodeIndex);
+    }
+}
+
+// TODO : InferType if is not established
+// TODO:: If type is established chcek if the expression is valid
+// TODO: After all this, add it to the context (Which does not exist yet)
+fn checkPureVariable(self: *Self, alloc: Allocator, varIndex: Parser.NodeIndex) Allocator.Error!void {
+    _ = .{ self, alloc, varIndex };
+    var variable = self.ast.getNode(.Bound, varIndex);
+
+    const typeIndex = variable.data[0].load(.acquire);
+
+    if (typeIndex == 0 and !try self.inferTypeExpression(alloc, varIndex))
+        return
+    else
+        Type.transformType(self, typeIndex);
+
+    variable = self.ast.getNode(.Bound, varIndex);
+
+    const exprI = variable.data.@"1".load(.acquire);
+    const typeIndex2 = variable.data.@"0".load(.acquire);
+
+    try Expression.checkExpressionType(self, alloc, exprI, typeIndex2);
+}
+
+// TODO: The only way to infer the type in the expression itself is with a funciton call (return type) or the types of predeclared variable types
+fn inferTypeExpression(self: *const Self, alloc: Allocator, varIndex: Parser.NodeIndex) Allocator.Error!bool {
+    _ = .{ self, alloc, varIndex };
+    return false;
 }
 
 fn getTupleFromParams(comptime func: anytype) type {
@@ -181,6 +258,7 @@ fn getTupleFromParams(comptime func: anytype) type {
 pub const ObserverParams = getTupleFromParams(checkFunctionOuter);
 
 const Type = @import("Type.zig");
+const Expression = @import("Expression.zig");
 
 const Parser = @import("./../Parser/mod.zig");
 const Message = @import("../Message/Message.zig");

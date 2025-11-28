@@ -1,0 +1,168 @@
+const FlattenExpression = std.ArrayList(Parser.NodeIndex);
+
+pub fn checkExpressionType(self: *const TypeCheck, alloc: Allocator, exprI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex) Allocator.Error!void {
+    const expr = self.ast.getNode(.Bound, exprI);
+    const expectedType = self.ast.getNode(.Bound, expectedTypeI);
+
+    const typeTag = expectedType.tag.load(.acquire);
+    const exprTag = expr.tag.load(.acquire);
+    assert(typeTag == .type);
+    assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, exprTag));
+
+    var flat = FlattenExpression{};
+
+    try flattenExpression(self, alloc, &flat, exprI);
+
+    try checkFlattenExpression(self, alloc, &flat, expectedTypeI);
+}
+
+fn flattenExpression(self: *const TypeCheck, alloc: Allocator, stack: *FlattenExpression, exprI: Parser.NodeIndex) std.mem.Allocator.Error!void {
+    const expr = self.ast.getNode(.Bound, exprI);
+    const exprTag = expr.tag.load(.acquire);
+    assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, exprTag));
+
+    switch (exprTag) {
+        .lit => {
+            try stack.append(alloc, exprI);
+        },
+        .load => {
+            try stack.append(alloc, exprI);
+        },
+        .neg => {
+            const left = expr.data[0].load(.acquire);
+
+            try flattenExpression(self, alloc, stack, left);
+
+            try stack.append(alloc, exprI);
+        },
+        .addition, .subtraction, .multiplication, .division, .power => {
+            const left = expr.data[0].load(.acquire);
+            const right = expr.data[1].load(.acquire);
+
+            try flattenExpression(self, alloc, stack, left);
+            try stack.append(alloc, exprI);
+            try flattenExpression(self, alloc, stack, right);
+        },
+        else => {
+            self.message.err.nodeNotSupported(exprI);
+            unreachable;
+        },
+    }
+}
+
+fn checkFlattenExpression(self: *const TypeCheck, alloc: Allocator, flat: *FlattenExpression, expectedTypeI: Parser.NodeIndex) std.mem.Allocator.Error!void {
+    const expectedType = self.ast.getNode(.Bound, expectedTypeI);
+    assert(expectedType.tag.load(.acquire) == .type);
+
+    while (flat.items.len > 0) {
+        const firstI = flat.getLast();
+        const first = self.ast.getNode(.Bound, firstI);
+
+        if (first.tag.load(.acquire) != .neg) {
+            checkExpressionLeaf(self, alloc, firstI, expectedTypeI);
+            _ = flat.pop();
+        }
+
+        while (flat.items.len > 0) {
+            const opI = flat.pop().?;
+            const op = self.ast.getNode(.Bound, opI);
+            const opTag = op.tag.load(.acquire);
+
+            assert(Util.listContains(Parser.Node.Tag, &.{ .neg, .power, .division, .multiplication, .subtraction, .addition }, opTag));
+
+            switch (opTag) {
+                .neg => break,
+                .power,
+                .division,
+                .multiplication,
+                .subtraction,
+                .addition,
+                => {
+                    const xI = flat.getLast();
+                    const x = self.ast.getNode(.Bound, xI);
+
+                    if (x.tag.load(.acquire) == .neg) break;
+
+                    checkExpressionLeaf(self, alloc, xI, expectedTypeI);
+                    _ = flat.pop();
+                },
+                else => unreachable,
+            }
+        }
+    }
+}
+
+fn checkExpressionLeaf(self: *const TypeCheck, alloc: Allocator, leafI: Parser.NodeIndex, typeI: Parser.NodeIndex) void {
+    _ = alloc;
+
+    const leaf = self.ast.getNode(.Bound, leafI);
+    const expectedType = self.ast.getNode(.Bound, typeI);
+    const leafTag = leaf.tag.load(.acquire);
+
+    assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load }, leafTag) and expectedType.tag.load(.acquire) == .type);
+
+    switch (leafTag) {
+        .lit => checkLitType(self, leafI, typeI),
+        .load => @panic("What"),
+        else => unreachable,
+    }
+}
+
+fn checkLitType(self: *const TypeCheck, litI: Parser.NodeIndex, typeI: Parser.NodeIndex) void {
+    const lit = self.ast.getNode(.Bound, litI);
+    const expectedType = self.ast.getNode(.Bound, typeI);
+
+    std.debug.assert(expectedType.tag.load(.acquire) == .type);
+
+    const primitive = expectedType.data[1].load(.acquire);
+    const size = expectedType.data[0].load(.acquire);
+    const flags = expectedType.flags.load(.acquire);
+
+    const text = lit.getTextAst(self.ast);
+    switch (@as(Parser.Node.Primitive, @enumFromInt(primitive))) {
+        Parser.Node.Primitive.uint => {
+            const max = std.math.pow(u64, 2, size) - 1;
+            const number = std.fmt.parseInt(u64, text, 10) catch {
+                self.message.err.numberDoesNotFit(litI, typeI);
+                if (flags.inferedFromExpression or flags.inferedFromUse) {
+                    self.message.info.inferedType(litI);
+                }
+                return;
+            };
+
+            if (number < max) return;
+            self.message.err.numberDoesNotFit(litI, typeI);
+            if (flags.inferedFromExpression or flags.inferedFromUse) {
+                self.message.info.inferedType(litI);
+            }
+        },
+        Parser.Node.Primitive.int => {
+            const max = std.math.pow(i64, 2, (size - 1)) - 1;
+            const min = std.math.pow(i64, 2, (size - 1)) - 1;
+            const number = std.fmt.parseInt(i64, text, 10) catch {
+                self.message.err.numberDoesNotFit(litI, typeI);
+                if (flags.inferedFromExpression or flags.inferedFromUse) {
+                    self.message.info.inferedType(litI);
+                }
+                return;
+            };
+
+            if (min < number and number < max) return;
+            self.message.err.numberDoesNotFit(litI, typeI);
+            if (flags.inferedFromExpression or flags.inferedFromUse) {
+                self.message.info.inferedType(litI);
+            }
+        },
+        Parser.Node.Primitive.float => unreachable,
+    }
+}
+
+const TypeCheck = @import("TypeCheck.zig");
+
+const Parser = @import("../Parser/mod.zig");
+const Util = @import("../Util.zig");
+
+const std = @import("std");
+
+const Allocator = std.mem.Allocator;
+const assert = std.debug.assert;
