@@ -173,18 +173,18 @@ const Error = struct {
     }
 
     pub inline fn nodeNotSupported(self: @This(), nodeI: Parser.NodeIndex) void {
-        const node = self.ast.getNode(nodeI);
+        const node = self.ast.getNode(.UnCheck, nodeI);
         const loc = node.getLocationAst(self.ast.*);
 
-        const where = placeSlice(loc, self.ast.cont.source);
+        const where = placeSlice(loc, self.ast.tu.cont.source);
         std.log.err(
             "{s}:{}:{}: Unknown or Not Supported Node {s} \n{s}\n{[5]c: >[6]}",
             .{
-                self.ast.cont.path,
+                self.ast.tu.cont.path,
                 loc.row,
                 loc.col,
-                @tagName(node.tag),
-                self.ast.cont.source[where.beg..where.end],
+                @tagName(node.tag.load(.acquire)),
+                self.ast.tu.cont.source[where.beg..where.end],
                 '^',
                 where.pad,
             },
@@ -192,20 +192,21 @@ const Error = struct {
     }
 
     pub inline fn numberDoesNotFit(self: @This(), exprI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex) void {
-        const expectedType = self.ast.getNode(expectedTypeI);
-        const loc = self.ast.getNodeLocation(exprI);
-        const max = std.math.pow(u64, 2, expectedType.data[0]) - 1;
-        const where = placeSlice(loc, self.ast.cont.source);
+        const expectedType = self.ast.getNode(.UnCheck, expectedTypeI);
+        const loc = self.ast.getNodeLocation(.UnCheck, exprI);
+        const size = expectedType.data[0].load(.acquire);
+        const max = std.math.pow(u64, 2, size) - 1;
+        const where = placeSlice(loc, self.ast.tu.cont.source);
         std.log.err(
             "{s}:{}:{}: Number does not fit into for type {c}{}, range: 0 - {} \n{s}\n{[7]c: >[8]}",
             .{
-                self.ast.cont.path,
+                self.ast.tu.cont.path,
                 loc.row,
                 loc.col,
                 expectedType.typeToString(),
-                expectedType.data[0],
+                size,
                 max,
-                self.ast.cont.source[where.beg..where.end],
+                self.ast.tu.cont.source[where.beg..where.end],
                 '^',
                 where.pad,
             },
@@ -239,18 +240,18 @@ const Info = struct {
     }
 
     pub inline fn inferedType(self: @This(), t: Parser.NodeIndex) void { // type
-        const typeNode = self.ast.getNode(t);
+        const typeNode = self.ast.getNode(.UnCheck, t);
         const inferedLoc = typeNode.getLocationAst(self.ast.*);
-        const where = placeSlice(inferedLoc, self.ast.cont.source);
+        const where = placeSlice(inferedLoc, self.ast.tu.cont.source);
         std.log.info(
             "{s}:{}:{}: Infered Type {c}{} here: \n{s}\n{[6]c: >[7]}",
             .{
-                self.ast.cont.path,
+                self.ast.tu.cont.path,
                 inferedLoc.row,
                 inferedLoc.col,
                 typeNode.typeToString(),
                 typeNode.data[0],
-                self.ast.cont.source[where.beg..where.end],
+                self.ast.tu.cont.source[where.beg..where.end],
                 '^',
                 where.pad,
             },
