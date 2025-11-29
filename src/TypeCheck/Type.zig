@@ -52,8 +52,9 @@ fn transformIdentiferType(self: *TypeChecker, typeIndex: Parser.NodeIndex) void 
 
     const node = self.ast.getNode(.UnCheck, typeIndex);
 
-    std.log.err("The recieve node tag was {}", .{node.tag.load(.acquire)});
-    std.debug.assert(node.tag.load(.acquire) == .fakeType);
+    const type_ = node.tag.load(.acquire);
+    if (type_ == .type) return;
+    std.debug.assert(type_ == .fakeType);
 
     const name = node.getTextAst(self.ast);
 
