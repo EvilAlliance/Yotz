@@ -171,8 +171,10 @@ fn _startRoot(self: *const Self, alloc: Allocator, nodes: *mod.NodeList, start: 
     // if (parser.errors.items.len > 0) return .{ "", 1 };
 }
 
-pub fn startEntry(self: *const Self, alloc: Allocator, nodes: *mod.NodeList) std.mem.Allocator.Error!struct { []const u8, u8 } {
+pub fn startEntry(stakcSelf: Self, alloc: Allocator, nodes: *mod.NodeList) std.mem.Allocator.Error!struct { []const u8, u8 } {
     var chunk = try mod.NodeList.Chunk.init(alloc, nodes);
+
+    const self = try Util.dupe(alloc, stakcSelf);
 
     if (self.cont.subCom == .Lexer) {
         var parser = try mod.Parser.init(self, &chunk);

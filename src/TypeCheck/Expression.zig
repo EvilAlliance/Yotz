@@ -90,6 +90,8 @@ fn checkFlattenExpression(self: *const TypeCheck, alloc: Allocator, flat: *Flatt
             }
         }
     }
+
+    flat.deinit(alloc);
 }
 
 fn checkExpressionLeaf(self: *const TypeCheck, alloc: Allocator, leafI: Parser.NodeIndex, typeI: Parser.NodeIndex) void {

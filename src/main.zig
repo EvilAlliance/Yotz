@@ -85,21 +85,32 @@ pub const std_options = std.Options{
 };
 
 pub fn main() u8 {
-    // var generalPurpose: std.heap.DebugAllocator(.{ .thread_safe = true }) = .init;
-    // const alloc = generalPurpose.allocator();
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    const gpa = arena.allocator();
-    // defer _ = generalPurpose.deinit();
+    const allocArena = arena.allocator();
+    var allocSafe = std.heap.ThreadSafeAllocator{
+        .child_allocator = allocArena,
+        .mutex = std.Thread.Mutex{},
+    };
+    var alloc = allocSafe.allocator();
     defer _ = arena.deinit();
 
-    const arguments = getArguments(gpa);
+    // var generalPurpose: std.heap.DebugAllocator(.{ .thread_safe = true }) = .init;
+    // const allocGpa = generalPurpose.allocator();
+    // var allocSafe = std.heap.ThreadSafeAllocator{
+    //     .child_allocator = allocGpa,
+    //     .mutex = std.Thread.Mutex{},
+    // };
+    // const alloc = allocSafe.allocator();
+    // defer _ = generalPurpose.deinit();
+
+    const arguments = getArguments(alloc);
 
     if (arguments.subCom == .Run and arguments.stdout) {
         std.log.warn("Subcommand run wont print anything", .{});
     }
 
     TranslationUnit.threadPool.init(.{
-        .allocator = gpa,
+        .allocator = alloc,
         .n_jobs = 20,
     }) catch {
         std.log.err("Run Out of Memory", .{});
@@ -110,27 +121,27 @@ pub fn main() u8 {
         .subCom = arguments.subCom,
         .path = arguments.path,
     };
-    defer gpa.free(cont.path);
+    defer alloc.free(cont.path);
 
-    if (!TranslationUnit.readTokens(gpa, &cont)) return 1;
+    if (!TranslationUnit.readTokens(alloc, &cont)) return 1;
     defer {
-        gpa.free(cont.tokens);
-        gpa.free(cont.source);
+        alloc.free(cont.tokens);
+        alloc.free(cont.source);
     }
 
     TranslationUnit.observer.init(&TranslationUnit.threadPool);
-    defer TranslationUnit.observer.deinit(gpa);
+    defer TranslationUnit.observer.deinit(alloc);
 
     const tu = TranslationUnit.initGlobal(&cont);
 
     var nodes = Parser.NodeList.init();
-    defer nodes.deinit(gpa);
-    const bytes, const ret = tu.startEntry(gpa, &nodes) catch {
+    defer nodes.deinit(alloc);
+    const bytes, const ret = tu.startEntry(alloc, &nodes) catch {
         std.log.err("Run Out of Memory", .{});
         return 1;
     };
 
-    defer tu.deinit(gpa, bytes);
+    defer tu.deinit(alloc, bytes);
 
     var buf: [5 * 1024]u8 = undefined;
 

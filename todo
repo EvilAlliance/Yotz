@@ -268,6 +268,12 @@
         "title": "A lot of ranges are being created and wasted because of the constant creation of the outer type",
         "desc": "",
         "time_created": "2025-11-28 18:59:01.583783183 -03:00:00"
+      },
+      {
+        "id": "gxC4jUbv",
+        "title": "Solucionar los memory leaks",
+        "desc": "Hay unos problemas con los rangos de los chunks",
+        "time_created": "2025-12-11 11:26:43.313950701 -03:00:00"
       }
     ]
   }
