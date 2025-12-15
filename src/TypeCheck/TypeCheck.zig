@@ -195,14 +195,15 @@ fn checkVariable(self: *Self, alloc: Allocator, nodeIndex: Parser.NodeIndex) All
 
 // TODO : InferType if is not established
 // TODO:: If type is established chcek if the expression is valid
-// TODO: After all this, add it to the context (Which does not exist yet), added into the global scope for now
 fn checkPureVariable(self: *Self, alloc: Allocator, varIndex: Parser.NodeIndex) Allocator.Error!void {
     var variable = self.ast.getNode(.Bound, varIndex);
 
     const typeIndex = variable.data[0].load(.acquire);
 
+    // NOTE: This case if for variables that do not have type and cannot be inferred from the expression itself
     if (typeIndex == 0 and !try self.inferTypeExpression(alloc, varIndex)) {
-        @panic("What case causes this");
+        try self.tu.scope.put(alloc, variable.getTextAst(self.ast), varIndex);
+        return;
     } else {
         Type.transformType(self, typeIndex);
         variable = self.ast.getNode(.Bound, varIndex);

@@ -59,7 +59,7 @@ fn checkFlattenExpression(self: *const TypeCheck, alloc: Allocator, flat: *Flatt
         const first = self.ast.getNode(.Bound, firstI);
 
         if (first.tag.load(.acquire) != .neg) {
-            checkExpressionLeaf(self, alloc, firstI, expectedTypeI);
+            try checkExpressionLeaf(self, alloc, firstI, expectedTypeI);
             _ = flat.pop();
         }
 
@@ -83,7 +83,7 @@ fn checkFlattenExpression(self: *const TypeCheck, alloc: Allocator, flat: *Flatt
 
                     if (x.tag.load(.acquire) == .neg) break;
 
-                    checkExpressionLeaf(self, alloc, xI, expectedTypeI);
+                    try checkExpressionLeaf(self, alloc, xI, expectedTypeI);
                     _ = flat.pop();
                 },
                 else => unreachable,
@@ -94,9 +94,8 @@ fn checkFlattenExpression(self: *const TypeCheck, alloc: Allocator, flat: *Flatt
     flat.deinit(alloc);
 }
 
-fn checkExpressionLeaf(self: *const TypeCheck, alloc: Allocator, leafI: Parser.NodeIndex, typeI: Parser.NodeIndex) void {
-    _ = alloc;
-
+// TODO: Booble Up the error, or see how to manage it
+fn checkExpressionLeaf(self: *const TypeCheck, alloc: Allocator, leafI: Parser.NodeIndex, typeI: Parser.NodeIndex) Allocator.Error!void {
     const leaf = self.ast.getNode(.Bound, leafI);
     const expectedType = self.ast.getNode(.Bound, typeI);
     const leafTag = leaf.tag.load(.acquire);
@@ -105,20 +104,46 @@ fn checkExpressionLeaf(self: *const TypeCheck, alloc: Allocator, leafI: Parser.N
 
     switch (leafTag) {
         .lit => checkLitType(self, leafI, typeI),
-        .load => checkVarType(self, leafI, typeI),
+        .load => try checkVarType(self, alloc, leafI, typeI),
         else => unreachable,
     }
 }
 
-fn checkVarType(self: *const TypeCheck, varI: Parser.NodeIndex, typeI: Parser.NodeIndex) void {
-    _ = .{ self, varI, typeI };
-    const node = self.ast.getNode(.UnCheck, self.tu.scope.get(self.ast.getNodeText(.Bound, varI)).?);
-    const typeIndex = node.data.@"0".load(.acquire);
+fn checkVarType(self: *const TypeCheck, alloc: Allocator, varI: Parser.NodeIndex, typeI: Parser.NodeIndex) Allocator.Error!void {
+    const leaf = self.ast.getNode(.Bound, varI);
+    const variableI = self.tu.scope.get(leaf.getTextAst(self.ast)).?;
+    const variable = self.ast.getNode(.UnCheck, variableI);
+    const typeIndex = variable.data.@"0".load(.acquire);
 
-    if (typeIndex == 0)
-        @panic("TODO: Infer type")
-    else {
-        if (!Type.typeEqual(self, typeIndex, typeI)) self.message.err.incompatibleType(typeIndex, typeI, self.ast.getNodeLocation(.UnCheck, varI));
+    if (typeIndex == 0) {
+        // Check Variable expression for that type
+        // TODO: Check if this was successful
+        try checkExpressionType(self, alloc, variable.data.@"1".load(.acquire), typeI);
+
+        // Reset data
+        var nodeType = self.ast.getNode(.UnCheck, typeI);
+        nodeType.tokenIndex.store(leaf.tokenIndex.load(.acquire), .release);
+
+        assert(nodeType.next.load(.acquire) == 0);
+
+        nodeType.next.store(0, .release);
+        nodeType.flags.store(.{ .inferedFromUse = true }, .release);
+
+        // Add to list
+        const x = try self.ast.nodeList.appendIndex(alloc, nodeType);
+        // Make the variable be that type
+        self.ast.getNodePtr(.UnCheck, variableI).data.@"0".store(x, .release);
+        self.ast.unlockShared();
+    } else {
+        if (!Type.typeEqual(self, typeIndex, typeI)) {
+            self.message.err.incompatibleType(typeIndex, typeI, self.ast.getNodeLocation(.UnCheck, varI));
+            const flags = variable.flags.load(.acquire);
+            if (flags.inferedFromExpression or flags.inferedFromUse) {
+                self.message.info.inferedType(typeIndex);
+            }
+            self.message.info.isDeclaredHere(varI);
+            return;
+        }
     }
 }
 

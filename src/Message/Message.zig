@@ -222,17 +222,17 @@ const Info = struct {
     }
 
     pub inline fn isDeclaredHere(self: @This(), varI: Parser.NodeIndex) void {
-        const varia = self.ast.getNode(varI);
+        const varia = self.ast.getNode(.UnCheck, varI);
         const locVar = varia.getLocationAst(self.ast.*);
-        const where = placeSlice(locVar, self.ast.cont.source);
+        const where = placeSlice(locVar, self.ast.tu.cont.source);
         std.log.info(
             "{s}:{}:{}: {s} is declared in use \n{s}\n{[5]c: >[6]}",
             .{
-                self.ast.cont.path,
+                self.ast.tu.cont.path,
                 locVar.row,
                 locVar.col,
                 varia.getTextAst(self.ast),
-                self.ast.cont.source[where.beg..where.end],
+                self.ast.tu.cont.source[where.beg..where.end],
                 '^',
                 where.pad,
             },

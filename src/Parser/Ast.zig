@@ -115,7 +115,18 @@ fn toStringType(self: *const @This(), alloc: std.mem.Allocator, cont: *std.Array
                 index = t.data[1].load(.acquire);
                 continue;
             },
-            .type, .fakeType => {
+            .type => {
+                try cont.append(alloc, switch (@as(mod.Node.Primitive, @enumFromInt(t.data[1].load(.acquire)))) {
+                    mod.Node.Primitive.int => 'i',
+                    mod.Node.Primitive.uint => 'u',
+                    mod.Node.Primitive.float => 'f',
+                });
+
+                const size = try std.fmt.allocPrint(alloc, "{}", .{t.data[0].load(.acquire)});
+                try cont.appendSlice(alloc, size);
+                alloc.free(size);
+            },
+            .fakeType => {
                 const x = self.getNodeText(.UnCheck, index);
                 try cont.appendSlice(alloc, x);
             },
