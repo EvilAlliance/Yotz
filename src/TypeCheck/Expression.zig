@@ -109,42 +109,53 @@ fn checkExpressionLeaf(self: *const TypeCheck, alloc: Allocator, leafI: Parser.N
     }
 }
 
-fn checkVarType(self: *const TypeCheck, alloc: Allocator, varI: Parser.NodeIndex, typeI: Parser.NodeIndex) Allocator.Error!void {
-    const leaf = self.ast.getNode(.Bound, varI);
+fn checkVarType(self: *const TypeCheck, alloc: Allocator, leafI: Parser.NodeIndex, typeI: Parser.NodeIndex) Allocator.Error!void {
+    const leaf = self.ast.getNode(.Bound, leafI);
     const variableI = self.tu.scope.get(leaf.getTextAst(self.ast)).?;
     const variable = self.ast.getNode(.UnCheck, variableI);
     const typeIndex = variable.data.@"0".load(.acquire);
 
     if (typeIndex == 0) {
-        // Check Variable expression for that type
-        // TODO: Check if this was successful
-        try checkExpressionType(self, alloc, variable.data.@"1".load(.acquire), typeI);
-
-        // Reset data
-        var nodeType = self.ast.getNode(.UnCheck, typeI);
-        nodeType.tokenIndex.store(leaf.tokenIndex.load(.acquire), .release);
-
-        assert(nodeType.next.load(.acquire) == 0);
-
-        nodeType.next.store(0, .release);
-        nodeType.flags.store(.{ .inferedFromUse = true }, .release);
-
-        // Add to list
-        const x = try self.ast.nodeList.appendIndex(alloc, nodeType);
-        // Make the variable be that type
-        self.ast.getNodePtr(.UnCheck, variableI).data.@"0".store(x, .release);
-        self.ast.unlockShared();
+        try addInferType(self, alloc, leafI, variableI, typeI);
     } else {
         if (!Type.typeEqual(self, typeIndex, typeI)) {
-            self.message.err.incompatibleType(typeIndex, typeI, self.ast.getNodeLocation(.UnCheck, varI));
-            const flags = variable.flags.load(.acquire);
-            if (flags.inferedFromExpression or flags.inferedFromUse) {
-                self.message.info.inferedType(typeIndex);
+            const tag = variable.tag.load(.acquire);
+            if (tag == .variable) {
+                self.message.err.incompatibleType(typeIndex, typeI, self.ast.getNodeLocation(.UnCheck, leafI));
+                const flags = variable.flags.load(.acquire);
+                if (flags.inferedFromExpression or flags.inferedFromUse) {
+                    self.message.info.inferedType(typeIndex);
+                }
+                self.message.info.isDeclaredHere(leafI);
+                return;
+            } else {
+                assert(tag == .constant);
+                try addInferType(self, alloc, leafI, variableI, typeI);
             }
-            self.message.info.isDeclaredHere(varI);
-            return;
         }
     }
+}
+
+fn addInferType(self: *const TypeCheck, alloc: Allocator, leafI: Parser.NodeIndex, varI: Parser.NodeIndex, typeI: Parser.NodeIndex) Allocator.Error!void {
+    const leaf = self.ast.getNode(.Bound, leafI);
+    const variable = self.ast.getNode(.UnCheck, varI);
+
+    // Check Variable expression for that type
+    // TODO: Check if this was successful
+    try checkExpressionType(self, alloc, variable.data.@"1".load(.acquire), typeI);
+
+    // Reset data
+    var nodeType = self.ast.getNode(.UnCheck, typeI);
+    nodeType.tokenIndex.store(leaf.tokenIndex.load(.acquire), .release);
+
+    nodeType.next.store(variable.data.@"0".load(.acquire), .release);
+    nodeType.flags.store(.{ .inferedFromUse = true }, .release);
+
+    // Add to list
+    const x = try self.ast.nodeList.appendIndex(alloc, nodeType);
+    // Make the variable be that type
+    self.ast.getNodePtr(.UnCheck, varI).data.@"0".store(x, .release);
+    self.ast.unlockShared();
 }
 
 fn checkLitType(self: *const TypeCheck, litI: Parser.NodeIndex, typeI: Parser.NodeIndex) void {
