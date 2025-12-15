@@ -122,6 +122,8 @@ pub fn saveTest(self: *@This()) !void {
     try self.writeBlob("stdout", self.stdout, &w.interface);
 
     try self.writeBlob("stderr", self.stderr, &w.interface);
+
+    try w.interface.flush();
 }
 
 fn writeBlob(self: *@This(), name: []const u8, blob: []const u8, w: *std.io.Writer) !void {
