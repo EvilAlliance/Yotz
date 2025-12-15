@@ -1,0 +1,89 @@
+const Self = @This();
+
+base: StringHashMapUnmanaged(Parser.NodeIndex) = .{},
+refCount: std.atomic.Value(usize) = std.atomic.Value(usize).init(1),
+rwLock: std.Thread.RwLock = .{},
+
+pub fn put(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: Parser.NodeIndex) Allocator.Error!void {
+    const self: *Self = @ptrCast(@alignCast(ctx));
+    self.rwLock.lock();
+    defer self.rwLock.unlock();
+
+    try self.base.put(alloc, key, value);
+}
+
+pub fn get(ctx: *anyopaque, key: []const u8) ?Parser.NodeIndex {
+    const self: *Self = @ptrCast(@alignCast(ctx));
+    self.rwLock.lockShared();
+    defer self.rwLock.unlockShared();
+
+    return self.base.get(key);
+}
+
+pub fn push(ctx: *const anyopaque, alloc: Allocator) Allocator.Error!void {
+    const self: *const Self = @ptrCast(@alignCast(ctx));
+    _ = .{ self, alloc };
+    unreachable;
+}
+
+pub fn pop(ctx: *const anyopaque, alloc: Allocator) void {
+    const self: *const Self = @ptrCast(@alignCast(ctx));
+    _ = .{ self, alloc };
+    unreachable;
+}
+
+pub fn getGlobal(ctx: *anyopaque) *Self {
+    const self: *Self = @ptrCast(@alignCast(ctx));
+    return self.acquire();
+}
+
+pub fn deepClone(ctx: *anyopaque, alloc: Allocator) Allocator.Error!ScopeFunc {
+    const self: *const Self = @ptrCast(@alignCast(ctx));
+    _ = .{ self, alloc };
+    unreachable;
+}
+
+pub fn deinit(ctx: *anyopaque, alloc: Allocator) void {
+    const self: *Self = @ptrCast(@alignCast(ctx));
+    if (self.release())
+        self.base.deinit(alloc);
+}
+
+pub fn acquire(self: *@This()) *Self {
+    _ = self.refCount.fetchAdd(1, .acquire);
+    return self;
+}
+
+pub fn release(self: *@This()) bool {
+    const prev = self.refCount.fetchSub(1, .release);
+    return prev == 1;
+}
+
+pub fn scope(self: *Self) Scope {
+    return .{
+        .ptr = self,
+        .vtable = &.{
+            .put = put,
+            .get = get,
+
+            .push = push,
+            .pop = pop,
+
+            .getGlobal = getGlobal,
+            .deepClone = deepClone,
+
+            .deinit = deinit,
+        },
+    };
+}
+
+const Scope = @import("Scope.zig");
+const ScopeFunc = @import("ScopeFunc.zig");
+
+const Parser = @import("../../Parser/mod.zig");
+
+const std = @import("std");
+
+const StringHashMapUnmanaged = std.StringHashMapUnmanaged;
+
+const Allocator = std.mem.Allocator;

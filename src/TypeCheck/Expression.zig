@@ -105,8 +105,20 @@ fn checkExpressionLeaf(self: *const TypeCheck, alloc: Allocator, leafI: Parser.N
 
     switch (leafTag) {
         .lit => checkLitType(self, leafI, typeI),
-        .load => @panic("What"),
+        .load => checkVarType(self, leafI, typeI),
         else => unreachable,
+    }
+}
+
+fn checkVarType(self: *const TypeCheck, varI: Parser.NodeIndex, typeI: Parser.NodeIndex) void {
+    _ = .{ self, varI, typeI };
+    const node = self.ast.getNode(.UnCheck, self.tu.scope.get(self.ast.getNodeText(.Bound, varI)).?);
+    const typeIndex = node.data.@"0".load(.acquire);
+
+    if (typeIndex == 0)
+        @panic("TODO: Infer type")
+    else {
+        if (!Type.typeEqual(self, typeIndex, typeI)) self.message.err.incompatibleType(typeIndex, typeI, self.ast.getNodeLocation(.UnCheck, varI));
     }
 }
 
@@ -160,6 +172,7 @@ fn checkLitType(self: *const TypeCheck, litI: Parser.NodeIndex, typeI: Parser.No
 }
 
 const TypeCheck = @import("TypeCheck.zig");
+const Type = @import("Type.zig");
 
 const Parser = @import("../Parser/mod.zig");
 const Util = @import("../Util.zig");

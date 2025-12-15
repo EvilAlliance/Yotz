@@ -2,9 +2,9 @@ const Self = @This();
 
 ast: *Parser.Ast,
 message: Message,
-tu: *const TranslationUnit,
+tu: *TranslationUnit,
 
-pub fn init(ast: *Parser.Ast, tu: *const TranslationUnit) Self {
+pub fn init(ast: *Parser.Ast, tu: *TranslationUnit) Self {
     return Self{
         .ast = ast,
         .message = Message.init(ast),
@@ -136,6 +136,8 @@ pub fn checkFunction(self: *Self, alloc: Allocator, funcIndex: Parser.NodeIndex)
     const stmtORscopeIndex = func.next.load(.acquire);
     const stmtORscope = self.ast.getNode(.Bound, stmtORscopeIndex);
 
+    try self.tu.scope.push(alloc);
+    defer self.tu.scope.pop(alloc);
     if (stmtORscope.tag.load(.acquire) == .scope) {
         try self.checkScope(alloc, stmtORscopeIndex, tIndex);
     } else {
@@ -193,28 +195,29 @@ fn checkVariable(self: *Self, alloc: Allocator, nodeIndex: Parser.NodeIndex) All
 
 // TODO : InferType if is not established
 // TODO:: If type is established chcek if the expression is valid
-// TODO: After all this, add it to the context (Which does not exist yet)
+// TODO: After all this, add it to the context (Which does not exist yet), added into the global scope for now
 fn checkPureVariable(self: *Self, alloc: Allocator, varIndex: Parser.NodeIndex) Allocator.Error!void {
-    _ = .{ self, alloc, varIndex };
     var variable = self.ast.getNode(.Bound, varIndex);
 
     const typeIndex = variable.data[0].load(.acquire);
 
-    if (typeIndex == 0 and !try self.inferTypeExpression(alloc, varIndex))
-        return
-    else
+    if (typeIndex == 0 and !try self.inferTypeExpression(alloc, varIndex)) {
+        @panic("What case causes this");
+    } else {
         Type.transformType(self, typeIndex);
-
-    variable = self.ast.getNode(.Bound, varIndex);
+        variable = self.ast.getNode(.Bound, varIndex);
+    }
 
     const exprI = variable.data.@"1".load(.acquire);
     const typeIndex2 = variable.data.@"0".load(.acquire);
 
     try Expression.checkExpressionType(self, alloc, exprI, typeIndex2);
+
+    try self.tu.scope.put(alloc, variable.getTextAst(self.ast), varIndex);
 }
 
 // TODO: The only way to infer the type in the expression itself is with a funciton call (return type) or the types of predeclared variable types
-fn inferTypeExpression(self: *const Self, alloc: Allocator, varIndex: Parser.NodeIndex) Allocator.Error!bool {
+fn inferTypeExpression(self: *Self, alloc: Allocator, varIndex: Parser.NodeIndex) Allocator.Error!bool {
     _ = .{ self, alloc, varIndex };
     return false;
 }

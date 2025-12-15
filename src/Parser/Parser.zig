@@ -345,7 +345,7 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error 
 
             index = try self.nodeList.appendIndex(alloc, node);
             // NOTE: For this to be successful the item must be sotred
-            try self.tu.initFunc().startFunction(alloc, self.nodeList.base, start, index);
+            try (try self.tu.initFunc(alloc)).startFunction(alloc, self.nodeList.base, start, index);
         } else {
             node.data[1].store(try self.parseExpression(alloc), .release);
 
@@ -370,7 +370,7 @@ fn parseReturn(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || err
             .tokenIndex = .init(retIndex),
         });
 
-        try self.tu.initFunc().startFunction(alloc, self.nodeList.base, start, nodeIndex);
+        try (try self.tu.initFunc(alloc)).startFunction(alloc, self.nodeList.base, start, nodeIndex);
 
         return nodeIndex;
     } else {

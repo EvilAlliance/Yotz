@@ -91,7 +91,7 @@ pub fn main() u8 {
         .child_allocator = allocArena,
         .mutex = std.Thread.Mutex{},
     };
-    var alloc = allocSafe.allocator();
+    const alloc = allocSafe.allocator();
     defer _ = arena.deinit();
 
     // var generalPurpose: std.heap.DebugAllocator(.{ .thread_safe = true }) = .init;
@@ -117,22 +117,21 @@ pub fn main() u8 {
         return 1;
     };
 
-    var cont = TranslationUnit.Content{
-        .subCom = arguments.subCom,
-        .path = arguments.path,
-    };
-    defer alloc.free(cont.path);
-
-    if (!TranslationUnit.readTokens(alloc, &cont)) return 1;
+    var globalScope = TypeCheck.ScopeGlobal{};
+    var scope = globalScope.scope();
     defer {
-        alloc.free(cont.tokens);
-        alloc.free(cont.source);
+        scope.deinit(alloc);
+        std.debug.assert(globalScope.refCount.load(.acquire) == 0);
     }
+
+    const success, var cont = TranslationUnit.Content.init(alloc, arguments.path, arguments.subCom);
+    if (!success) return 1;
+    defer if (cont.release()) cont.deinit(alloc) else @panic("Messed up the references");
 
     TranslationUnit.observer.init(&TranslationUnit.threadPool);
     defer TranslationUnit.observer.deinit(alloc);
 
-    const tu = TranslationUnit.initGlobal(&cont);
+    const tu = TranslationUnit.initGlobal(&cont, scope);
 
     var nodes = Parser.NodeList.init();
     defer nodes.deinit(alloc);

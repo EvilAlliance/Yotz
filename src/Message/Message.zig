@@ -151,9 +151,9 @@ const Error = struct {
         );
     }
 
-    pub inline fn incompatibleType(self: @This(), t1: Parser.NodeIndex, t2: Parser.NodeIndex, loc: Lexer.Location) void {
-        const typeNode1 = self.ast.getNode(.UnCheck, t1);
-        const typeNode2 = self.ast.getNode(.UnCheck, t2);
+    pub inline fn incompatibleType(self: @This(), actualI: Parser.NodeIndex, expectedI: Parser.NodeIndex, loc: Lexer.Location) void {
+        const actual = self.ast.getNode(.UnCheck, actualI);
+        const expected = self.ast.getNode(.UnCheck, expectedI);
         const where = placeSlice(loc, self.ast.tu.cont.source);
         std.log.err(
             "{s}:{}:{}: Type {c}{}, is incompatible with {c}{} \n{s}\n{[8]c: >[9]}",
@@ -161,10 +161,10 @@ const Error = struct {
                 self.ast.tu.cont.path,
                 loc.row,
                 loc.col,
-                typeNode1.typeToString(),
-                typeNode1.data[0].load(.acquire),
-                typeNode2.typeToString(),
-                typeNode2.data[0].load(.acquire),
+                actual.typeToString(),
+                actual.data[0].load(.acquire),
+                expected.typeToString(),
+                expected.data[0].load(.acquire),
                 self.ast.tu.cont.source[where.beg..where.end],
                 '^',
                 where.pad,
