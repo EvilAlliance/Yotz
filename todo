@@ -249,7 +249,9 @@
         "id": "xeVxfGjD",
         "title": "Try to avoid allocating in the heap for the observer",
         "desc": "This could be done with the following, make the typechecking be pass by value and use the nodelist by pointer and the rest by value",
-        "time_created": "2025-11-28 18:10:43.788724176 -03:00:00"
+        "time_created": "2025-11-28 18:10:43.788724176 -03:00:00",
+        "time_started": "2025-12-15 12:32:03.19496495 -03:00:00",
+        "time_completed": "2025-12-15 12:32:03.546262717 -03:00:00"
       },
       {
         "id": "rbu6a72y",
