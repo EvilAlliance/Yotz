@@ -170,11 +170,11 @@ fn checkVarType(self: *const TypeCheck, alloc: Allocator, leafI: Parser.NodeInde
             const tag = variable.tag.load(.acquire);
             if (tag == .variable) {
                 self.message.err.incompatibleType(typeIndex, typeI, self.ast.getNodeLocation(.UnCheck, leafI));
-                const flags = variable.flags.load(.acquire);
+                const flags = self.ast.getNode(.UnCheck, typeIndex).flags.load(.acquire);
+                self.message.info.isDeclaredHere(variableI);
                 if (flags.inferedFromExpression or flags.inferedFromUse) {
                     self.message.info.inferedType(typeIndex);
                 }
-                self.message.info.isDeclaredHere(leafI);
                 return;
             } else {
                 assert(tag == .constant);

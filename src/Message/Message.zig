@@ -250,7 +250,7 @@ const Info = struct {
                 inferedLoc.row,
                 inferedLoc.col,
                 typeNode.typeToString(),
-                typeNode.data[0],
+                typeNode.data[0].load(.acquire),
                 self.ast.tu.cont.source[where.beg..where.end],
                 '^',
                 where.pad,
