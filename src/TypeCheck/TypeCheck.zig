@@ -193,7 +193,6 @@ fn checkVariable(self: *Self, alloc: Allocator, nodeIndex: Parser.NodeIndex) All
     }
 }
 
-// TODO : InferType if is not established
 // TODO:: If type is established chcek if the expression is valid
 fn checkPureVariable(self: *Self, alloc: Allocator, varIndex: Parser.NodeIndex) Allocator.Error!void {
     var variable = self.ast.getNode(.Bound, varIndex);
@@ -201,26 +200,23 @@ fn checkPureVariable(self: *Self, alloc: Allocator, varIndex: Parser.NodeIndex) 
     const typeIndex = variable.data[0].load(.acquire);
 
     // NOTE: This case if for variables that do not have type and cannot be inferred from the expression itself
-    if (typeIndex == 0 and !try self.inferTypeExpression(alloc, varIndex)) {
-        try self.tu.scope.put(alloc, variable.getTextAst(self.ast), varIndex);
-        return;
+    if (typeIndex == 0) {
+        if (!try Expression.inferExpressionType(self, alloc, varIndex, variable.data.@"1".load(.acquire))) {
+            try self.tu.scope.put(alloc, variable.getTextAst(self.ast), varIndex);
+            return;
+        }
     } else {
         Type.transformType(self, typeIndex);
-        variable = self.ast.getNode(.Bound, varIndex);
     }
+    variable = self.ast.getNode(.Bound, varIndex);
 
-    const exprI = variable.data.@"1".load(.acquire);
     const typeIndex2 = variable.data.@"0".load(.acquire);
+    std.debug.assert(typeIndex2 != 0);
+    const exprI = variable.data.@"1".load(.acquire);
 
     try Expression.checkExpressionType(self, alloc, exprI, typeIndex2);
 
     try self.tu.scope.put(alloc, variable.getTextAst(self.ast), varIndex);
-}
-
-// TODO: The only way to infer the type in the expression itself is with a funciton call (return type) or the types of predeclared variable types
-fn inferTypeExpression(self: *Self, alloc: Allocator, varIndex: Parser.NodeIndex) Allocator.Error!bool {
-    _ = .{ self, alloc, varIndex };
-    return false;
 }
 
 fn getTupleFromParams(comptime func: anytype) type {

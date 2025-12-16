@@ -1,5 +1,53 @@
 const FlattenExpression = std.ArrayList(Parser.NodeIndex);
 
+pub fn inferExpressionType(self: *const TypeCheck, alloc: Allocator, varI: Parser.NodeIndex, exprI: Parser.NodeIndex) Allocator.Error!bool {
+    const expr = self.ast.getNode(.Bound, exprI);
+    const variableToInfer = self.ast.getNode(.Bound, varI);
+
+    const exprTag = expr.tag.load(.acquire);
+    assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, exprTag));
+
+    const variableToInferTag = variableToInfer.tag.load(.acquire);
+    assert(Util.listContains(Parser.Node.Tag, &.{ .variable, .constant }, variableToInferTag));
+
+    var flat = FlattenExpression{};
+
+    try flattenExpression(self, alloc, &flat, exprI);
+    defer flat.deinit(alloc);
+
+    var firstSelected: Parser.NodeIndex = 0;
+    var typeIndex: Parser.NodeIndex = 0;
+    var type_: Parser.Node = .{};
+
+    while (flat.items.len > 0) {
+        const firstI = flat.pop().?;
+        const first = self.ast.getNode(.Bound, firstI);
+
+        if (first.tag.load(.acquire) != .load) continue;
+
+        const variableI = self.tu.scope.get(first.getTextAst(self.ast)).?;
+        const variable = self.ast.getNode(.UnCheck, variableI);
+        const typeI = variable.data.@"0".load(.acquire);
+        if (typeI == 0) continue;
+
+        const newType = self.ast.getNode(.UnCheck, typeI);
+        if (typeIndex == 0 or !Type.canTypeBeCoerced(self, typeI, typeIndex)) {
+            firstSelected = firstI;
+            typeIndex = typeI;
+            type_ = newType;
+        } else {
+            self.message.err.incompatibleType(typeI, typeIndex, first.getLocationAst(self.ast.*));
+            return false;
+        }
+    }
+
+    if (typeIndex == 0) return false;
+
+    try addInferType(self, alloc, .inferedFromExpression, firstSelected, varI, typeIndex);
+
+    return true;
+}
+
 pub fn checkExpressionType(self: *const TypeCheck, alloc: Allocator, exprI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex) Allocator.Error!void {
     const expr = self.ast.getNode(.Bound, exprI);
     const expectedType = self.ast.getNode(.Bound, expectedTypeI);
@@ -116,7 +164,7 @@ fn checkVarType(self: *const TypeCheck, alloc: Allocator, leafI: Parser.NodeInde
     const typeIndex = variable.data.@"0".load(.acquire);
 
     if (typeIndex == 0) {
-        try addInferType(self, alloc, leafI, variableI, typeI);
+        try addInferType(self, alloc, .inferedFromUse, leafI, variableI, typeI);
     } else {
         if (!Type.typeEqual(self, typeIndex, typeI)) {
             const tag = variable.tag.load(.acquire);
@@ -130,13 +178,15 @@ fn checkVarType(self: *const TypeCheck, alloc: Allocator, leafI: Parser.NodeInde
                 return;
             } else {
                 assert(tag == .constant);
-                try addInferType(self, alloc, leafI, variableI, typeI);
+                try addInferType(self, alloc, .inferedFromUse, leafI, variableI, typeI);
             }
         }
     }
 }
 
-fn addInferType(self: *const TypeCheck, alloc: Allocator, leafI: Parser.NodeIndex, varI: Parser.NodeIndex, typeI: Parser.NodeIndex) Allocator.Error!void {
+fn addInferType(self: *const TypeCheck, alloc: Allocator, comptime flag: std.meta.FieldEnum(Parser.Node.Flags), leafI: Parser.NodeIndex, varI: Parser.NodeIndex, typeI: Parser.NodeIndex) Allocator.Error!void {
+    assert(flag == .inferedFromUse or flag == .inferedFromExpression);
+
     const leaf = self.ast.getNode(.Bound, leafI);
     const variable = self.ast.getNode(.UnCheck, varI);
 
@@ -149,7 +199,9 @@ fn addInferType(self: *const TypeCheck, alloc: Allocator, leafI: Parser.NodeInde
     nodeType.tokenIndex.store(leaf.tokenIndex.load(.acquire), .release);
 
     nodeType.next.store(variable.data.@"0".load(.acquire), .release);
-    nodeType.flags.store(.{ .inferedFromUse = true }, .release);
+    var flags: Parser.Node.Flags = .{};
+    @field(flags, @tagName(flag)) = true;
+    nodeType.flags.store(flags, .release);
 
     // Add to list
     const x = try self.ast.nodeList.appendIndex(alloc, nodeType);

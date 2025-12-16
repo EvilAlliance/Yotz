@@ -83,6 +83,12 @@ pub fn typeEqual(self: *const TypeChecker, actualI: Parser.NodeIndex, expectedI:
     return expected.data[1].load(.acquire) == actual.data[1].load(.acquire) and expected.data[0].load(.acquire) == actual.data[0].load(.acquire);
 }
 
+pub fn canTypeBeCoerced(self: *const TypeChecker, actualI: Parser.NodeIndex, expectedI: Parser.NodeIndex) bool {
+    const actual = self.ast.getNode(.UnCheck, actualI);
+    const expected = self.ast.getNode(.UnCheck, expectedI);
+    return expected.data[1].load(.acquire) == actual.data[1].load(.acquire) and expected.data[0].load(.acquire) >= actual.data[0].load(.acquire);
+}
+
 const std = @import("std");
 
 const TypeChecker = @import("./TypeCheck.zig");

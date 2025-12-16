@@ -276,6 +276,12 @@
         "title": "Solucionar los memory leaks",
         "desc": "Hay unos problemas con los rangos de los chunks",
         "time_created": "2025-12-11 11:26:43.313950701 -03:00:00"
+      },
+      {
+        "id": "pPNrvFaF",
+        "title": "Make an observer to activate a function when a variable was not declared in the global scope yet",
+        "desc": "",
+        "time_created": "2025-12-15 22:09:43.104515253 -03:00:00"
       }
     ]
   }
