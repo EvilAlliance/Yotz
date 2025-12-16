@@ -2,10 +2,10 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 106
+:b stdout 111
 main: () u8 : () u8 { 
     a :: 1000;
-    b: u8 : 10;
+    b: u8, u16 : 10;
     c :: (a + 10);
     d: u16 = b;
     return b;
