@@ -1,15 +1,26 @@
 const Self = @This();
 
 base: StringHashMapUnmanaged(Parser.NodeIndex) = .{},
+observer: Util.Observer([]const u8, Expression.ObserverParams) = .{},
 refCount: std.atomic.Value(usize) = std.atomic.Value(usize).init(1),
 rwLock: std.Thread.RwLock = .{},
 
+pub fn init(pool: *std.Thread.Pool) Self {
+    var self: Self = .{};
+
+    self.observer.init(pool);
+    return self;
+}
+
 pub fn put(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: Parser.NodeIndex) Allocator.Error!void {
     const self: *Self = @ptrCast(@alignCast(ctx));
+    std.debug.assert(get(self, key) == null);
+
     self.rwLock.lock();
     defer self.rwLock.unlock();
 
     try self.base.put(alloc, key, value);
+    try self.observer.alert(alloc, key);
 }
 
 pub fn get(ctx: *anyopaque, key: []const u8) ?Parser.NodeIndex {
@@ -18,6 +29,15 @@ pub fn get(ctx: *anyopaque, key: []const u8) ?Parser.NodeIndex {
     defer self.rwLock.unlockShared();
 
     return self.base.get(key);
+}
+
+pub fn waitingFor(ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (Expression.ObserverParams) void, args: Expression.ObserverParams) Allocator.Error!void {
+    const self: *Self = @ptrCast(@alignCast(ctx));
+    try self.observer.push(alloc, key, func, args);
+
+    if (get(self, key)) |_| {
+        try self.observer.alert(alloc, key);
+    }
 }
 
 pub fn push(ctx: *const anyopaque, alloc: Allocator) Allocator.Error!void {
@@ -66,6 +86,8 @@ pub fn scope(self: *Self) Scope {
             .put = put,
             .get = get,
 
+            .waitingFor = waitingFor,
+
             .push = push,
             .pop = pop,
 
@@ -80,7 +102,10 @@ pub fn scope(self: *Self) Scope {
 const Scope = @import("Scope.zig");
 const ScopeFunc = @import("ScopeFunc.zig");
 
+const Expression = @import("../Expression.zig");
+
 const Parser = @import("../../Parser/mod.zig");
+const Util = @import("../../Util/Observer.zig");
 
 const std = @import("std");
 

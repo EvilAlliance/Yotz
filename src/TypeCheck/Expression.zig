@@ -25,7 +25,22 @@ pub fn inferExpressionType(self: *const TypeCheck, alloc: Allocator, varI: Parse
 
         if (first.tag.load(.acquire) != .load) continue;
 
-        const variableI = self.tu.scope.get(first.getTextAst(self.ast)).?;
+        const callBack = struct {
+            fn callBack(args: ObserverParams) void {
+                defer args[0].destroyDupe(args[1]);
+                @call(.auto, toInferLater, args) catch {
+                    TranslationUnit.failed = true;
+                    std.log.err("Run Out of Memory", .{});
+                };
+            }
+        }.callBack;
+
+        const id = first.getTextAst(self.ast);
+        const variableI = self.tu.scope.get(id) orelse {
+            try self.tu.scope.waitingFor(alloc, id, callBack, .{ try self.dupe(alloc), alloc, varI, firstI });
+            continue;
+        };
+
         const variable = self.ast.getNode(.UnCheck, variableI);
         const typeI = variable.data.@"0".load(.acquire);
         if (typeI == 0) continue;
@@ -46,6 +61,38 @@ pub fn inferExpressionType(self: *const TypeCheck, alloc: Allocator, varI: Parse
     try addInferType(self, alloc, .inferedFromExpression, firstSelected, varI, typeIndex);
 
     return true;
+}
+
+pub fn toInferLater(self: *const TypeCheck, alloc: Allocator, varI: Parser.NodeIndex, waitedI: Parser.NodeIndex) Allocator.Error!void {
+    const waited = self.ast.getNode(.Bound, waitedI);
+    const waitedTag = waited.tag.load(.acquire);
+    std.debug.assert(waitedTag == .load);
+
+    const id = waited.getTextAst(self.ast);
+    const orgWaitedI = self.tu.scope.get(id) orelse unreachable;
+
+    const orgWaited = self.ast.getNode(.UnCheck, orgWaitedI);
+    const orgWaitedTag = waited.tag.load(.acquire);
+    std.debug.assert(orgWaitedTag == .constant or orgWaitedTag == .variable);
+
+    const typeI = orgWaited.data.@"0".load(.acquire);
+
+    const variable = self.ast.getNode(.Bound, varI);
+
+    const typeIndex = variable.data.@"0".load(.acquire);
+
+    std.debug.assert(typeI != 0 or typeIndex != 0);
+
+    if (typeI == 0 and typeIndex != 0) {
+        try addInferType(self, alloc, .inferedFromUse, waitedI, orgWaitedI, typeIndex);
+    }
+
+    if (typeIndex == 0 or !Type.canTypeBeCoerced(self, typeI, typeIndex)) {
+        try addInferType(self, alloc, .inferedFromExpression, waitedI, varI, typeI);
+    } else {
+        self.message.err.incompatibleType(typeI, typeIndex, waited.getLocationAst(self.ast.*));
+        TranslationUnit.failed = true;
+    }
 }
 
 pub fn checkExpressionType(self: *const TypeCheck, alloc: Allocator, exprI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex) Allocator.Error!void {
@@ -159,7 +206,26 @@ fn checkExpressionLeaf(self: *const TypeCheck, alloc: Allocator, leafI: Parser.N
 
 fn checkVarType(self: *const TypeCheck, alloc: Allocator, leafI: Parser.NodeIndex, typeI: Parser.NodeIndex) Allocator.Error!void {
     const leaf = self.ast.getNode(.Bound, leafI);
-    const variableI = self.tu.scope.get(leaf.getTextAst(self.ast)).?;
+    const id = leaf.getTextAst(self.ast);
+
+    const callBack = struct {
+        fn callBack(args: ObserverParams) void {
+            defer args[0].destroyDupe(args[1]);
+            @call(.auto, checkVarType, args) catch {
+                TranslationUnit.failed = true;
+                std.log.err("Run Out of Memory", .{});
+            };
+        }
+    }.callBack;
+
+    const variableI = self.tu.scope.get(id) orelse
+        return try self.tu.scope.waitingFor(
+            alloc,
+            id,
+            callBack,
+            .{ try self.dupe(alloc), alloc, leafI, typeI },
+        );
+
     const variable = self.ast.getNode(.UnCheck, variableI);
     const typeIndex = variable.data.@"0".load(.acquire);
 
@@ -259,9 +325,20 @@ fn checkLitType(self: *const TypeCheck, litI: Parser.NodeIndex, typeI: Parser.No
     }
 }
 
+pub const ObserverParams = std.meta.Tuple(&.{ *const TypeCheck, Allocator, Parser.NodeIndex, Parser.NodeIndex });
+
+comptime {
+    const Expected = Util.getTupleFromParams(toInferLater);
+    const Expected1 = Util.getTupleFromParams(checkVarType);
+    if (ObserverParams != Expected or ObserverParams != Expected1) {
+        @compileError("ObserverParams type mismatch with toInferLater signature");
+    }
+}
+
 const TypeCheck = @import("TypeCheck.zig");
 const Type = @import("Type.zig");
 
+const TranslationUnit = @import("../TranslationUnit.zig");
 const Parser = @import("../Parser/mod.zig");
 const Util = @import("../Util.zig");
 

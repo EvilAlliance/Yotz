@@ -2,9 +2,9 @@ pub fn Observer(Key: type, Args: type) type {
     return struct {
         const Self = @This();
         const Handler = struct {
+            node: std.SinglyLinkedList.Node = .{},
             func: *const fn (Args) void,
             args: Args,
-            node: std.SinglyLinkedList.Node = .{},
         };
 
         bytes: [std.math.pow(usize, 2, 7)]*std.SinglyLinkedList.Node = undefined,
@@ -13,7 +13,7 @@ pub fn Observer(Key: type, Args: type) type {
         pool: *std.Thread.Pool = undefined,
         mutex: std.Thread.Mutex = .{},
 
-        eventToFunc: std.AutoHashMapUnmanaged(
+        eventToFunc: if (Key == []const u8) std.StringHashMapUnmanaged(std.SinglyLinkedList) else std.AutoHashMapUnmanaged(
             Key,
             std.SinglyLinkedList,
         ) = .{},

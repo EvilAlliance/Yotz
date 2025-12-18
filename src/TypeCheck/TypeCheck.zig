@@ -29,7 +29,7 @@ pub fn checkRoot(self: *Self, alloc: Allocator, rootIndex: Parser.NodeIndex) All
     }
 }
 
-fn dupe(self: *const Self, alloc: Allocator) Allocator.Error!*Self {
+pub fn dupe(self: *const Self, alloc: Allocator) Allocator.Error!*Self {
     const selfDupe = try Util.dupe(alloc, self.*);
     const chunk = try alloc.create(Parser.NodeList.Chunk);
     chunk.* = try Parser.NodeList.Chunk.init(alloc, self.ast.nodeList.base);
@@ -41,7 +41,7 @@ fn dupe(self: *const Self, alloc: Allocator) Allocator.Error!*Self {
     return selfDupe;
 }
 
-fn destroyDupe(self: *const Self, alloc: Allocator) void {
+pub fn destroyDupe(self: *const Self, alloc: Allocator) void {
     alloc.destroy(self.ast.nodeList);
     alloc.destroy(self.ast);
     alloc.destroy(self);
@@ -53,7 +53,7 @@ pub fn checkFunctionOuter(self: *Self, alloc: Allocator, variableIndex: Parser.N
     var funcIndex = variable.data.@"1".load(.acquire);
     if (funcIndex == 0) {
         const callBack = struct {
-            fn callBack(args: getTupleFromParams(checkFunctionOuter)) void {
+            fn callBack(args: ObserverParams) void {
                 defer args[0].destroyDupe(args[1]);
                 @call(.auto, checkFunctionOuter, args) catch {
                     TranslationUnit.failed = true;
@@ -222,43 +222,14 @@ fn checkPureVariable(self: *Self, alloc: Allocator, varIndex: Parser.NodeIndex) 
     try self.tu.scope.put(alloc, variable.getTextAst(self.ast), varIndex);
 }
 
-fn getTupleFromParams(comptime func: anytype) type {
-    const typeFunc = @TypeOf(func);
-    const typeInfo = @typeInfo(typeFunc);
+pub const ObserverParams = std.meta.Tuple(&.{ *Self, Allocator, Parser.NodeIndex });
 
-    const params = typeInfo.@"fn".params;
-    // var fieldArr: [params.len]std.builtin.Type.StructField = undefined;
-    // for (params, 0..) |param, i| {
-    //     const name = std.fmt.comptimePrint("f{}", .{i});
-    //
-    //     fieldArr[i] = .{
-    //         .name = name,
-    //         .type = param.type.?,
-    //         .default_value_ptr = null,
-    //         .is_comptime = false,
-    //         .alignment = @alignOf(param.type.?),
-    //     };
-    // }
-    //
-    // return @Type(.{
-    //     .@"struct" = .{
-    //         .fields = &fieldArr,
-    //         .layout = .auto,
-    //         .decls = &.{},
-    //         .is_tuple = false,
-    //         .backing_integer = null,
-    //     },
-    // });
-
-    var typeArr: [params.len]type = undefined;
-
-    for (params, 0..) |param, i|
-        typeArr[i] = param.type.?;
-
-    return std.meta.Tuple(&typeArr);
+comptime {
+    const Expected = Util.getTupleFromParams(checkFunctionOuter);
+    if (ObserverParams != Expected) {
+        @compileError("ObserverParams type mismatch with checkFunctionOuter signature");
+    }
 }
-
-pub const ObserverParams = getTupleFromParams(checkFunctionOuter);
 
 const Type = @import("Type.zig");
 const Expression = @import("Expression.zig");

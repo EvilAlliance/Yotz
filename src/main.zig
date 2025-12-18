@@ -117,7 +117,7 @@ pub fn main() u8 {
         return 1;
     };
 
-    var globalScope = TypeCheck.ScopeGlobal{};
+    var globalScope = TypeCheck.ScopeGlobal.init(&TranslationUnit.threadPool);
     var scope = globalScope.scope();
     defer {
         scope.deinit(alloc);

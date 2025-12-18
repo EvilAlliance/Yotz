@@ -27,6 +27,12 @@ pub fn get(ctx: *anyopaque, key: []const u8) ?Parser.NodeIndex {
     return null;
 }
 
+pub fn waitingFor(ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (Expression.ObserverParams) void, args: Expression.ObserverParams) Allocator.Error!void {
+    const self: *Self = @ptrCast(@alignCast(ctx));
+
+    try ScopeGlobal.waitingFor(self.global, alloc, key, func, args);
+}
+
 pub fn push(ctx: *anyopaque, alloc: Allocator) Allocator.Error!void {
     const self: *Self = @ptrCast(@alignCast(ctx));
     try self.base.append(alloc, StringHashMapUnmanaged(Parser.NodeIndex){});
@@ -86,6 +92,8 @@ pub fn scope(self: *Self) Scope {
             .put = put,
             .get = get,
 
+            .waitingFor = waitingFor,
+
             .push = push,
             .pop = pop,
 
@@ -99,6 +107,8 @@ pub fn scope(self: *Self) Scope {
 
 const Scope = @import("Scope.zig");
 const ScopeGlobal = @import("ScopeGlobal.zig");
+
+const Expression = @import("../Expression.zig");
 
 const Parser = @import("../../Parser/mod.zig");
 

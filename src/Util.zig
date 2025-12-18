@@ -62,3 +62,66 @@ pub fn readEntireFile(alloc: std.mem.Allocator, path: []const u8) ReadingFileErr
 
     return .{ resolvedPath, c };
 }
+
+pub fn getTupleFromParams(comptime func: anytype) type {
+    const typeFunc = @TypeOf(func);
+    const typeInfo = @typeInfo(typeFunc);
+
+    const params = typeInfo.@"fn".params;
+    // var fieldArr: [params.len]std.builtin.Type.StructField = undefined;
+    // for (params, 0..) |param, i| {
+    //     const name = std.fmt.comptimePrint("f{}", .{i});
+    //
+    //     fieldArr[i] = .{
+    //         .name = name,
+    //         .type = param.type.?,
+    //         .default_value_ptr = null,
+    //         .is_comptime = false,
+    //         .alignment = @alignOf(param.type.?),
+    //     };
+    // }
+    //
+    // return @Type(.{
+    //     .@"struct" = .{
+    //         .fields = &fieldArr,
+    //         .layout = .auto,
+    //         .decls = &.{},
+    //         .is_tuple = false,
+    //         .backing_integer = null,
+    //     },
+    // });
+
+    var typeArr: [params.len]type = undefined;
+
+    for (params, 0..) |param, i|
+        typeArr[i] = param.type.?;
+
+    return std.meta.Tuple(&typeArr);
+}
+
+pub fn makeCallback(comptime func: anytype, comptime ArgsType: type) fn (ArgsType) void {
+    return struct {
+        fn callback(args: ArgsType) void {
+            @call(.auto, func, args) catch {
+                @import("TranslationUnit.zig").failed = true;
+                std.log.err("Run Out of Memory", .{});
+            };
+        }
+    }.callback;
+}
+
+pub fn makeCallbackWithCleanup(
+    comptime func: anytype,
+    comptime ArgsType: type,
+    comptime cleanup: ?fn (ArgsType) void,
+) fn (ArgsType) void {
+    return struct {
+        fn callback(args: ArgsType) void {
+            defer if (cleanup) |c| c(args);
+            @call(.auto, func, args) catch {
+                @import("TranslationUnit.zig").failed = true;
+                std.log.err("Run Out of Memory", .{});
+            };
+        }
+    }.callback;
+}
