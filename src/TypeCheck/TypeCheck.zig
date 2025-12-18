@@ -49,8 +49,8 @@ fn destroyDupe(self: *const Self, alloc: Allocator) void {
 
 // TODO: I have to add this variable to the context
 pub fn checkFunctionOuter(self: *Self, alloc: Allocator, variableIndex: Parser.NodeIndex) Allocator.Error!void {
-    const variable = self.ast.getNode(.Bound, variableIndex);
-    const funcIndex = variable.data.@"1".load(.acquire);
+    var variable = self.ast.getNode(.Bound, variableIndex);
+    var funcIndex = variable.data.@"1".load(.acquire);
     if (funcIndex == 0) {
         const callBack = struct {
             fn callBack(args: getTupleFromParams(checkFunctionOuter)) void {
@@ -64,7 +64,10 @@ pub fn checkFunctionOuter(self: *Self, alloc: Allocator, variableIndex: Parser.N
 
         try TranslationUnit.observer.push(alloc, variableIndex, callBack, .{ try self.dupe(alloc), alloc, variableIndex });
 
-        return;
+        variable = self.ast.getNode(.Bound, variableIndex);
+        funcIndex = variable.data.@"1".load(.acquire);
+
+        if (funcIndex == 0) return else return try TranslationUnit.observer.alert(alloc, variableIndex);
     }
 
     while (true) {
@@ -120,7 +123,7 @@ pub fn inferTypeFunction(self: *Self, alloc: Allocator, variableIndex: Parser.No
     });
 
     const nodePtr = self.ast.getNodePtr(.Bound, variableIndex);
-    const result = nodePtr.data.@"0".cmpxchgWeak(0, functionTypeIndex, .acq_rel, .monotonic);
+    const result = nodePtr.data.@"0".cmpxchgStrong(0, functionTypeIndex, .acq_rel, .monotonic);
     self.ast.unlockShared();
 
     return result == null;
