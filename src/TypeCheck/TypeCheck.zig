@@ -37,6 +37,7 @@ pub fn dupe(self: *const Self, alloc: Allocator) Allocator.Error!*Self {
     const ast = try alloc.create(Parser.Ast);
     ast.* = Parser.Ast.init(chunk, self.tu);
     selfDupe.ast = ast;
+    selfDupe.message = Message.init(ast);
 
     return selfDupe;
 }
