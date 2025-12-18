@@ -61,6 +61,8 @@ fn transformIdentiferType(self: *TypeChecker, typeIndex: Parser.NodeIndex) void 
     const typeInfo = std.meta.stringToEnum(TypeName, name) orelse @panic("Aliases or struct arent supported yet");
 
     const nodePtr = self.ast.getNodePtr(.UnCheck, typeIndex);
+    defer self.ast.unlockShared();
+
     if (nodePtr.tag.cmpxchgStrong(.fakeType, .type, .seq_cst, .monotonic) != null) {
         std.debug.assert(nodePtr.tag.load(.acquire) == .type);
         return;
@@ -68,7 +70,6 @@ fn transformIdentiferType(self: *TypeChecker, typeIndex: Parser.NodeIndex) void 
 
     const resultSize = nodePtr.data.@"0".cmpxchgStrong(0, typeInfo.bitSize(), .acq_rel, .monotonic);
     const resultPrimitive = nodePtr.data.@"1".cmpxchgStrong(0, @intFromEnum(typeInfo.nodeKind()), .acq_rel, .monotonic);
-    self.ast.unlockShared();
 
     // NOTE: if this fails and the if was successful is sus
     std.debug.assert(resultSize == null and resultPrimitive == null);
