@@ -281,7 +281,9 @@
         "id": "pPNrvFaF",
         "title": "Make an observer to activate a function when a variable was not declared in the global scope yet",
         "desc": "",
-        "time_created": "2025-12-15 22:09:43.104515253 -03:00:00"
+        "time_created": "2025-12-15 22:09:43.104515253 -03:00:00",
+        "time_started": "2025-12-19 19:39:15.864753509 -03:00:00",
+        "time_completed": "2025-12-19 19:39:25.443282254 -03:00:00"
       },
       {
         "id": "bAuxP8Ah",
@@ -294,6 +296,12 @@
         "title": "When deinit global scope report undef variables and deinit the observer",
         "desc": "",
         "time_created": "2025-12-18 17:38:29.897530703 -03:00:00"
+      },
+      {
+        "id": "d7wVpU2t",
+        "title": "Make a way to freeze the observer, so the check could be done when the alert is not able to process",
+        "desc": "",
+        "time_created": "2025-12-19 19:40:44.492662004 -03:00:00"
       }
     ]
   }
