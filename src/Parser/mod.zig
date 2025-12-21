@@ -5,6 +5,10 @@ pub const Parser = @import("Parser.zig");
 pub const Ast = @import("Ast.zig");
 pub const Node = @import("Node.zig");
 
-pub const NodeList = ArrayListThreadSafe(true, Node, NodeIndex, 10);
+const BucketSize = std.math.pow(NodeIndex, 2, 4);
 
-const ArrayListThreadSafe = @import("../Util/ArrayListThreadSafe.zig").ChunkBase;
+pub const NodeList = BucketList(Node, NodeIndex, BucketSize);
+
+const BucketList = @import("../Util/BucketArray.zig").BucketArray;
+
+const std = @import("std");

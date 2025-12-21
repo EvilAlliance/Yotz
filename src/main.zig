@@ -133,7 +133,7 @@ pub fn main() u8 {
 
     const tu = TranslationUnit.initGlobal(&cont, scope);
 
-    var nodes = Parser.NodeList.init();
+    var nodes = Parser.NodeList{};
     defer nodes.deinit(alloc);
     const bytes, const ret = tu.startEntry(alloc, &nodes) catch {
         std.log.err("Run Out of Memory", .{});

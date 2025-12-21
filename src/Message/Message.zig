@@ -152,8 +152,8 @@ const Error = struct {
     }
 
     pub inline fn incompatibleType(self: @This(), actualI: Parser.NodeIndex, expectedI: Parser.NodeIndex, loc: Lexer.Location) void {
-        const actual = self.ast.getNode(.UnCheck, actualI);
-        const expected = self.ast.getNode(.UnCheck, expectedI);
+        const actual = self.ast.getNode(actualI);
+        const expected = self.ast.getNode(expectedI);
         const where = placeSlice(loc, self.ast.tu.cont.source);
         std.log.err(
             "{s}:{}:{}: Type {c}{}, is incompatible with {c}{} \n{s}\n{[8]c: >[9]}",
@@ -173,7 +173,7 @@ const Error = struct {
     }
 
     pub inline fn nodeNotSupported(self: @This(), nodeI: Parser.NodeIndex) void {
-        const node = self.ast.getNode(.UnCheck, nodeI);
+        const node = self.ast.getNode(nodeI);
         const loc = node.getLocationAst(self.ast.*);
 
         const where = placeSlice(loc, self.ast.tu.cont.source);
@@ -192,8 +192,8 @@ const Error = struct {
     }
 
     pub inline fn numberDoesNotFit(self: @This(), exprI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex) void {
-        const expectedType = self.ast.getNode(.UnCheck, expectedTypeI);
-        const loc = self.ast.getNodeLocation(.UnCheck, exprI);
+        const expectedType = self.ast.getNode(expectedTypeI);
+        const loc = self.ast.getNodeLocation(exprI);
         const size = expectedType.data[0].load(.acquire);
         const max = std.math.pow(u64, 2, size) - 1;
         const where = placeSlice(loc, self.ast.tu.cont.source);
@@ -222,7 +222,7 @@ const Info = struct {
     }
 
     pub inline fn isDeclaredHere(self: @This(), varI: Parser.NodeIndex) void {
-        const varia = self.ast.getNode(.UnCheck, varI);
+        const varia = self.ast.getNode(varI);
         const locVar = varia.getLocationAst(self.ast.*);
         const where = placeSlice(locVar, self.ast.tu.cont.source);
         std.log.info(
@@ -240,7 +240,7 @@ const Info = struct {
     }
 
     pub inline fn inferedType(self: @This(), t: Parser.NodeIndex) void { // type
-        const typeNode = self.ast.getNode(.UnCheck, t);
+        const typeNode = self.ast.getNode(t);
         const inferedLoc = typeNode.getLocationAst(self.ast.*);
         const where = placeSlice(inferedLoc, self.ast.tu.cont.source);
         std.log.info(

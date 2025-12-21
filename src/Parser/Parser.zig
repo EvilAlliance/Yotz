@@ -2,13 +2,13 @@ tu: *const TranslationUnit,
 
 index: mod.TokenIndex = 0,
 
-nodeList: *mod.NodeList.Chunk,
+nodeList: *mod.NodeList,
 
 errors: std.ArrayList(UnexpectedToken),
 
 depth: mod.NodeIndex = 0,
 
-pub fn init(tu: *const TranslationUnit, chunk: *mod.NodeList.Chunk) Allocator.Error!@This() {
+pub fn init(tu: *const TranslationUnit, chunk: *mod.NodeList) Allocator.Error!@This() {
     return @This(){
         .tu = tu,
 
@@ -70,8 +70,7 @@ pub fn parseFunction(self: *@This(), alloc: Allocator, start: mod.TokenIndex, pl
         }
     };
 
-    if (self.nodeList.getPtrOutChunk(placeHolder).data[1].cmpxchgStrong(0, index, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
-    self.nodeList.unlockShared();
+    if (self.nodeList.getPtr(placeHolder).data[1].cmpxchgStrong(0, index, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
 }
 
 pub fn parseRoot(self: *@This(), alloc: Allocator, start: mod.TokenIndex, placeHolder: mod.NodeIndex) (std.mem.Allocator.Error)!void {
@@ -79,8 +78,7 @@ pub fn parseRoot(self: *@This(), alloc: Allocator, start: mod.TokenIndex, placeH
 
     const index = try self._parseRoot(alloc);
 
-    if (self.nodeList.getPtrOutChunk(placeHolder).data[1].cmpxchgStrong(0, index, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
-    self.nodeList.unlockShared();
+    if (self.nodeList.getPtr(placeHolder).data[1].cmpxchgStrong(0, index, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
 }
 
 fn _parseRoot(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error)!mod.NodeIndex {
@@ -110,7 +108,6 @@ fn _parseRoot(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error)!mod.No
             firstIndex = nodeIndex;
         } else {
             if (self.nodeList.getPtr(lastNodeParsed).next.cmpxchgStrong(0, nodeIndex, .acq_rel, .monotonic) != null) @panic("This is controlled by this thread and it should not be influenced by others");
-            self.nodeList.unlockShared();
         }
 
         lastNodeParsed = nodeIndex;
@@ -279,7 +276,6 @@ fn parseScope(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || erro
             firstIndex = nodeIndex;
         } else {
             if (self.nodeList.getPtr(lastNodeParsed).next.cmpxchgStrong(0, nodeIndex, .acq_rel, .monotonic) != null) @panic("This is controlled by this thread and it should not be influenced by others");
-            self.nodeList.unlockShared();
         }
 
         lastNodeParsed = nodeIndex;
@@ -345,7 +341,7 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error 
 
             index = try self.nodeList.appendIndex(alloc, node);
             // NOTE: For this to be successful the item must be sotred
-            try (try self.tu.initFunc(alloc)).startFunction(alloc, self.nodeList.base, start, index);
+            try (try self.tu.initFunc(alloc)).startFunction(alloc, self.nodeList, start, index);
         } else {
             node.data[1].store(try self.parseExpression(alloc), .release);
 
@@ -370,7 +366,7 @@ fn parseReturn(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || err
             .tokenIndex = .init(retIndex),
         });
 
-        try (try self.tu.initFunc(alloc)).startFunction(alloc, self.nodeList.base, start, nodeIndex);
+        try (try self.tu.initFunc(alloc)).startFunction(alloc, self.nodeList, start, nodeIndex);
 
         return nodeIndex;
     } else {

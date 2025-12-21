@@ -263,13 +263,17 @@
         "id": "TQ6sgNXE",
         "title": "Investigate creating a custom type as a relative pointer and use that instead of an array",
         "desc": "Use an arena allocator, but instead of index, use relative pointer of u32. if is needed we can use the multithreaded array and be safe of realloc. I think",
-        "time_created": "2025-11-28 18:31:50.267666743 -03:00:00"
+        "time_created": "2025-11-28 18:31:50.267666743 -03:00:00",
+        "time_started": "2025-12-21 17:22:23.975640673 -03:00:00",
+        "time_completed": "2025-12-21 17:22:24.136886607 -03:00:00"
       },
       {
         "id": "x8X6T2T6",
         "title": "A lot of ranges are being created and wasted because of the constant creation of the outer type",
         "desc": "",
-        "time_created": "2025-11-28 18:59:01.583783183 -03:00:00"
+        "time_created": "2025-11-28 18:59:01.583783183 -03:00:00",
+        "time_started": "2025-12-21 17:22:14.96977736 -03:00:00",
+        "time_completed": "2025-12-21 17:22:15.437607518 -03:00:00"
       },
       {
         "id": "gxC4jUbv",

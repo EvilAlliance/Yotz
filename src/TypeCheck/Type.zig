@@ -1,5 +1,5 @@
 pub fn transformType(self: *TypeChecker, typeIndex: Parser.NodeIndex) void {
-    const node = self.ast.getNode(.UnCheck, typeIndex);
+    const node = self.ast.getNode(typeIndex);
 
     const tag = node.tag.load(.acquire);
     switch (tag) {
@@ -11,7 +11,7 @@ pub fn transformType(self: *TypeChecker, typeIndex: Parser.NodeIndex) void {
 }
 
 fn transformFuncType(self: *TypeChecker, typeIndex: Parser.NodeIndex) void {
-    const node = self.ast.getNode(.UnCheck, typeIndex);
+    const node = self.ast.getNode(typeIndex);
     std.debug.assert(node.tag.load(.acquire) == .funcType);
 
     std.debug.assert(node.data[0].load(.acquire) == 0);
@@ -50,7 +50,7 @@ fn transformIdentiferType(self: *TypeChecker, typeIndex: Parser.NodeIndex) void 
         }
     };
 
-    const node = self.ast.getNode(.UnCheck, typeIndex);
+    const node = self.ast.getNode(typeIndex);
 
     const type_ = node.tag.load(.acquire);
     if (type_ == .type) return;
@@ -60,8 +60,7 @@ fn transformIdentiferType(self: *TypeChecker, typeIndex: Parser.NodeIndex) void 
 
     const typeInfo = std.meta.stringToEnum(TypeName, name) orelse @panic("Aliases or struct arent supported yet");
 
-    const nodePtr = self.ast.getNodePtr(.UnCheck, typeIndex);
-    defer self.ast.unlockShared();
+    const nodePtr = self.ast.getNodePtr(typeIndex);
 
     if (nodePtr.tag.cmpxchgStrong(.fakeType, .type, .seq_cst, .monotonic) != null) {
         std.debug.assert(nodePtr.tag.load(.acquire) == .type);
@@ -76,8 +75,8 @@ fn transformIdentiferType(self: *TypeChecker, typeIndex: Parser.NodeIndex) void 
 }
 
 pub fn typeEqual(self: *const TypeChecker, actualI: Parser.NodeIndex, expectedI: Parser.NodeIndex) bool {
-    const actual = self.ast.getNode(.UnCheck, actualI);
-    const expected = self.ast.getNode(.UnCheck, expectedI);
+    const actual = self.ast.getNode(actualI);
+    const expected = self.ast.getNode(expectedI);
 
     std.debug.assert(actual.tag.load(.acquire) == .type and expected.tag.load(.acquire) == .type);
 
@@ -85,8 +84,8 @@ pub fn typeEqual(self: *const TypeChecker, actualI: Parser.NodeIndex, expectedI:
 }
 
 pub fn canTypeBeCoerced(self: *const TypeChecker, actualI: Parser.NodeIndex, expectedI: Parser.NodeIndex) bool {
-    const actual = self.ast.getNode(.UnCheck, actualI);
-    const expected = self.ast.getNode(.UnCheck, expectedI);
+    const actual = self.ast.getNode(actualI);
+    const expected = self.ast.getNode(expectedI);
     return expected.data[1].load(.acquire) == actual.data[1].load(.acquire) and expected.data[0].load(.acquire) >= actual.data[0].load(.acquire);
 }
 

@@ -6,16 +6,10 @@ const TranslationUnit = @import("../TranslationUnit.zig");
 
 pub const FileInfo = struct { []const u8, [:0]const u8 };
 
-pub const Mode = enum {
-    Bound,
-    UnBound,
-    UnCheck,
-};
-
-nodeList: *mod.NodeList.Chunk,
+nodeList: *mod.NodeList,
 tu: *const TranslationUnit,
 
-pub fn init(nl: *mod.NodeList.Chunk, tu: *const TranslationUnit) @This() {
+pub fn init(nl: *mod.NodeList, tu: *const TranslationUnit) @This() {
     return @This(){
         .nodeList = nl,
         .tu = tu,
@@ -30,51 +24,39 @@ pub inline fn getToken(self: *const @This(), i: mod.TokenIndex) Lexer.Token {
     return self.tu.cont.tokens[i];
 }
 
-pub inline fn getNodeLocation(self: *const @This(), comptime mode: Mode, i: mod.NodeIndex) Lexer.Location {
-    const node = self.getNode(mode, i);
+pub inline fn getNodeLocation(self: *const @This(), i: mod.NodeIndex) Lexer.Location {
+    const node = self.getNode(i);
     return self.getToken(node.tokenIndex.load(.acquire)).loc;
 }
 
-pub inline fn getNodeText(self: *const @This(), comptime mode: Mode, i: mod.NodeIndex) []const u8 {
-    const node = self.getNode(mode, i);
+pub inline fn getNodeText(self: *const @This(), i: mod.NodeIndex) []const u8 {
+    const node = self.getNode(i);
     return self.getToken(node.tokenIndex.load(.acquire)).getText(self.tu.cont.source);
 }
 
-pub inline fn getNodeName(self: *const @This(), comptime mode: Mode, i: mod.NodeIndex) []const u8 {
-    const node = self.getNode(mode, i);
+pub inline fn getNodeName(self: *const @This(), i: mod.NodeIndex) []const u8 {
+    const node = self.getNode(i);
     return self.getToken(node.tokenIndex).tag.getName();
 }
 
-pub fn getNode(self: *const @This(), comptime mode: Mode, i: mod.NodeIndex) mod.Node {
-    return switch (mode) {
-        .Bound => self.getNode(.UnCheck, i),
-        .UnBound => self.nodeList.getOutChunk(i),
-        .UnCheck => self.nodeList.getUncheck(i),
-    };
+pub fn getNode(self: *const @This(), i: mod.NodeIndex) mod.Node {
+    return self.nodeList.get(i);
 }
 
-pub inline fn getNodePtr(self: *@This(), comptime mode: Mode, i: mod.NodeIndex) *mod.Node {
-    return switch (mode) {
-        .Bound => self.getNodePtr(.UnCheck, i),
-        .UnBound => self.nodeList.getPtrOutChunk(i),
-        .UnCheck => self.nodeList.getPtrUnCheck(i),
-    };
-}
-
-pub inline fn unlockShared(self: *@This()) void {
-    self.nodeList.unlockShared();
+pub inline fn getNodePtr(self: *@This(), i: mod.NodeIndex) *mod.Node {
+    return self.nodeList.getPtr(i);
 }
 
 pub fn toString(self: *const @This(), alloc: std.mem.Allocator, rootIndex: mod.NodeIndex) std.mem.Allocator.Error![]const u8 {
     var cont = std.ArrayList(u8){};
 
-    const root = self.getNode(.UnCheck, rootIndex);
+    const root = self.getNode(rootIndex);
 
     var i = root.data[0].load(.acquire);
-    while (i != 0) : (i = self.getNode(.UnCheck, i).next.load(.acquire)) {
+    while (i != 0) : (i = self.getNode(i).next.load(.acquire)) {
         try self.tostringVariable(alloc, &cont, 0, i);
 
-        if (self.getNode(.UnCheck, self.getNode(.UnCheck, i).data[1].load(.acquire)).tag.load(.acquire) != .funcProto) {
+        if (self.getNode(self.getNode(i).data[1].load(.acquire)).tag.load(.acquire) != .funcProto) {
             try cont.appendSlice(alloc, ";\n");
         }
     }
@@ -83,18 +65,18 @@ pub fn toString(self: *const @This(), alloc: std.mem.Allocator, rootIndex: mod.N
 }
 
 fn toStringFuncProto(self: *const @This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: mod.NodeIndex) std.mem.Allocator.Error!void {
-    std.debug.assert(self.getNode(.UnCheck, i).tag.load(.acquire) == .funcProto);
-    std.debug.assert(self.getNode(.UnCheck, i).data[0].load(.acquire) == 0);
+    std.debug.assert(self.getNode(i).tag.load(.acquire) == .funcProto);
+    std.debug.assert(self.getNode(i).data[0].load(.acquire) == 0);
 
     // TODO : Put arguments
     try cont.appendSlice(alloc, "() ");
 
-    try self.toStringType(alloc, cont, d, self.getNode(.UnCheck, i).data[1].load(.acquire));
+    try self.toStringType(alloc, cont, d, self.getNode(i).data[1].load(.acquire));
 
     try cont.append(alloc, ' ');
 
-    const protoNext = self.getNode(.UnCheck, i).next.load(.acquire);
-    if (self.getNode(.UnCheck, protoNext).tag.load(.acquire) == .scope) return try self.toStringScope(alloc, cont, d, protoNext);
+    const protoNext = self.getNode(i).next.load(.acquire);
+    if (self.getNode(protoNext).tag.load(.acquire) == .scope) return try self.toStringScope(alloc, cont, d, protoNext);
 
     try self.toStringStatement(alloc, cont, d, protoNext);
 }
@@ -105,7 +87,7 @@ fn toStringType(self: *const @This(), alloc: std.mem.Allocator, cont: *std.Array
     var index = i;
 
     while (true) {
-        const t = self.getNode(.UnCheck, index);
+        const t = self.getNode(index);
 
         switch (t.tag.load(.acquire)) {
             .funcType => {
@@ -127,7 +109,7 @@ fn toStringType(self: *const @This(), alloc: std.mem.Allocator, cont: *std.Array
                 alloc.free(size);
             },
             .fakeType => {
-                const x = self.getNodeText(.UnCheck, index);
+                const x = self.getNodeText(index);
                 try cont.appendSlice(alloc, x);
             },
             else => unreachable,
@@ -144,7 +126,7 @@ fn toStringType(self: *const @This(), alloc: std.mem.Allocator, cont: *std.Array
 }
 
 fn toStringScope(self: *const @This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: mod.NodeIndex) std.mem.Allocator.Error!void {
-    const scope = self.getNode(.UnCheck, i);
+    const scope = self.getNode(i);
     std.debug.assert(scope.tag.load(.acquire) == .scope);
 
     try cont.appendSlice(alloc, "{ \n");
@@ -152,7 +134,7 @@ fn toStringScope(self: *const @This(), alloc: std.mem.Allocator, cont: *std.Arra
     var j = scope.data[0].load(.acquire);
 
     while (j != 0) {
-        const node = self.getNode(.UnCheck, j);
+        const node = self.getNode(j);
 
         try self.toStringStatement(alloc, cont, d + 4, j);
 
@@ -167,7 +149,7 @@ fn toStringStatement(self: *const @This(), alloc: std.mem.Allocator, cont: *std.
         try cont.append(alloc, ' ');
     }
 
-    const stmt = self.getNode(.UnCheck, i);
+    const stmt = self.getNode(i);
 
     switch (stmt.tag.load(.acquire)) {
         .ret => {
@@ -184,7 +166,7 @@ fn toStringStatement(self: *const @This(), alloc: std.mem.Allocator, cont: *std.
 }
 
 fn tostringVariable(self: *const @This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: mod.NodeIndex) std.mem.Allocator.Error!void {
-    const variable = self.getNode(.UnCheck, i);
+    const variable = self.getNode(i);
     std.debug.assert(variable.tag.load(.acquire) == .constant or variable.tag.load(.acquire) == .variable);
 
     try cont.appendSlice(alloc, variable.getTextAst(self));
@@ -211,7 +193,7 @@ fn tostringVariable(self: *const @This(), alloc: std.mem.Allocator, cont: *std.A
 }
 
 fn toStringExpression(self: *const @This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: mod.NodeIndex) std.mem.Allocator.Error!void {
-    const node = self.getNode(.UnCheck, i);
+    const node = self.getNode(i);
     switch (node.tag.load(.acquire)) {
         .funcProto => try self.toStringFuncProto(alloc, cont, d, i),
         .addition, .subtraction, .multiplication, .division, .power => {
