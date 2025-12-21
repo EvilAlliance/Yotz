@@ -310,10 +310,12 @@ fn parseStatement(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || 
 fn parseVariableDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
     _, const nameIndex = self.popIf(.iden) orelse unreachable;
 
-    var node: Node = .{
+    const index = try self.nodeList.appendIndex(alloc, .{
         .tag = .init(Node.Tag.variable),
         .tokenIndex = .init(nameIndex),
-    };
+    });
+
+    const node = self.nodeList.getPtr(index);
 
     if (!try self.expect(alloc, self.peek()[0], &.{.colon})) return error.UnexpectedToken;
     _ = self.pop();
@@ -323,33 +325,18 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error 
     if (possibleType.tag != .colon and possibleType.tag != .equal)
         node.data[0].store(try self.parseType(alloc), .release);
 
-    var index: mod.NodeIndex = 0;
-
     const possibleExpr = self.peek()[0];
-    var func = false;
 
     if (possibleExpr.tag == .colon or possibleExpr.tag == .equal) {
         if (self.pop()[0].tag == .colon)
             node.tag = .init(.constant);
 
-        func = self.isFunction();
+        const expr = try self.parseExpression(alloc, index);
 
-        if (func) {
-            const start = self.index;
-
-            self.skipFunction();
-
-            index = try self.nodeList.appendIndex(alloc, node);
-            // NOTE: For this to be successful the item must be sotred
-            try (try self.tu.initFunc(alloc)).startFunction(alloc, self.nodeList, start, index);
-        } else {
-            node.data[1].store(try self.parseExpression(alloc), .release);
-
-            index = try self.nodeList.appendIndex(alloc, node);
-        }
+        node.data[1].store(expr, .release);
     }
 
-    if (!func and !try self.expect(alloc, self.peek()[0], &.{.semicolon})) return error.UnexpectedToken;
+    if (node.data[1].load(.acquire) != 0 and !try self.expect(alloc, self.peek()[0], &.{.semicolon})) return error.UnexpectedToken;
 
     return index;
 }
@@ -357,35 +344,35 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error 
 fn parseReturn(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
     _, const retIndex = self.popIf(.ret) orelse unreachable;
 
-    if (self.isFunction()) {
-        const start = self.index;
-        self.skipFunction();
+    const nodeIndex = try self.nodeList.appendIndex(alloc, .{
+        .tag = .init(.ret),
+        .tokenIndex = .init(retIndex),
+    });
+    const exp = try self.parseExpression(alloc, nodeIndex);
 
-        const nodeIndex = try self.nodeList.appendIndex(alloc, .{
-            .tag = .init(.ret),
-            .tokenIndex = .init(retIndex),
-        });
+    const node = self.nodeList.getPtr(nodeIndex);
 
-        try (try self.tu.initFunc(alloc)).startFunction(alloc, self.nodeList, start, nodeIndex);
+    node.data[1].store(exp, .release);
 
-        return nodeIndex;
-    } else {
-        const exp = try self.parseExpression(alloc);
+    if (exp != 0 and !try self.expect(alloc, self.peek()[0], &.{.semicolon})) return error.UnexpectedToken;
 
-        const nodeIndex = try self.nodeList.appendIndex(alloc, .{
-            .tag = .init(.ret),
-            .tokenIndex = .init(retIndex),
-            .data = .{ .init(0), .init(exp) },
-        });
-
-        if (!try self.expect(alloc, self.peek()[0], &.{.semicolon})) return error.UnexpectedToken;
-
-        return nodeIndex;
-    }
+    return nodeIndex;
 }
 
-fn parseExpression(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
-    return self.parseExpr(alloc, 1);
+// NOTE: Returns 0 if is a function
+fn parseExpression(self: *@This(), alloc: Allocator, index: mod.NodeIndex) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
+    if (self.isFunction()) {
+        assert(index != 0);
+        const start = self.index;
+
+        self.skipFunction();
+
+        try (try self.tu.initFunc(alloc)).startFunction(alloc, self.nodeList, start, index);
+
+        return 0;
+    } else {
+        return self.parseExpr(alloc, 1);
+    }
 }
 
 fn parseExpr(self: *@This(), alloc: Allocator, minPrecedence: u8) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
@@ -456,7 +443,7 @@ fn parseTerm(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error
 
             _ = self.pop();
 
-            const expr = try self.parseExpression(alloc);
+            const expr = try self.parseExpression(alloc, 0);
             if (!try self.expect(alloc, self.peek()[0], &.{.closeParen})) return error.UnexpectedToken;
 
             _ = self.pop();

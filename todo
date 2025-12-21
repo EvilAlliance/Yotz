@@ -243,7 +243,9 @@
         "id": "SFU8jY3M",
         "title": "Tratar funciones como expression",
         "desc": "En vez de analizar la funcion y  si no esta una expression, tratar la funcion como una expression",
-        "time_created": "2025-11-04 16:47:29.170974824 -03:00:00"
+        "time_created": "2025-11-04 16:47:29.170974824 -03:00:00",
+        "time_started": "2025-12-21 17:39:02.309066188 -03:00:00",
+        "time_completed": "2025-12-21 17:39:02.690775347 -03:00:00"
       },
       {
         "id": "xeVxfGjD",
