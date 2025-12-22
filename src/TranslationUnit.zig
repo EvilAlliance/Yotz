@@ -80,7 +80,7 @@ pub var threadPool: Thread.Pool = undefined;
 pub var observer: TypeCheck.Observer = .{};
 
 tag: Type,
-cont: *Content,
+cont: *const Content,
 scope: TypeCheck.Scope,
 
 pub fn initGlobal(cont: *const Content, scope: TypeCheck.Scope) Self {
