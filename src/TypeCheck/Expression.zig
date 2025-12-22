@@ -36,10 +36,7 @@ pub fn inferExpressionType(self: *const TypeCheck, alloc: Allocator, varI: Parse
         }.callBack;
 
         const id = first.getTextAst(self.ast);
-        const variableI = self.tu.scope.get(id) orelse {
-            try self.tu.scope.waitingFor(alloc, id, callBack, .{ try self.dupe(alloc), alloc, varI, firstI });
-            continue;
-        };
+        const variableI = try self.tu.scope.getOrWait(alloc, id, callBack, .{ try self.dupe(alloc), alloc, varI, firstI }) orelse continue;
 
         const variable = self.ast.getNode(variableI);
         const typeI = variable.data.@"0".load(.acquire);
@@ -218,13 +215,13 @@ fn checkVarType(self: *const TypeCheck, alloc: Allocator, leafI: Parser.NodeInde
         }
     }.callBack;
 
-    const variableI = self.tu.scope.get(id) orelse
-        return try self.tu.scope.waitingFor(
+    const variableI =
+        try self.tu.scope.getOrWait(
             alloc,
             id,
             callBack,
             .{ try self.dupe(alloc), alloc, leafI, typeI },
-        );
+        ) orelse return;
 
     const variable = self.ast.getNode(variableI);
     const typeIndex = variable.data.@"0".load(.acquire);

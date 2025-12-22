@@ -33,6 +33,21 @@ pub fn waitingFor(ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *con
     try ScopeGlobal.waitingFor(self.global, alloc, key, func, args);
 }
 
+pub fn getOrWait(ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (Expression.ObserverParams) void, args: Expression.ObserverParams) Allocator.Error!?Parser.NodeIndex {
+    const self: *Self = @ptrCast(@alignCast(ctx));
+
+    self.global.observer.mutex.lock();
+    defer self.global.observer.mutex.unlock();
+
+    const result = get(ctx, key);
+
+    if (result) |r| return r;
+
+    try ScopeGlobal.waitingForUnlock(self.global, alloc, key, func, args);
+
+    return null;
+}
+
 pub fn push(ctx: *anyopaque, alloc: Allocator) Allocator.Error!void {
     const self: *Self = @ptrCast(@alignCast(ctx));
     try self.base.append(alloc, StringHashMapUnmanaged(Parser.NodeIndex){});
@@ -93,6 +108,7 @@ pub fn scope(self: *Self) Scope {
             .get = get,
 
             .waitingFor = waitingFor,
+            .getOrWait = getOrWait,
 
             .push = push,
             .pop = pop,

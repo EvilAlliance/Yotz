@@ -8,6 +8,7 @@ pub const VTable = struct {
     get: *const fn (*anyopaque, key: []const u8) ?Parser.NodeIndex,
 
     waitingFor: *const fn (ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (Expression.ObserverParams) void, args: Expression.ObserverParams) Allocator.Error!void,
+    getOrWait: *const fn (ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (Expression.ObserverParams) void, args: Expression.ObserverParams) Allocator.Error!?Parser.NodeIndex,
 
     push: *const fn (*anyopaque, alloc: Allocator) Allocator.Error!void,
     pop: *const fn (*anyopaque, alloc: Allocator) void,
@@ -28,6 +29,10 @@ pub fn get(self: *const Self, key: []const u8) ?Parser.NodeIndex {
 
 pub fn waitingFor(self: *Self, alloc: Allocator, key: []const u8, func: *const fn (Expression.ObserverParams) void, args: Expression.ObserverParams) Allocator.Error!void {
     try self.vtable.waitingFor(self.ptr, alloc, key, func, args);
+}
+
+pub fn getOrWait(self: *Self, alloc: Allocator, key: []const u8, func: *const fn (Expression.ObserverParams) void, args: Expression.ObserverParams) Allocator.Error!?Parser.NodeIndex {
+    return try self.vtable.getOrWait(self.ptr, alloc, key, func, args);
 }
 
 pub fn push(self: *const Self, alloc: Allocator) Allocator.Error!void {

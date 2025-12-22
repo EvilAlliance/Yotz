@@ -15,11 +15,14 @@ pub fn init(pool: *std.Thread.Pool) Self {
 pub fn put(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: Parser.NodeIndex) Allocator.Error!void {
     const self: *Self = @ptrCast(@alignCast(ctx));
     std.debug.assert(get(self, key) == null);
+    {
 
-    self.rwLock.lock();
-    defer self.rwLock.unlock();
+        self.rwLock.lock();
+        defer self.rwLock.unlock();
 
-    try self.base.put(alloc, key, value);
+        try self.base.put(alloc, key, value);
+    }
+
     try self.observer.alert(alloc, key);
 }
 
@@ -38,6 +41,26 @@ pub fn waitingFor(ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *con
     if (get(self, key)) |_| {
         try self.observer.alert(alloc, key);
     }
+}
+
+pub fn waitingForUnlock(ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (Expression.ObserverParams) void, args: Expression.ObserverParams) Allocator.Error!void {
+    const self: *Self = @ptrCast(@alignCast(ctx));
+    try self.observer.pushUnlock(alloc, key, func, args);
+}
+
+pub fn getOrWait(ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (Expression.ObserverParams) void, args: Expression.ObserverParams) Allocator.Error!?Parser.NodeIndex {
+    const self: *Self = @ptrCast(@alignCast(ctx));
+
+    self.observer.mutex.lock();
+    defer self.observer.mutex.unlock();
+
+    const result = get(ctx, key);
+
+    if (result) |r| return r;
+
+    try waitingForUnlock(self, alloc, key, func, args);
+
+    return null;
 }
 
 pub fn push(ctx: *const anyopaque, alloc: Allocator) Allocator.Error!void {
@@ -87,6 +110,7 @@ pub fn scope(self: *Self) Scope {
             .get = get,
 
             .waitingFor = waitingFor,
+            .getOrWait = getOrWait,
 
             .push = push,
             .pop = pop,
