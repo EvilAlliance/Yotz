@@ -71,6 +71,8 @@ pub fn parseFunction(self: *@This(), alloc: Allocator, start: mod.TokenIndex, pl
     };
 
     if (self.nodeList.getPtr(placeHolder).data[1].cmpxchgStrong(0, index, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
+
+    std.debug.assert(self.nodeList.get(placeHolder).data.@"1".load(.acquire) == index);
 }
 
 pub fn parseRoot(self: *@This(), alloc: Allocator, start: mod.TokenIndex, placeHolder: mod.NodeIndex) (std.mem.Allocator.Error)!void {
@@ -327,16 +329,20 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error 
 
     const possibleExpr = self.peek()[0];
 
+    var expr: mod.NodeIndex = 0;
+
     if (possibleExpr.tag == .colon or possibleExpr.tag == .equal) {
         if (self.pop()[0].tag == .colon)
             node.tag = .init(.constant);
 
-        const expr = try self.parseExpression(alloc, index);
+        expr = try self.parseExpression(alloc, index);
 
-        node.data[1].store(expr, .release);
+        if (expr != 0)
+            node.data[1].store(expr, .release);
     }
 
-    if (node.data[1].load(.acquire) != 0 and !try self.expect(alloc, self.peek()[0], &.{.semicolon})) return error.UnexpectedToken;
+    if (expr != 0 and !try self.expect(alloc, self.peek()[0], &.{.semicolon}))
+        return error.UnexpectedToken;
 
     return index;
 }

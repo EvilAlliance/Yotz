@@ -1,10 +1,10 @@
-pub fn BucketArray(comptime T: type, comptime BucketType: type, comptime nodes_per_bucket: BucketType) type {
+pub fn BucketArray(comptime T: type, comptime BucketType: type, comptime nodesPerBucket: BucketType) type {
     return struct {
         const Self = @This();
-        const Bucket = [nodes_per_bucket]T;
+        const Bucket = [nodesPerBucket]T;
 
         buckets: ArrayList(*Bucket) = .{},
-        next_index: Atomic(BucketType) = .init(0),
+        nextIndex: Atomic(BucketType) = .init(0),
         protec: Thread.Mutex = .{},
 
         pub fn deinit(self: *Self, alloc: Allocator) void {
@@ -15,54 +15,54 @@ pub fn BucketArray(comptime T: type, comptime BucketType: type, comptime nodes_p
         }
 
         pub fn append(self: *Self, alloc: Allocator, item: T) Allocator.Error!void {
-            const index = self.next_index.fetchAdd(1, .monotonic);
-            const bucket_id = index / nodes_per_bucket;
-            const offset = index % nodes_per_bucket;
+            const index = self.nextIndex.fetchAdd(1, .monotonic);
+            const bucketId = index / nodesPerBucket;
+            const offset = index % nodesPerBucket;
 
-            if (bucket_id >= self.buckets.items.len) {
+            if (bucketId >= self.buckets.items.len) {
                 self.protec.lock();
                 defer self.protec.unlock();
 
-                if (bucket_id >= self.buckets.items.len) {
+                if (bucketId >= self.buckets.items.len) {
                     const bucket = try alloc.create(Bucket);
                     try self.buckets.append(alloc, bucket);
                 }
             }
 
-            self.buckets.items[bucket_id][offset] = item;
+            self.buckets.items[bucketId][offset] = item;
         }
 
         pub fn appendIndex(self: *Self, alloc: Allocator, item: T) Allocator.Error!BucketType {
-            const index = self.next_index.fetchAdd(1, .monotonic);
-            const bucket_id = index / nodes_per_bucket;
-            const offset = index % nodes_per_bucket;
+            const index = self.nextIndex.fetchAdd(1, .monotonic);
+            const bucketId = index / nodesPerBucket;
+            const offset = index % nodesPerBucket;
 
-            if (bucket_id >= self.buckets.items.len) {
+            if (bucketId >= self.buckets.items.len) {
                 self.protec.lock();
                 defer self.protec.unlock();
 
-                if (bucket_id >= self.buckets.items.len) {
+                if (bucketId >= self.buckets.items.len) {
                     const bucket = try alloc.create(Bucket);
                     try self.buckets.append(alloc, bucket);
                 }
             }
 
-            self.buckets.items[bucket_id][offset] = item;
+            self.buckets.items[bucketId][offset] = item;
             return index;
         }
 
         pub fn get(self: *const Self, index: BucketType) T {
-            const bucket_id = index / nodes_per_bucket;
-            const offset = index % nodes_per_bucket;
+            const bucketId = index / nodesPerBucket;
+            const offset = index % nodesPerBucket;
 
-            return self.buckets.items[bucket_id][offset];
+            return self.buckets.items[bucketId][offset];
         }
 
         pub fn getPtr(self: *const Self, index: BucketType) *T {
-            const bucket_id = index / nodes_per_bucket;
-            const offset = index % nodes_per_bucket;
+            const bucketId = index / nodesPerBucket;
+            const offset = index % nodesPerBucket;
 
-            return &self.buckets.items[bucket_id][offset];
+            return &self.buckets.items[bucketId][offset];
         }
     };
 }

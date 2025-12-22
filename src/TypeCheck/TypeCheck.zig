@@ -69,10 +69,10 @@ pub fn checkFunctionOuter(self: *Self, alloc: Allocator, variableIndex: Parser.N
         if (funcIndex == 0) return else return try TranslationUnit.observer.alert(alloc, variableIndex);
     }
 
-    while (true) {
-        // Return Type
-        Type.transformType(self, self.ast.getNode(funcIndex).data[1].load(.acquire));
+    // Return Type
+    Type.transformType(self, self.ast.getNode(funcIndex).data[1].load(.acquire));
 
+    while (true) {
         const typeIndex = variable.data[0].load(.acquire);
         if (typeIndex != 0) {
             Type.transformType(self, typeIndex);
