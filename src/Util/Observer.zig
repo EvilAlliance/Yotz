@@ -28,6 +28,10 @@ pub fn Observer(Key: type, Args: type) type {
             self.mutex.lock();
             defer self.mutex.unlock();
 
+            try self.pushUnlock(alloc, wait, func, args);
+        }
+
+        pub fn pushUnlock(self: *Self, alloc: Allocator, wait: Key, func: *const fn (Args) void, args: Args) Allocator.Error!void {
             const handler: *Handler = if (self.nodeList.getLastOrNull()) |handlerOld| @fieldParentPtr("node", handlerOld) else try alloc.create(Handler);
 
             handler.* = .{

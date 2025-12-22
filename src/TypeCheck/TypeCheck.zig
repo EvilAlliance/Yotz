@@ -48,9 +48,12 @@ pub fn destroyDupe(self: *const Self, alloc: Allocator) void {
 
 // TODO: I have to add this variable to the context
 pub fn checkFunctionOuter(self: *Self, alloc: Allocator, variableIndex: Parser.NodeIndex) Allocator.Error!void {
-    var variable = self.ast.getNode(variableIndex);
-    var funcIndex = variable.data.@"1".load(.acquire);
+    TranslationUnit.observer.mutex.lock();
+
+    const variable = self.ast.getNode(variableIndex);
+    const funcIndex = variable.data.@"1".load(.acquire);
     if (funcIndex == 0) {
+        defer TranslationUnit.observer.mutex.unlock();
         const callBack = struct {
             fn callBack(args: ObserverParams) void {
                 defer args[0].destroyDupe(args[1]);
@@ -61,13 +64,11 @@ pub fn checkFunctionOuter(self: *Self, alloc: Allocator, variableIndex: Parser.N
             }
         }.callBack;
 
-        try TranslationUnit.observer.push(alloc, variableIndex, callBack, .{ try self.dupe(alloc), alloc, variableIndex });
-
-        variable = self.ast.getNode(variableIndex);
-        funcIndex = variable.data.@"1".load(.acquire);
-
-        if (funcIndex == 0) return else return try TranslationUnit.observer.alert(alloc, variableIndex);
+        try TranslationUnit.observer.pushUnlock(alloc, variableIndex, callBack, .{ try self.dupe(alloc), alloc, variableIndex });
+        return;
     }
+
+    TranslationUnit.observer.mutex.unlock();
 
     // Return Type
     Type.transformType(self, self.ast.getNode(funcIndex).data[1].load(.acquire));
