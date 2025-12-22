@@ -22,49 +22,6 @@ pub const Type = enum(u32) {
     ret,
     func,
 
-    //Types
-    // TODO: this functions is for the typechecker
-    // fn _transformType(t: Lexer.Token, source: [:0]const u8) !struct { Parser.NodeIndex, Parser.NodeIndex } {
-    //     if (t.tag != .iden) return error.ExpectedIdentifier;
-    //
-    //     const name = t.loc.getText(source);
-    //
-    //     const type_info = std.meta.stringToEnum(TypeName, name) orelse
-    //         return error.UnknownType;
-    //
-    //     return .{
-    //         type_info.bit_size,
-    //         @intFromEnum(type_info.node_kind),
-    //     };
-    // }
-    //
-    // const TypeName = enum {
-    //     u8,
-    //     u16,
-    //     u32,
-    //     u64,
-    //     s8,
-    //     s16,
-    //     s32,
-    //     s64,
-    //
-    //     pub fn bit_size(self: TypeName) Parser.NodeIndex {
-    //         return switch (self) {
-    //             .u8, .s8 => 8,
-    //             .u16, .s16 => 16,
-    //             .u32, .s32 => 32,
-    //             .u64, .s64 => 64,
-    //         };
-    //     }
-    //
-    //     pub fn node_kind(self: TypeName) Parser.Node.Primitive {
-    //         return switch (self) {
-    //             .s8, .s16, .s32, .s64 => .int,
-    //             .u8, .u16, .u32, .u64 => .uint,
-    //         };
-    //     }
-    // };
-
     //Can be many things
     numberLiteral,
     iden,

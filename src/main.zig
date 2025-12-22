@@ -8,7 +8,6 @@ const Arguments = ParseArguments.Arguments;
 const TranslationUnit = @import("./TranslationUnit.zig");
 const TypeCheck = @import("./TypeCheck/mod.zig");
 
-// TODO: Do not exopse the parse, only afunction parse
 const Parser = @import("./Parser/mod.zig");
 const Logger = @import("Logger.zig");
 

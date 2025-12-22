@@ -176,7 +176,6 @@ fn skipType(self: *@This()) void {
     }
 }
 
-// TODO: Join fuction parseFuncDecl and ParseFuncProto
 fn parseFuncDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
     var funcProtoNode = self.parseFuncProto(alloc) catch |err| switch (err) {
         error.UnexpectedToken => {

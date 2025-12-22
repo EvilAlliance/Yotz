@@ -15,7 +15,6 @@ pub const Content = struct {
 
     refCount: std.atomic.Value(usize) = std.atomic.Value(usize).init(1),
 
-    // NOTE: The path is now owned by the Global, so if it is own by another should be cloned
     pub fn init(alloc: Allocator, path: []const u8, subCom: ParseArgs.SubCommand) struct { bool, @This() } {
         var cont: @This() = .{
             .path = path,
@@ -81,8 +80,7 @@ pub var threadPool: Thread.Pool = undefined;
 pub var observer: TypeCheck.Observer = .{};
 
 tag: Type,
-// TODO: Try to make a constant part, and other variable socpe
-cont: *const Content,
+cont: *Content,
 scope: TypeCheck.Scope,
 
 pub fn initGlobal(cont: *const Content, scope: TypeCheck.Scope) Self {
@@ -131,6 +129,7 @@ pub fn startFunction(self: Self, alloc: Allocator, nodes: *Parser.NodeList, star
 fn _startFunction(self: *Self, alloc: Allocator, nodes: *Parser.NodeList, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex) Allocator.Error!void {
     defer self.scope.deinit(alloc);
     defer alloc.destroy(self);
+
     if (self.cont.subCom == .Lexer) unreachable;
 
     var parser = try Parser.Parser.init(self, nodes);
@@ -243,7 +242,8 @@ pub fn startEntry(stakcSelf: Self, alloc: Allocator, nodes: *Parser.NodeList) st
 
 pub fn deinit(self: *const Self, alloc: Allocator, bytes: []const u8) void {
     alloc.free(bytes);
-    _ = self;
+
+    self.cont.deinit(alloc);
 }
 
 const std = @import("std");
