@@ -1,13 +1,13 @@
 const Self = @This();
 
 ast: *Parser.Ast,
-message: Message,
+message: Report.Message,
 tu: *TranslationUnit,
 
 pub fn init(ast: *Parser.Ast, tu: *TranslationUnit) Self {
     return Self{
         .ast = ast,
-        .message = Message.init(ast),
+        .message = Report.Message.init(ast),
         .tu = tu,
     };
 }
@@ -35,7 +35,7 @@ pub fn dupe(self: *const Self, alloc: Allocator) Allocator.Error!*Self {
     const ast = try alloc.create(Parser.Ast);
     ast.* = Parser.Ast.init(self.ast.nodeList, self.tu);
     selfDupe.ast = ast;
-    selfDupe.message = Message.init(ast);
+    selfDupe.message = Report.Message.init(ast);
 
     return selfDupe;
 }
@@ -234,7 +234,7 @@ const Type = @import("Type.zig");
 const Expression = @import("Expression.zig");
 
 const Parser = @import("./../Parser/mod.zig");
-const Message = @import("../Message/Message.zig");
+const Report = @import("../Report/mod.zig");
 const TranslationUnit = @import("../TranslationUnit.zig");
 
 const Util = @import("../Util.zig");
