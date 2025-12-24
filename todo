@@ -316,6 +316,12 @@
         "title": "When trying to redifine a variable report error",
         "desc": "",
         "time_created": "2025-12-22 16:50:26.655965158 -03:00:00"
+      },
+      {
+        "id": "MynVkDeL",
+        "title": "When errors no recorable instead of doing a print and set false, panic instead, maybe for release we can avoid the stack trace",
+        "desc": "",
+        "time_created": "2025-12-24 14:59:52.724335976 -03:00:00"
       }
     ]
   }

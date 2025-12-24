@@ -178,7 +178,7 @@ fn checkStatements(self: *Self, alloc: Allocator, stmtI: Parser.NodeIndex, retTy
 
 fn checkReturn(self: *const Self, alloc: Allocator, nodeI: Parser.NodeIndex, typeI: Parser.NodeIndex) Allocator.Error!void {
     const stmt = self.ast.getNode(nodeI);
-    try Expression.checkExpressionType(self, alloc, stmt.data[1].load(.acquire), typeI);
+    try Expression.checkType(self, alloc, stmt.data[1].load(.acquire), typeI);
 }
 
 fn checkVariable(self: *Self, alloc: Allocator, nodeIndex: Parser.NodeIndex) Allocator.Error!void {
@@ -203,7 +203,7 @@ fn checkPureVariable(self: *Self, alloc: Allocator, varIndex: Parser.NodeIndex) 
 
     // NOTE: This case if for variables that do not have type and cannot be inferred from the expression itself
     if (typeIndex == 0) {
-        if (!try Expression.inferExpressionType(self, alloc, varIndex, variable.data.@"1".load(.acquire))) {
+        if (!try Expression.inferType(self, alloc, varIndex, variable.data.@"1".load(.acquire))) {
             try self.tu.scope.put(alloc, variable.getTextAst(self.ast), varIndex);
             return;
         }
@@ -216,7 +216,7 @@ fn checkPureVariable(self: *Self, alloc: Allocator, varIndex: Parser.NodeIndex) 
     std.debug.assert(typeIndex2 != 0);
     const exprI = variable.data.@"1".load(.acquire);
 
-    try Expression.checkExpressionType(self, alloc, exprI, typeIndex2);
+    try Expression.checkType(self, alloc, exprI, typeIndex2);
 
     try self.tu.scope.put(alloc, variable.getTextAst(self.ast), varIndex);
 }
