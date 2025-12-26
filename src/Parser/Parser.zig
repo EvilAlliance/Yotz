@@ -372,7 +372,7 @@ fn parseExpression(self: *@This(), alloc: Allocator, index: mod.NodeIndex) (std.
 
         self.skipFunction();
 
-        try (try self.tu.initFunc(alloc)).startFunction(alloc, self.nodeList, start, index);
+        try (try self.tu.initFunc(alloc)).startFunction(alloc, start, index);
 
         return 0;
     } else {

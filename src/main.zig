@@ -108,14 +108,6 @@ pub fn main() u8 {
         std.log.warn("Subcommand run wont print anything", .{});
     }
 
-    TranslationUnit.threadPool.init(.{
-        .allocator = alloc,
-        .n_jobs = 20,
-    }) catch {
-        std.log.err("Run Out of Memory", .{});
-        return 1;
-    };
-
     var globalScope = TypeCheck.ScopeGlobal.init(&TranslationUnit.threadPool);
     var scope = globalScope.scope();
     defer {
@@ -127,14 +119,13 @@ pub fn main() u8 {
     if (!success) return 1;
     defer if (cont.release()) cont.deinit(alloc) else @panic("Messed up the references");
 
-    TranslationUnit.observer.init(&TranslationUnit.threadPool);
-    defer TranslationUnit.observer.deinit(alloc);
-
+    TranslationUnit.init(alloc) catch {
+        std.log.err("Run Out of Memory", .{});
+        return 1;
+    };
     const tu = TranslationUnit.initGlobal(&cont, scope);
 
-    var nodes = Parser.NodeList{};
-    defer nodes.deinit(alloc);
-    const bytes, const ret = tu.startEntry(alloc, &nodes) catch {
+    const bytes, const ret = tu.startEntry(alloc) catch {
         std.log.err("Run Out of Memory", .{});
         return 1;
     };

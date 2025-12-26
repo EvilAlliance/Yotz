@@ -5,6 +5,30 @@ pub const Type = enum {
     Function,
 };
 
+// TODO: Take this out
+pub var failed = false;
+
+pub var threadPool: Thread.Pool = undefined;
+pub var observer: TypeCheck.Observer = .{};
+pub var nodes: Parser.NodeList = .{};
+
+pub fn init(alloc: Allocator) !void {
+    try threadPool.init(.{
+        .allocator = alloc,
+        .n_jobs = 20,
+    });
+    observer.init(&threadPool);
+}
+
+pub fn deinit(self: *const Self, alloc: Allocator, bytes: []const u8) void {
+    alloc.free(bytes);
+
+    self.cont.deinit(alloc);
+
+    observer.deinit(alloc);
+    nodes.deinit(alloc);
+}
+
 pub const Content = struct {
     subCom: ParseArgs.SubCommand = .Build,
 
@@ -74,11 +98,6 @@ pub const Content = struct {
     }
 };
 
-pub var failed = false;
-
-pub var threadPool: Thread.Pool = undefined;
-pub var observer: TypeCheck.Observer = .{};
-
 tag: Type,
 cont: *const Content,
 scope: TypeCheck.Scope,
@@ -109,7 +128,7 @@ pub fn initFunc(self: *const Self, alloc: Allocator) Allocator.Error!Self {
     return tu;
 }
 
-pub fn startFunction(self: Self, alloc: Allocator, nodes: *Parser.NodeList, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex) Allocator.Error!void {
+pub fn startFunction(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex) Allocator.Error!void {
     std.debug.assert(self.tag == .Function);
 
     const selfDupe = try Util.dupe(alloc, self);
@@ -123,16 +142,16 @@ pub fn startFunction(self: Self, alloc: Allocator, nodes: *Parser.NodeList, star
         }
     }.callBack;
 
-    try threadPool.spawn(callBack, .{ _startFunction, .{ selfDupe, alloc, nodes, start, placeHolder } });
+    try threadPool.spawn(callBack, .{ _startFunction, .{ selfDupe, alloc, start, placeHolder } });
 }
 
-fn _startFunction(self: *Self, alloc: Allocator, nodes: *Parser.NodeList, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex) Allocator.Error!void {
+fn _startFunction(self: *Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex) Allocator.Error!void {
     defer self.scope.deinit(alloc);
     defer alloc.destroy(self);
 
     if (self.cont.subCom == .Lexer) unreachable;
 
-    var parser = try Parser.Parser.init(self, nodes);
+    var parser = try Parser.Parser.init(self, &nodes);
     defer parser.deinit(alloc);
 
     try parser.parseFunction(alloc, start, placeHolder);
@@ -150,7 +169,7 @@ fn _startFunction(self: *Self, alloc: Allocator, nodes: *Parser.NodeList, start:
 
     if (self.cont.subCom == .Parser) return;
 
-    var ast = Parser.Ast.init(nodes, self);
+    var ast = Parser.Ast.init(&nodes, self);
 
     var checker = TypeCheck.TypeCheck.init(&ast, self);
     try checker.checkFunction(alloc, ast.getNode(placeHolder).data[1].load(.acquire));
@@ -168,12 +187,12 @@ fn _startFunction(self: *Self, alloc: Allocator, nodes: *Parser.NodeList, start:
     // if (parser.errors.items.len > 0) return .{ "", 1 };
 }
 
-fn _startRoot(self: *Self, alloc: Allocator, nodes: *Parser.NodeList, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex) Allocator.Error!void {
+fn _startRoot(self: *Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex) Allocator.Error!void {
     if (self.cont.subCom == .Lexer) unreachable;
 
     defer alloc.destroy(self);
 
-    var parser = try Parser.Parser.init(self, nodes);
+    var parser = try Parser.Parser.init(self, &nodes);
     defer parser.deinit(alloc);
 
     try parser.parseRoot(alloc, start, placeHolder);
@@ -188,7 +207,7 @@ fn _startRoot(self: *Self, alloc: Allocator, nodes: *Parser.NodeList, start: Par
     }
     if (self.cont.subCom == .Parser) return;
 
-    var ast = Parser.Ast.init(nodes, self);
+    var ast = Parser.Ast.init(&nodes, self);
     var checker = TypeCheck.TypeCheck.init(&ast, self);
     try checker.checkRoot(alloc, ast.getNode(placeHolder).data[1].load(.acquire));
 
@@ -205,24 +224,24 @@ fn _startRoot(self: *Self, alloc: Allocator, nodes: *Parser.NodeList, start: Par
     // if (parser.errors.items.len > 0) return .{ "", 1 };
 }
 
-pub fn startEntry(stakcSelf: Self, alloc: Allocator, nodes: *Parser.NodeList) std.mem.Allocator.Error!struct { []const u8, u8 } {
+pub fn startEntry(stakcSelf: Self, alloc: Allocator) std.mem.Allocator.Error!struct { []const u8, u8 } {
     const self = try Util.dupe(alloc, stakcSelf);
 
     if (self.cont.subCom == .Lexer) {
-        var parser = try Parser.Parser.init(self, nodes);
+        var parser = try Parser.Parser.init(self, &nodes);
         defer parser.deinit(alloc);
         return .{ try parser.lexerToString(alloc), 0 };
     }
 
     const index = try nodes.appendIndex(alloc, Parser.Node{ .tag = .init(.entry) });
 
-    try self._startRoot(alloc, nodes, 0, index);
+    try self._startRoot(alloc, 0, index);
 
     threadPool.deinit();
 
     if (failed) return .{ "", 1 };
 
-    const ast = Parser.Ast.init(nodes, self);
+    const ast = Parser.Ast.init(&nodes, self);
 
     if (self.cont.subCom == .Parser) return .{ try ast.toString(alloc, nodes.get(index).data[1].load(.acquire)), 0 };
 
@@ -238,12 +257,6 @@ pub fn startEntry(stakcSelf: Self, alloc: Allocator, nodes: *Parser.NodeList) st
     // if (parser.errors.items.len > 0) return .{ "", 1 };
 
     return .{ "", 1 };
-}
-
-pub fn deinit(self: *const Self, alloc: Allocator, bytes: []const u8) void {
-    alloc.free(bytes);
-
-    self.cont.deinit(alloc);
 }
 
 const std = @import("std");
