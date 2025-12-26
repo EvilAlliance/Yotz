@@ -5,7 +5,7 @@ pub const Parser = @import("Parser.zig");
 pub const Ast = @import("Ast.zig");
 pub const Node = @import("Node.zig");
 
-const BucketSize = std.math.pow(NodeIndex, 2, 8);
+const BucketSize = std.math.pow(NodeIndex, 2, 4);
 
 pub const NodeList = BucketList(Node, NodeIndex, BucketSize);
 

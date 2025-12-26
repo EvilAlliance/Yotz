@@ -1,7 +1,3 @@
-const std = @import("std");
-const Lexer = @import("./../Lexer/mod.zig");
-const Parser = @import("./../Parser/mod.zig");
-
 pub fn placeSlice(location: Lexer.Location, content: [:0]const u8) struct { beg: usize, end: usize, pad: usize } {
     var beg = location.start;
 
@@ -26,26 +22,26 @@ pub fn placeSlice(location: Lexer.Location, content: [:0]const u8) struct { beg:
 const Self = @This();
 
 const Error = struct {
-    ast: *Parser.Ast,
+    global: *Global,
 
-    pub fn init(ast: *Parser.Ast) @This() {
-        return .{ .ast = ast };
+    pub fn init(global: *Global) @This() {
+        return .{ .global = global };
     }
 
     pub inline fn funcReturnsU8(self: @This(), functionName: []const u8, typeIndex: Parser.NodeIndex) void {
-        const loc = self.ast.getNodeLocation(typeIndex);
-        const typeNode = self.ast.getNode(typeIndex);
-        const where = placeSlice(loc, self.ast.cont.source);
+        const loc = self.global.getNodeLocation(typeIndex);
+        const typeNode = self.global.getNode(typeIndex);
+        const where = placeSlice(loc, self.global.cont.source);
         std.log.err(
             "{s}:{}:{}: {s} must return u8 instead of {c}{}\n{s}\n{[7]c: >[8]}",
             .{
-                self.ast.cont.path,
+                self.global.cont.path,
                 loc.row,
                 loc.col,
                 functionName,
                 typeNode.typeToString(),
                 typeNode.data[0],
-                self.ast.cont.source[where.beg..where.end],
+                self.global.cont.source[where.beg..where.end],
                 '^',
                 where.pad,
             },
@@ -53,16 +49,16 @@ const Error = struct {
     }
 
     pub inline fn variableMustBeFunction(self: @This(), functionName: []const u8, variableI: Parser.NodeIndex) void {
-        const loc = self.ast.getNodeLocation(variableI);
-        const where = placeSlice(loc, self.ast.cont.source);
+        const loc = self.global.getNodeLocation(variableI);
+        const where = placeSlice(loc, self.global.cont.source);
         std.log.err(
             "{s}:{}:{}: {s} must be a function: \n{s}\n{[5]c: >[6]}",
             .{
-                self.ast.cont.path,
+                self.global.cont.path,
                 loc.row,
                 loc.col,
                 functionName,
-                self.ast.cont.source[where.beg..where.end],
+                self.global.cont.source[where.beg..where.end],
                 '^',
                 where.pad,
             },
@@ -79,17 +75,17 @@ const Error = struct {
     }
 
     pub inline fn identifierIsUsed(self: @This(), reDefI: Parser.NodeIndex, varI: Parser.NodeIndex) void {
-        const locStmt = self.ast.getNode(reDefI).getLocationAst(self.ast.*);
-        const varia = self.ast.getNode(varI);
-        const where = placeSlice(locStmt, self.ast.cont.source);
+        const locStmt = self.global.getNode(reDefI).getLocation(self.global.*);
+        const varia = self.global.getNode(varI);
+        const where = placeSlice(locStmt, self.global.cont.source);
         std.log.err(
             "{s}:{}:{}: Identifier {s} is already in use \n{s}\n{[5]c: >[6]}",
             .{
-                self.ast.cont.path,
+                self.global.cont.path,
                 locStmt.row,
                 locStmt.col,
-                varia.getTextAst(self.ast),
-                self.ast.cont.source[where.beg..where.end],
+                varia.getText(self.global),
+                self.global.cont.source[where.beg..where.end],
                 '^',
                 where.pad,
             },
@@ -97,17 +93,17 @@ const Error = struct {
     }
 
     pub inline fn unknownIdentifier(self: @This(), unkownNode: Parser.NodeIndex) void {
-        const stmt = self.ast.getNode(unkownNode);
-        const locStmt = stmt.getLocationAst(self.ast.*);
-        const where = placeSlice(locStmt, self.ast.cont.source);
+        const stmt = self.global.getNode(unkownNode);
+        const locStmt = stmt.getLocation(self.global.*);
+        const where = placeSlice(locStmt, self.global.cont.source);
         std.log.err(
             "{s}:{}:{}: Unknown identifier '{s}' \n{s}\n{[5]c: >[6]}",
             .{
-                self.ast.cont.path,
+                self.global.cont.path,
                 locStmt.row,
                 locStmt.col,
-                stmt.getTextAst(self.ast),
-                self.ast.cont.source[where.beg..where.end],
+                stmt.getText(self.global),
+                self.global.cont.source[where.beg..where.end],
                 '^',
                 where.pad,
             },
@@ -115,15 +111,15 @@ const Error = struct {
     }
 
     pub inline fn identifierNotAvailable(self: @This(), iden: []const u8, loc: Lexer.Location) void {
-        const where = placeSlice(loc, self.ast.cont.source);
+        const where = placeSlice(loc, self.global.cont.source);
         std.log.err(
             "{s}:{}:{}: {s} is an identifier not available \n{s}\n{[5]c: >[6]}",
             .{
-                self.ast.cont.path,
+                self.global.cont.path,
                 loc.row,
                 loc.col,
                 iden,
-                self.ast.cont.source[where.beg..where.end],
+                self.global.cont.source[where.beg..where.end],
                 '^',
                 where.pad,
             },
@@ -131,20 +127,20 @@ const Error = struct {
     }
 
     pub inline fn incompatibleFunctionType(self: @This(), t1: Parser.NodeIndex, t2: Parser.NodeIndex, loc: Lexer.Location) void {
-        const typeNode1 = self.ast.getNode(.UnCheck, t1);
-        const typeNode2 = self.ast.getNode(.UnCheck, t2);
-        const where = placeSlice(loc, self.ast.tu.cont.source);
+        const typeNode1 = self.global.getNode(.UnCheck, t1);
+        const typeNode2 = self.global.getNode(.UnCheck, t2);
+        const where = placeSlice(loc, self.global.tu.cont.source);
         std.log.err(
             "{s}:{}:{}: Type {c}{}, is incompatible with {c}{} \n{s}\n{[8]c: >[9]}",
             .{
-                self.ast.tu.cont.path,
+                self.global.tu.cont.path,
                 loc.row,
                 loc.col,
                 typeNode1.typeToString(),
                 typeNode1.data[0].load(.acquire),
                 typeNode2.typeToString(),
                 typeNode2.data[0].load(.acquire),
-                self.ast.tu.cont.source[where.beg..where.end],
+                self.global.tu.cont.source[where.beg..where.end],
                 '^',
                 where.pad,
             },
@@ -152,20 +148,21 @@ const Error = struct {
     }
 
     pub inline fn incompatibleType(self: @This(), actualI: Parser.NodeIndex, expectedI: Parser.NodeIndex, loc: Lexer.Location) void {
-        const actual = self.ast.getNode(actualI);
-        const expected = self.ast.getNode(expectedI);
-        const where = placeSlice(loc, self.ast.tu.cont.source);
+        const actual = self.global.nodes.get(actualI);
+        const expected = self.global.nodes.get(expectedI);
+        const fileInfo = self.global.files.get(loc.source);
+        const where = placeSlice(loc, fileInfo.source);
         std.log.err(
             "{s}:{}:{}: Type {c}{}, is incompatible with {c}{} \n{s}\n{[8]c: >[9]}",
             .{
-                self.ast.tu.cont.path,
+                fileInfo.path,
                 loc.row,
                 loc.col,
                 actual.typeToString(),
                 actual.data[0].load(.acquire),
                 expected.typeToString(),
                 expected.data[0].load(.acquire),
-                self.ast.tu.cont.source[where.beg..where.end],
+                fileInfo.source[where.beg..where.end],
                 '^',
                 where.pad,
             },
@@ -173,18 +170,19 @@ const Error = struct {
     }
 
     pub inline fn nodeNotSupported(self: @This(), nodeI: Parser.NodeIndex) void {
-        const node = self.ast.getNode(nodeI);
-        const loc = node.getLocationAst(self.ast.*);
+        const node = self.global.nodes.get(nodeI);
+        const loc = node.getLocation(self.global);
+        const fileInfo = self.global.files.get(loc.source);
 
-        const where = placeSlice(loc, self.ast.tu.cont.source);
+        const where = placeSlice(loc, fileInfo.source);
         std.log.err(
             "{s}:{}:{}: Unknown or Not Supported Node {s} \n{s}\n{[5]c: >[6]}",
             .{
-                self.ast.tu.cont.path,
+                fileInfo.path,
                 loc.row,
                 loc.col,
                 @tagName(node.tag.load(.acquire)),
-                self.ast.tu.cont.source[where.beg..where.end],
+                fileInfo.source[where.beg..where.end],
                 '^',
                 where.pad,
             },
@@ -192,21 +190,23 @@ const Error = struct {
     }
 
     pub inline fn numberDoesNotFit(self: @This(), exprI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex) void {
-        const expectedType = self.ast.getNode(expectedTypeI);
-        const loc = self.ast.getNodeLocation(exprI);
+        const expectedType = self.global.nodes.get(expectedTypeI);
+        const loc = self.global.nodes.get(exprI).getLocation(self.global);
+        const fileInfo = self.global.files.get(loc.source);
+
         const size = expectedType.data[0].load(.acquire);
         const max = std.math.pow(u64, 2, size) - 1;
-        const where = placeSlice(loc, self.ast.tu.cont.source);
+        const where = placeSlice(loc, fileInfo.source);
         std.log.err(
             "{s}:{}:{}: Number does not fit into for type {c}{}, range: 0 - {} \n{s}\n{[7]c: >[8]}",
             .{
-                self.ast.tu.cont.path,
+                fileInfo.path,
                 loc.row,
                 loc.col,
                 expectedType.typeToString(),
                 size,
                 max,
-                self.ast.tu.cont.source[where.beg..where.end],
+                fileInfo.source[where.beg..where.end],
                 '^',
                 where.pad,
             },
@@ -215,24 +215,25 @@ const Error = struct {
 };
 
 const Info = struct {
-    ast: *Parser.Ast,
+    global: *Global,
 
-    pub fn init(ast: *Parser.Ast) @This() {
-        return .{ .ast = ast };
+    pub fn init(global: *Global) @This() {
+        return .{ .global = global };
     }
 
     pub inline fn isDeclaredHere(self: @This(), varI: Parser.NodeIndex) void {
-        const varia = self.ast.getNode(varI);
-        const locVar = varia.getLocationAst(self.ast.*);
-        const where = placeSlice(locVar, self.ast.tu.cont.source);
+        const varia = self.global.nodes.get(varI);
+        const locVar = varia.getLocation(self.global);
+        const fileInfo = self.global.files.get(locVar.source);
+        const where = placeSlice(locVar, fileInfo.source);
         std.log.info(
             "{s}:{}:{}: {s} is declared in use \n{s}\n{[5]c: >[6]}",
             .{
-                self.ast.tu.cont.path,
+                fileInfo.path,
                 locVar.row,
                 locVar.col,
-                varia.getTextAst(self.ast),
-                self.ast.tu.cont.source[where.beg..where.end],
+                varia.getText(self.global),
+                fileInfo.source[where.beg..where.end],
                 '^',
                 where.pad,
             },
@@ -240,18 +241,19 @@ const Info = struct {
     }
 
     pub inline fn inferedType(self: @This(), t: Parser.NodeIndex) void { // type
-        const typeNode = self.ast.getNode(t);
-        const inferedLoc = typeNode.getLocationAst(self.ast.*);
-        const where = placeSlice(inferedLoc, self.ast.tu.cont.source);
+        const typeNode = self.global.nodes.get(t);
+        const inferedLoc = typeNode.getLocation(self.global);
+        const fileInfo = self.global.files.get(inferedLoc.source);
+        const where = placeSlice(inferedLoc, fileInfo.source);
         std.log.info(
             "{s}:{}:{}: Infered Type {c}{} here: \n{s}\n{[6]c: >[7]}",
             .{
-                self.ast.tu.cont.path,
+                fileInfo.path,
                 inferedLoc.row,
                 inferedLoc.col,
                 typeNode.typeToString(),
                 typeNode.data[0].load(.acquire),
-                self.ast.tu.cont.source[where.beg..where.end],
+                fileInfo.source[where.beg..where.end],
                 '^',
                 where.pad,
             },
@@ -259,14 +261,20 @@ const Info = struct {
     }
 };
 
-ast: *Parser.Ast,
+global: *Global,
 err: Error,
 info: Info,
 
-pub fn init(ast: *Parser.Ast) Self {
+pub fn init(global: *Global) Self {
     return .{
-        .ast = ast,
-        .err = Error.init(ast),
-        .info = Info.init(ast),
+        .global = global,
+        .err = Error.init(global),
+        .info = Info.init(global),
     };
 }
+
+const Lexer = @import("./../Lexer/mod.zig");
+const Parser = @import("./../Parser/mod.zig");
+const Global = @import("./../Global.zig");
+
+const std = @import("std");

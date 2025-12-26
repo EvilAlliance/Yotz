@@ -4,6 +4,8 @@ const PrettyLocation = Lexer.PrettyLocation;
 row: u32,
 col: u32,
 
+source: u32 = 0,
+
 start: u32,
 end: u32,
 

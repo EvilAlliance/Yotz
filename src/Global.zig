@@ -1,0 +1,259 @@
+const Self = @This();
+pub const FileInfo = struct { path: []const u8, source: [:0]const u8 };
+
+threadPool: Thread.Pool = undefined,
+observer: TypeCheck.Observer = .{},
+
+subCommand: ParseArgs.SubCommand,
+
+files: ArrayListThreadSafe(FileInfo) = .{},
+tokens: Lexer.Tokens = .{},
+nodes: Parser.NodeList = .{},
+
+pub fn init(self: *Self, alloc: Allocator, threads: usize) !void {
+    try self.threadPool.init(.{
+        .allocator = alloc,
+        .n_jobs = threads,
+    });
+    self.observer.init(&self.threadPool);
+}
+
+pub fn addFile(self: *Self, alloc: Allocator, path: []const u8) Allocator.Error!bool {
+    const realPath, const source = Util.readEntireFile(alloc, path) catch |err| {
+        switch (err) {
+            error.couldNotResolvePath => std.log.err("Could not resolve path: {s}\n", .{path}),
+            error.couldNotOpenFile => std.log.err("Could not open file: {s}\n", .{path}),
+            error.couldNotReadFile => std.log.err("Could not read file: {s}]n", .{path}),
+            error.couldNotGetFileSize => std.log.err("Could not get file ({s}) size\n", .{path}),
+        }
+        return false;
+    };
+
+    const file = FileInfo{ .path = realPath, .source = source };
+
+    const index = try self.files.appendIndex(alloc, file);
+
+    try Lexer.lex(alloc, &self.tokens, file.source, @intCast(index));
+
+    return true;
+}
+
+pub fn deinit(self: *Self, alloc: Allocator) void {
+    self.observer.deinit(alloc);
+
+    for (self.files.slice()) |f| {
+        alloc.free(f.path);
+        alloc.free(f.source);
+    }
+
+    self.files.deinit(alloc);
+    self.tokens.deinit(alloc);
+    self.nodes.deinit(alloc);
+}
+
+pub fn toStringToken(self: *Self, alloc: std.mem.Allocator) Allocator.Error![]const u8 {
+    var al = std.ArrayList(u8){};
+    defer self.tokens.unlock();
+
+    for (self.tokens.slice()) |value| {
+        const fileInfo = self.files.get(value.loc.source);
+        try value.toString(alloc, &al, fileInfo.path, fileInfo.source);
+    }
+
+    return al.toOwnedSlice(alloc);
+}
+
+pub fn toStringAst(self: *@This(), alloc: std.mem.Allocator, rootIndex: Parser.NodeIndex) std.mem.Allocator.Error![]const u8 {
+    var cont = std.ArrayList(u8){};
+
+    const root = self.nodes.get(rootIndex);
+
+    var i = root.data[0].load(.acquire);
+    while (i != 0) : (i = self.nodes.get(i).next.load(.acquire)) {
+        try self.toStringVariable(alloc, &cont, 0, i);
+
+        if (self.nodes.get(self.nodes.get(i).data[1].load(.acquire)).tag.load(.acquire) != .funcProto) {
+            try cont.appendSlice(alloc, ";\n");
+        }
+    }
+
+    return cont.toOwnedSlice(alloc);
+}
+
+fn toStringFuncProto(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
+    std.debug.assert(self.nodes.get(i).tag.load(.acquire) == .funcProto);
+    std.debug.assert(self.nodes.get(i).data[0].load(.acquire) == 0);
+
+    // TODO : Put arguments
+    try cont.appendSlice(alloc, "() ");
+
+    try self.toStringType(alloc, cont, d, self.nodes.get(i).data[1].load(.acquire));
+
+    try cont.append(alloc, ' ');
+
+    const protoNext = self.nodes.get(i).next.load(.acquire);
+    if (self.nodes.get(protoNext).tag.load(.acquire) == .scope) return try self.toStringScope(alloc, cont, d, protoNext);
+
+    try self.toStringStatement(alloc, cont, d, protoNext);
+}
+
+fn toStringType(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
+    _ = d;
+
+    var index = i;
+
+    while (true) {
+        const t = self.nodes.get(index);
+
+        switch (t.tag.load(.acquire)) {
+            .funcType => {
+                std.debug.assert(t.data[0].load(.acquire) == 0);
+                try cont.appendSlice(alloc, "() ");
+
+                index = t.data[1].load(.acquire);
+                continue;
+            },
+            .type => {
+                try cont.append(alloc, switch (@as(Parser.Node.Primitive, @enumFromInt(t.data[1].load(.acquire)))) {
+                    Parser.Node.Primitive.int => 'i',
+                    Parser.Node.Primitive.uint => 'u',
+                    Parser.Node.Primitive.float => 'f',
+                });
+
+                const size = try std.fmt.allocPrint(alloc, "{}", .{t.data[0].load(.acquire)});
+                try cont.appendSlice(alloc, size);
+                alloc.free(size);
+            },
+            .fakeType => {
+                const x = self.nodes.get(index).getText(self);
+                try cont.appendSlice(alloc, x);
+            },
+            else => unreachable,
+        }
+
+        index = t.next.load(.acquire);
+
+        if (index != 0) {
+            try cont.appendSlice(alloc, ", ");
+        } else {
+            break;
+        }
+    }
+}
+
+fn toStringScope(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
+    const scope = self.nodes.get(i);
+    std.debug.assert(scope.tag.load(.acquire) == .scope);
+
+    try cont.appendSlice(alloc, "{ \n");
+
+    var j = scope.data[0].load(.acquire);
+
+    while (j != 0) {
+        const node = self.nodes.get(j);
+
+        try self.toStringStatement(alloc, cont, d + 4, j);
+
+        j = node.next.load(.acquire);
+    }
+
+    try cont.appendSlice(alloc, "} \n");
+}
+
+fn toStringStatement(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
+    for (0..d) |_| {
+        try cont.append(alloc, ' ');
+    }
+
+    const stmt = self.nodes.get(i);
+
+    switch (stmt.tag.load(.acquire)) {
+        .ret => {
+            try cont.appendSlice(alloc, "return ");
+            try self.toStringExpression(alloc, cont, d, stmt.data[1].load(.acquire));
+        },
+        .variable, .constant => {
+            try self.toStringVariable(alloc, cont, d, i);
+        },
+        else => unreachable,
+    }
+
+    try cont.appendSlice(alloc, ";\n");
+}
+
+fn toStringVariable(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
+    const variable = self.nodes.get(i);
+    std.debug.assert(variable.tag.load(.acquire) == .constant or variable.tag.load(.acquire) == .variable);
+
+    try cont.appendSlice(alloc, variable.getText(self));
+
+    const variableLeft = variable.data[0].load(.acquire);
+    if (variableLeft == 0)
+        try cont.append(alloc, ' ');
+
+    try cont.append(alloc, ':');
+    if (variableLeft != 0) {
+        try cont.append(alloc, ' ');
+        try self.toStringType(alloc, cont, d, variableLeft);
+        try cont.append(alloc, ' ');
+    }
+
+    if (variable.data[1].load(.acquire) != 0) {
+        switch (variable.tag.load(.acquire)) {
+            .constant => try cont.appendSlice(alloc, ": "),
+            .variable => try cont.appendSlice(alloc, "= "),
+            else => unreachable,
+        }
+        try self.toStringExpression(alloc, cont, d, variable.data[1].load(.acquire));
+    }
+}
+
+fn toStringExpression(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
+    const node = self.nodes.get(i);
+    switch (node.tag.load(.acquire)) {
+        .funcProto => try self.toStringFuncProto(alloc, cont, d, i),
+        .addition, .subtraction, .multiplication, .division, .power => {
+            try cont.append(alloc, '(');
+
+            const leftIndex = node.data[0].load(.acquire);
+            try self.toStringExpression(alloc, cont, d, leftIndex);
+
+            try cont.append(alloc, ' ');
+            try cont.appendSlice(alloc, node.getTokenTag(self).toSymbol().?);
+            try cont.append(alloc, ' ');
+
+            const rightIndex = node.data[1].load(.acquire);
+            try self.toStringExpression(alloc, cont, d, rightIndex);
+
+            try cont.append(alloc, ')');
+        },
+        .neg => {
+            try cont.appendSlice(alloc, node.getTokenTag(self).toSymbol().?);
+            try cont.append(alloc, '(');
+            const leftIndex = node.data[0].load(.acquire);
+
+            try self.toStringExpression(alloc, cont, d, leftIndex);
+            try cont.append(alloc, ')');
+        },
+        .load => {
+            try cont.appendSlice(alloc, node.getText(self));
+        },
+        .lit => {
+            try cont.appendSlice(alloc, node.getText(self));
+        },
+        else => unreachable,
+    }
+}
+
+const Lexer = @import("./Lexer/mod.zig");
+const ParseArgs = @import("./ParseArgs.zig");
+const Parser = @import("./Parser/mod.zig");
+const TypeCheck = @import("./TypeCheck/mod.zig");
+
+const ArrayListThreadSafe = @import("./Util/ArrayListThreadSafe.zig").ArrayListThreadSafe;
+const Util = @import("Util.zig");
+
+const std = @import("std");
+
+const Allocator = std.mem.Allocator;
+const Thread = std.Thread;

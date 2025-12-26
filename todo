@@ -259,7 +259,7 @@
       {
         "id": "rbu6a72y",
         "title": "Investigate if is a good idea use the node itself instead of the index, when passing as argument",
-        "desc": "It may not be a good idea because it is not a pointer the data may be updated in the middle",
+        "desc": "It may not be a good idea because it is not a pointer the data may be updated in the middle, Now 26/12/2025, it can be a pointer",
         "time_created": "2025-11-28 18:28:20.551214912 -03:00:00"
       },
       {

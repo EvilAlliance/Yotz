@@ -1,18 +1,14 @@
-tu: *const TranslationUnit,
+tu: *TranslationUnit,
 
 index: mod.TokenIndex = 0,
-
-nodeList: *mod.NodeList,
 
 errors: std.ArrayList(UnexpectedToken),
 
 depth: mod.NodeIndex = 0,
 
-pub fn init(tu: *const TranslationUnit, chunk: *mod.NodeList) Allocator.Error!@This() {
+pub fn init(tu: *TranslationUnit) Allocator.Error!@This() {
     return @This(){
         .tu = tu,
-
-        .nodeList = chunk,
 
         .errors = .{},
     };
@@ -40,19 +36,19 @@ fn peek(self: *const @This()) struct { Lexer.Token, mod.TokenIndex } {
 }
 
 fn peekMany(self: *const @This(), n: mod.NodeIndex) struct { Lexer.Token, mod.TokenIndex } {
-    std.debug.assert(self.index + n < self.tu.cont.tokens.len);
-    return .{ self.tu.cont.tokens[self.index + n], self.index };
+    std.debug.assert(self.index + n < self.tu.global.tokens.len());
+    return .{ self.tu.global.tokens.get(self.index + n), self.index };
 }
 
 fn popIf(self: *@This(), t: Lexer.Token.Type) ?struct { Lexer.Token, mod.TokenIndex } {
-    if (self.tu.cont.tokens[self.index].tag != t) return null;
-    const tuple = .{ self.tu.cont.tokens[self.index], self.index };
+    if (self.tu.global.tokens.get(self.index).tag != t) return null;
+    const tuple = .{ self.tu.global.tokens.get(self.index), self.index };
     self.index += 1;
     return tuple;
 }
 
 fn pop(self: *@This()) struct { Lexer.Token, mod.TokenIndex } {
-    const tuple = .{ self.tu.cont.tokens[self.index], self.index };
+    const tuple = .{ self.tu.global.tokens.get(self.index), self.index };
     self.index += 1;
     return tuple;
 }
@@ -70,9 +66,9 @@ pub fn parseFunction(self: *@This(), alloc: Allocator, start: mod.TokenIndex, pl
         }
     };
 
-    if (self.nodeList.getPtr(placeHolder).data[1].cmpxchgStrong(0, index, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
+    if (self.tu.global.nodes.getPtr(placeHolder).data[1].cmpxchgStrong(0, index, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
 
-    std.debug.assert(self.nodeList.get(placeHolder).data.@"1".load(.acquire) == index);
+    std.debug.assert(self.tu.global.nodes.get(placeHolder).data.@"1".load(.acquire) == index);
 }
 
 pub fn parseRoot(self: *@This(), alloc: Allocator, start: mod.TokenIndex, placeHolder: mod.NodeIndex) (std.mem.Allocator.Error)!void {
@@ -80,7 +76,7 @@ pub fn parseRoot(self: *@This(), alloc: Allocator, start: mod.TokenIndex, placeH
 
     const index = try self._parseRoot(alloc);
 
-    if (self.nodeList.getPtr(placeHolder).data[1].cmpxchgStrong(0, index, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
+    if (self.tu.global.nodes.getPtr(placeHolder).data[1].cmpxchgStrong(0, index, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
 }
 
 fn _parseRoot(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error)!mod.NodeIndex {
@@ -100,7 +96,7 @@ fn _parseRoot(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error)!mod.No
         } catch |err| switch (err) {
             error.UnexpectedToken => {
                 @panic("Can not do this when is multithreaded");
-                // self.nodeList.shrinkRetainingCapacity(top);
+                // self.tu.global.nodes.shrinkRetainingCapacity(top);
                 // continue;
             },
             error.OutOfMemory => return error.OutOfMemory,
@@ -109,14 +105,14 @@ fn _parseRoot(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error)!mod.No
         if (firstIndex == 0) {
             firstIndex = nodeIndex;
         } else {
-            if (self.nodeList.getPtr(lastNodeParsed).next.cmpxchgStrong(0, nodeIndex, .acq_rel, .monotonic) != null) @panic("This is controlled by this thread and it should not be influenced by others");
+            if (self.tu.global.nodes.getPtr(lastNodeParsed).next.cmpxchgStrong(0, nodeIndex, .acq_rel, .monotonic) != null) @panic("This is controlled by this thread and it should not be influenced by others");
         }
 
         lastNodeParsed = nodeIndex;
         _ = self.popIf(.semicolon);
     }
 
-    return try self.nodeList.appendIndex(
+    return try self.tu.global.nodes.appendIndex(
         alloc,
         .{
             .tag = .init(.root),
@@ -203,7 +199,7 @@ fn parseFuncDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || e
         .release,
     );
 
-    return self.nodeList.appendIndex(alloc, funcProtoNode);
+    return self.tu.global.nodes.appendIndex(alloc, funcProtoNode);
 }
 
 fn parseFuncProto(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!Node {
@@ -240,7 +236,7 @@ fn parseTypeFunction(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error 
         .tokenIndex = .init(initI),
     };
 
-    return try self.nodeList.appendIndex(alloc, node);
+    return try self.tu.global.nodes.appendIndex(alloc, node);
 }
 
 fn parseType(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
@@ -249,7 +245,7 @@ fn parseType(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error
         return try self.parseTypeFunction(alloc);
     } else {
         _, const tokenIndex = self.pop();
-        return try self.nodeList.appendIndex(alloc, .{
+        return try self.tu.global.nodes.appendIndex(alloc, .{
             .tag = .init(.fakeType),
             .tokenIndex = .init(tokenIndex),
         });
@@ -266,7 +262,7 @@ fn parseScope(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || erro
         const nodeIndex = self.parseStatement(alloc) catch |err| switch (err) {
             error.UnexpectedToken => {
                 @panic("Can not do this when is multithreaded");
-                // self.nodeList.shrinkRetainingCapacity(top);
+                // self.tu.global.nodes.shrinkRetainingCapacity(top);
                 // while (self.peek()[0].tag != .semicolon) : (_ = self.pop()) {}
                 // _ = self.pop();
             },
@@ -276,7 +272,7 @@ fn parseScope(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || erro
         if (firstIndex == 0) {
             firstIndex = nodeIndex;
         } else {
-            if (self.nodeList.getPtr(lastNodeParsed).next.cmpxchgStrong(0, nodeIndex, .acq_rel, .monotonic) != null) @panic("This is controlled by this thread and it should not be influenced by others");
+            if (self.tu.global.nodes.getPtr(lastNodeParsed).next.cmpxchgStrong(0, nodeIndex, .acq_rel, .monotonic) != null) @panic("This is controlled by this thread and it should not be influenced by others");
         }
 
         lastNodeParsed = nodeIndex;
@@ -285,7 +281,7 @@ fn parseScope(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || erro
     if (!try self.expect(alloc, self.peek()[0], &.{.closeBrace})) return error.UnexpectedToken;
     _ = self.pop();
 
-    const nodeIndex = try self.nodeList.appendIndex(alloc, .{
+    const nodeIndex = try self.tu.global.nodes.appendIndex(alloc, .{
         .tag = .init(.scope),
         .data = .{ .init(firstIndex), .init(0) },
     });
@@ -311,12 +307,12 @@ fn parseStatement(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || 
 fn parseVariableDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
     _, const nameIndex = self.popIf(.iden) orelse unreachable;
 
-    const index = try self.nodeList.appendIndex(alloc, .{
+    const index = try self.tu.global.nodes.appendIndex(alloc, .{
         .tag = .init(Node.Tag.variable),
         .tokenIndex = .init(nameIndex),
     });
 
-    const node = self.nodeList.getPtr(index);
+    const node = self.tu.global.nodes.getPtr(index);
 
     if (!try self.expect(alloc, self.peek()[0], &.{.colon})) return error.UnexpectedToken;
     _ = self.pop();
@@ -349,13 +345,13 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error 
 fn parseReturn(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
     _, const retIndex = self.popIf(.ret) orelse unreachable;
 
-    const nodeIndex = try self.nodeList.appendIndex(alloc, .{
+    const nodeIndex = try self.tu.global.nodes.appendIndex(alloc, .{
         .tag = .init(.ret),
         .tokenIndex = .init(retIndex),
     });
     const exp = try self.parseExpression(alloc, nodeIndex);
 
-    const node = self.nodeList.getPtr(nodeIndex);
+    const node = self.tu.global.nodes.getPtr(nodeIndex);
 
     node.data[1].store(exp, .release);
 
@@ -401,7 +397,7 @@ fn parseExpr(self: *@This(), alloc: Allocator, minPrecedence: u8) (std.mem.Alloc
 
         const right = try self.parseExpr(alloc, nextMinPrec);
 
-        leftIndex = try self.nodeList.appendIndex(alloc, Node{
+        leftIndex = try self.tu.global.nodes.appendIndex(alloc, Node{
             .tag = .init(tag),
             .tokenIndex = .init(opIndex),
             .data = .{ .init(leftIndex), .init(right) },
@@ -418,13 +414,13 @@ fn parseTerm(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error
 
     switch (nextToken.tag) {
         .numberLiteral => {
-            return try self.nodeList.appendIndex(alloc, .{
+            return try self.tu.global.nodes.appendIndex(alloc, .{
                 .tag = .init(.lit),
                 .tokenIndex = .init(self.pop()[1]),
             });
         },
         .iden => {
-            return try self.nodeList.appendIndex(alloc, .{
+            return try self.tu.global.nodes.appendIndex(alloc, .{
                 .tag = .init(.load),
                 .tokenIndex = .init(self.pop()[1]),
             });
@@ -434,7 +430,7 @@ fn parseTerm(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error
 
             const expr = try self.parseTerm(alloc);
 
-            return try self.nodeList.appendIndex(alloc, .{
+            return try self.tu.global.nodes.appendIndex(alloc, .{
                 .tag = .init(switch (op.tag) {
                     .minus => .neg,
                     else => unreachable,
@@ -460,16 +456,6 @@ fn parseTerm(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error
         },
         else => unreachable,
     }
-}
-
-pub fn lexerToString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Error![]const u8 {
-    var al = std.ArrayList(u8){};
-
-    for (self.tu.cont.tokens) |value| {
-        try value.toString(alloc, &al, self.tu.cont.path, self.tu.cont.source);
-    }
-
-    return al.toOwnedSlice(alloc);
 }
 
 const std = @import("std");

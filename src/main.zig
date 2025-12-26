@@ -6,6 +6,7 @@ const getArguments = ParseArguments.getArguments;
 const Arguments = ParseArguments.Arguments;
 
 const TranslationUnit = @import("./TranslationUnit.zig");
+const Global = @import("Global.zig");
 const TypeCheck = @import("./TypeCheck/mod.zig");
 
 const Parser = @import("./Parser/mod.zig");
@@ -108,22 +109,19 @@ pub fn main() u8 {
         std.log.warn("Subcommand run wont print anything", .{});
     }
 
-    var globalScope = TypeCheck.ScopeGlobal.init(&TranslationUnit.threadPool);
+    var global: Global = .{ .subCommand = arguments.subCom };
+    global.init(alloc, 20) catch std.debug.panic("Could not create threads", .{});
+
+    var globalScope = TypeCheck.ScopeGlobal.init(&global.threadPool);
     var scope = globalScope.scope();
     defer {
         scope.deinit(alloc);
         std.debug.assert(globalScope.refCount.load(.acquire) == 0);
     }
 
-    const success, var cont = TranslationUnit.Content.init(alloc, arguments.path, arguments.subCom);
-    if (!success) return 1;
-    defer if (cont.release()) cont.deinit(alloc) else @panic("Messed up the references");
+    if (!(global.addFile(alloc, arguments.path) catch std.debug.panic("Run Out of Memory", .{}))) return 1;
 
-    TranslationUnit.init(alloc) catch {
-        std.log.err("Run Out of Memory", .{});
-        return 1;
-    };
-    const tu = TranslationUnit.initGlobal(&cont, scope);
+    const tu = TranslationUnit.initGlobal(&global, scope);
 
     const bytes, const ret = tu.startEntry(alloc) catch {
         std.log.err("Run Out of Memory", .{});

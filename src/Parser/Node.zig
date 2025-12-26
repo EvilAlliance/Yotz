@@ -1,8 +1,3 @@
-const std = @import("std");
-const Atomic = std.atomic.Value;
-const Lexer = @import("./../Lexer/mod.zig");
-const mod = @import("mod.zig");
-
 pub const Tag = enum(mod.NodeIndex) {
     // Mark begining and end
     entry, // right is the first root
@@ -56,24 +51,25 @@ data: struct { Atomic(mod.NodeIndex), Atomic(mod.NodeIndex) } = .{ .init(0), .in
 flags: Atomic(Flags) = .init(Flags{}),
 next: Atomic(mod.NodeIndex) = .init(0),
 
-pub inline fn getTokenAst(self: *const @This(), ast: mod.Ast) Lexer.Token {
-    return ast.tu.cont.tokens[self.tokenIndex.load(.acquire)];
+pub inline fn getToken(self: *const @This(), global: *Global) Lexer.Token {
+    return global.tokens.get(self.tokenIndex.load(.acquire));
 }
 
-pub inline fn getLocationAst(self: *const @This(), ast: mod.Ast) Lexer.Location {
-    return ast.tu.cont.tokens[self.tokenIndex.load(.acquire)].loc;
+pub inline fn getLocation(self: *const @This(), global: *Global) Lexer.Location {
+    return global.tokens.get(self.tokenIndex.load(.acquire)).loc;
 }
 
-pub inline fn getTokenTagAst(self: *const @This(), ast: mod.Ast) Lexer.Token.Type {
-    return ast.tu.cont.tokens[self.tokenIndex.load(.acquire)].tag;
+pub inline fn getTokenTag(self: *const @This(), global: *Global) Lexer.Token.Type {
+    return global.tokens.get(self.tokenIndex.load(.acquire)).tag;
 }
 
-pub inline fn getTextAst(self: *const @This(), ast: *const mod.Ast) []const u8 {
-    return ast.tu.cont.tokens[self.tokenIndex.load(.acquire)].getText(ast.tu.cont.source);
+pub inline fn getText(self: *const @This(), global: *Global) []const u8 {
+    const token = global.tokens.get(self.tokenIndex.load(.acquire));
+    return token.getText(global.files.get(token.loc.source).source);
 }
 
-pub inline fn getNameAst(self: *const @This(), ast: mod.Ast) []const u8 {
-    return ast.cont.tokens[self.tokenIndex.load(.acquire)].tag.getName();
+pub inline fn getName(self: *const @This(), global: Global) []const u8 {
+    return global.tokens.get(self.tokenIndex.load(.acquire)).tag.getName();
 }
 
 pub fn typeToString(self: @This()) u8 {
@@ -83,3 +79,10 @@ pub fn typeToString(self: @This()) u8 {
         .float => 'f',
     });
 }
+const Lexer = @import("./../Lexer/mod.zig");
+const Global = @import("../Global.zig");
+const mod = @import("mod.zig");
+
+const std = @import("std");
+
+const Atomic = std.atomic.Value;
