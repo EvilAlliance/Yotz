@@ -231,7 +231,8 @@
         "id": "4BeTKmdF",
         "title": "For the message struct join the message in a single function so it is easier to edit",
         "desc": "",
-        "time_created": "2025-08-04 08:50:57.035503142 -03:00:00"
+        "time_created": "2025-08-04 08:50:57.035503142 -03:00:00",
+        "time_started": "2025-12-24 15:42:04.736747521 -03:00:00"
       },
       {
         "id": "5GdLNL7o",
@@ -301,7 +302,8 @@
         "id": "3kPHtjUD",
         "title": "When deinit global scope report undef variables and deinit the observer",
         "desc": "",
-        "time_created": "2025-12-18 17:38:29.897530703 -03:00:00"
+        "time_created": "2025-12-18 17:38:29.897530703 -03:00:00",
+        "time_started": "2025-12-24 15:41:55.7456948 -03:00:00"
       },
       {
         "id": "d7wVpU2t",
@@ -315,13 +317,27 @@
         "id": "7sKo7JQx",
         "title": "When trying to redifine a variable report error",
         "desc": "",
-        "time_created": "2025-12-22 16:50:26.655965158 -03:00:00"
+        "time_created": "2025-12-22 16:50:26.655965158 -03:00:00",
+        "time_started": "2025-12-24 15:41:51.194744537 -03:00:00"
       },
       {
         "id": "MynVkDeL",
-        "title": "When errors no recorable instead of doing a print and set false, panic instead, maybe for release we can avoid the stack trace",
+        "title": "When errors no recorable instead of doing a print and set false translation unit, panic instead, maybe for release we can avoid the stack trace",
         "desc": "",
         "time_created": "2025-12-24 14:59:52.724335976 -03:00:00"
+      },
+      {
+        "id": "f9aDRRWZ",
+        "title": "Make node not supported a panic, breaks structure of the nodelist",
+        "desc": "I think because it may cause undefined behabior",
+        "time_created": "2025-12-24 15:41:01.120009695 -03:00:00"
+      },
+      {
+        "id": "bGEFG5q6",
+        "title": "Make it so that when the parser encounters an unexpected token to rocover so it is possible to tell more errors",
+        "desc": "",
+        "time_created": "2025-12-24 15:44:30.095647707 -03:00:00",
+        "time_started": "2025-12-24 15:44:31.216814252 -03:00:00"
       }
     ]
   }
