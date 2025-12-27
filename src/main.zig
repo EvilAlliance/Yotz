@@ -1,19 +1,3 @@
-const std = @import("std");
-
-const ParseArguments = @import("ParseArgs.zig");
-
-const getArguments = ParseArguments.getArguments;
-const Arguments = ParseArguments.Arguments;
-
-const TranslationUnit = @import("./TranslationUnit.zig");
-const Global = @import("Global.zig");
-const TypeCheck = @import("./TypeCheck/mod.zig");
-
-const Parser = @import("./Parser/mod.zig");
-const Logger = @import("Logger.zig");
-
-const by = @import("BollYotz");
-
 fn getName(absPath: []const u8, extName: []const u8, buf: []u8) []u8 {
     const fileName = std.mem.lastIndexOf(u8, absPath, "/") orelse 0;
     const ext = std.mem.lastIndexOf(u8, absPath, ".").?;
@@ -140,3 +124,15 @@ pub fn main() u8 {
 
     return ret;
 }
+
+const ParseArguments = @import("ParseArgs.zig");
+const getArguments = ParseArguments.getArguments;
+const Arguments = ParseArguments.Arguments;
+
+const TranslationUnit = @import("./TranslationUnit.zig");
+const Global = @import("Global.zig");
+const TypeCheck = @import("./TypeCheck/mod.zig");
+
+const Logger = @import("Logger.zig");
+
+const std = @import("std");
