@@ -13,6 +13,12 @@ pub fn display(self: @This(), message: Message) void {
     if (actualFlags.inferedFromExpression or actualFlags.inferedFromUse) {
         message.info.inferedType(self.actualType);
     }
+
+    const expected = message.global.nodes.get(self.expectedType);
+    const expectedFlags = expected.flags.load(.acquire);
+    if (expectedFlags.inferedFromExpression or expectedFlags.inferedFromUse) {
+        message.info.inferedType(self.expectedType);
+    }
 }
 
 const Parser = @import("../Parser/mod.zig");

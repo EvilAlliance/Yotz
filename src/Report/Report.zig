@@ -46,7 +46,7 @@ pub fn incompatibleLiteral(alloc: Allocator, reports: ?*mod.Reports, literal: Pa
     return TypeCheck.Expression.Error.TooBig;
 }
 
-pub fn incompatibleType(alloc: Allocator, reports: ?*mod.Reports, actualType: Parser.NodeIndex, expectedType: Parser.NodeIndex, place: Parser.NodeIndex, declared: Parser.NodeIndex) (Allocator.Error || TypeCheck.Expression.Error)!Self {
+pub fn incompatibleType(alloc: Allocator, reports: ?*mod.Reports, actualType: Parser.NodeIndex, expectedType: Parser.NodeIndex, place: Parser.NodeIndex, declared: Parser.NodeIndex) (Allocator.Error || TypeCheck.Expression.Error)!void {
     if (reports) |rs| try rs.append(alloc, .{
         .message = .{
             .incompatibleType = .{

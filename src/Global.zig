@@ -114,11 +114,7 @@ fn toStringType(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u
                 continue;
             },
             .type => {
-                try cont.append(alloc, switch (@as(Parser.Node.Primitive, @enumFromInt(t.data[1].load(.acquire)))) {
-                    Parser.Node.Primitive.int => 'i',
-                    Parser.Node.Primitive.uint => 'u',
-                    Parser.Node.Primitive.float => 'f',
-                });
+                try cont.append(alloc, t.typeToString());
 
                 const size = try std.fmt.allocPrint(alloc, "{}", .{t.data[0].load(.acquire)});
                 try cont.appendSlice(alloc, size);

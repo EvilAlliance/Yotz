@@ -44,7 +44,7 @@ fn transformIdentiferType(self: TypeChecker, typeIndex: Parser.NodeIndex) void {
 
         pub fn nodeKind(s: @This()) Parser.Node.Primitive {
             return switch (s) {
-                .s8, .s16, .s32, .s64 => .int,
+                .s8, .s16, .s32, .s64 => .sint,
                 .u8, .u16, .u32, .u64 => .uint,
             };
         }

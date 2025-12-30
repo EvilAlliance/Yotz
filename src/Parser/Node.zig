@@ -33,7 +33,7 @@ pub const Tag = enum(mod.NodeIndex) {
 };
 
 pub const Primitive = enum(mod.NodeIndex) {
-    int,
+    sint,
     uint,
     float,
 };
@@ -74,7 +74,7 @@ pub inline fn getName(self: *const @This(), global: Global) []const u8 {
 
 pub fn typeToString(self: @This()) u8 {
     return @as(u8, switch (@as(mod.Node.Primitive, @enumFromInt(self.data[1].load(.acquire)))) {
-        .int => 'i',
+        .sint => 's',
         .uint => 'u',
         .float => 'f',
     });

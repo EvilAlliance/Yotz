@@ -1,0 +1,20 @@
+:i argc 0
+:b stdin 0
+
+:i returncode 0
+:b stdout 88
+main: () u8 : () u8 { 
+    a: u8 = 2;
+    b: s8 = 3;
+    c := (a + b);
+    return 1;
+} 
+
+:b stderr 222
+[ERROR]: Example/CheckError/InferIncompatibleType.yt:6:10: Type u8, is incompatible with s8 
+    c := a + b;
+         ^
+[INFO]: Example/CheckError/InferIncompatibleType.yt:2:5: a is declared in use 
+    a : u8 = 2; 
+    ^
+

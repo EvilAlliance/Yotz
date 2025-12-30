@@ -5,7 +5,7 @@ pub const Error = error{
     IncompatibleType,
 };
 
-pub fn inferType(self: TypeCheck, alloc: Allocator, varI: Parser.NodeIndex, exprI: Parser.NodeIndex) Allocator.Error!bool {
+pub fn inferType(self: TypeCheck, alloc: Allocator, varI: Parser.NodeIndex, exprI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!bool {
     const expr = self.tu.global.nodes.get(exprI);
     const variableToInfer = self.tu.global.nodes.get(varI);
 
@@ -21,7 +21,7 @@ pub fn inferType(self: TypeCheck, alloc: Allocator, varI: Parser.NodeIndex, expr
     try flatten(self, alloc, &flat, exprI);
 
     var firstSelected: Parser.NodeIndex = 0;
-    var typeIndex: Parser.NodeIndex = 0;
+    var oldTypeIndex: Parser.NodeIndex = 0;
     var type_: Parser.Node = .{};
 
     while (flat.items.len > 0) {
@@ -40,31 +40,31 @@ pub fn inferType(self: TypeCheck, alloc: Allocator, varI: Parser.NodeIndex, expr
         }.callBack;
 
         const id = first.getText(self.tu.global);
-        const variableI = try self.tu.scope.getOrWait(alloc, id, callBack, .{ self, alloc, varI, firstI }) orelse continue;
+        const variableI = try self.tu.scope.getOrWait(alloc, id, callBack, .{ self, alloc, varI, firstI, reports }) orelse continue;
 
         const variable = self.tu.global.nodes.get(variableI);
-        const typeI = variable.data.@"0".load(.acquire);
-        if (typeI == 0) continue;
+        const newTypeI = variable.data.@"0".load(.acquire);
+        if (newTypeI == 0) continue;
 
-        const newType = self.tu.global.nodes.get(typeI);
-        if (typeIndex == 0 or !Type.canTypeBeCoerced(self, typeI, typeIndex)) {
+        const newType = self.tu.global.nodes.get(newTypeI);
+        if (oldTypeIndex == 0 or (!Type.canTypeBeCoerced(self, newTypeI, oldTypeIndex) and Type.canTypeBeCoerced(self, oldTypeIndex, newTypeI))) {
             firstSelected = firstI;
-            typeIndex = typeI;
+            oldTypeIndex = newTypeI;
             type_ = newType;
         } else {
-            self.message.err.incompatibleType(typeI, typeIndex, first.getLocation(self.tu.global));
+            try Report.incompatibleType(alloc, reports, newTypeI, oldTypeIndex, firstI, variableI);
             return false;
         }
     }
 
-    if (typeIndex == 0) return false;
+    if (oldTypeIndex == 0) return false;
 
-    try addInferType(self, alloc, .inferedFromExpression, firstSelected, varI, typeIndex);
+    try addInferType(self, alloc, .inferedFromExpression, firstSelected, varI, oldTypeIndex);
 
     return true;
 }
 
-pub fn toInferLater(self: TypeCheck, alloc: Allocator, varI: Parser.NodeIndex, waitedI: Parser.NodeIndex) Allocator.Error!void {
+pub fn toInferLater(self: TypeCheck, alloc: Allocator, varI: Parser.NodeIndex, waitedI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
     const waited = self.tu.global.nodes.get(waitedI);
     const waitedTag = waited.tag.load(.acquire);
     std.debug.assert(waitedTag == .load);
@@ -91,11 +91,11 @@ pub fn toInferLater(self: TypeCheck, alloc: Allocator, varI: Parser.NodeIndex, w
     if (typeIndex == 0 or !Type.canTypeBeCoerced(self, typeI, typeIndex)) {
         try addInferType(self, alloc, .inferedFromExpression, waitedI, varI, typeI);
     } else {
-        self.message.err.incompatibleType(typeI, typeIndex, waited.getLocation(self.tu.global));
+        try Report.incompatibleType(alloc, reports, typeI, typeIndex, waitedI, varI);
     }
 }
 
-pub fn checkType(self: TypeCheck, alloc: Allocator, exprI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex) Allocator.Error!void {
+pub fn checkType(self: TypeCheck, alloc: Allocator, exprI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
     const expr = self.tu.global.nodes.get(exprI);
     const expectedType = self.tu.global.nodes.get(expectedTypeI);
 
@@ -105,10 +105,11 @@ pub fn checkType(self: TypeCheck, alloc: Allocator, exprI: Parser.NodeIndex, exp
     assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, exprTag));
 
     var flat = Flatten{};
+    defer flat.deinit(alloc);
 
     try flatten(self, alloc, &flat, exprI);
 
-    try checkFlatten(self, alloc, &flat, expectedTypeI);
+    try checkFlatten(self, alloc, &flat, expectedTypeI, reports);
 }
 
 fn flatten(self: TypeCheck, alloc: Allocator, stack: *Flatten, exprI: Parser.NodeIndex) std.mem.Allocator.Error!void {
@@ -139,13 +140,24 @@ fn flatten(self: TypeCheck, alloc: Allocator, stack: *Flatten, exprI: Parser.Nod
             try flatten(self, alloc, stack, right);
         },
         else => {
-            self.message.err.nodeNotSupported(exprI);
-            unreachable;
+            const loc = expr.getLocation(self.tu.global);
+            const fileInfo = self.tu.global.files.get(loc.source);
+            const where = Report.Message.placeSlice(loc, fileInfo.source);
+            std.debug.panic("{s}:{}:{}: Node not supported here: {}\n{s}\n{[5]c: >[6]}", .{
+                fileInfo.path,
+                loc.row,
+                loc.col,
+                exprTag,
+                fileInfo.source[where.beg..where.end],
+                '^',
+                where.pad,
+            });
         },
     }
 }
 
-fn checkFlatten(self: TypeCheck, alloc: Allocator, flat: *Flatten, expectedTypeI: Parser.NodeIndex) std.mem.Allocator.Error!void {
+fn checkFlatten(self: TypeCheck, alloc: Allocator, flat: *Flatten, expectedTypeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
+    var err: ?(Allocator.Error || Error) = null;
     const expectedType = self.tu.global.nodes.get(expectedTypeI);
     assert(expectedType.tag.load(.acquire) == .type);
 
@@ -154,7 +166,10 @@ fn checkFlatten(self: TypeCheck, alloc: Allocator, flat: *Flatten, expectedTypeI
         const first = self.tu.global.nodes.get(firstI);
 
         if (first.tag.load(.acquire) != .neg) {
-            try checkLeaf(self, alloc, firstI, expectedTypeI);
+            checkLeaf(self, alloc, firstI, expectedTypeI, reports) catch |e| switch (e) {
+                Error.IncompatibleType, Error.TooBig => err = e,
+                else => return @errorCast(e),
+            };
             _ = flat.pop();
         }
 
@@ -178,7 +193,11 @@ fn checkFlatten(self: TypeCheck, alloc: Allocator, flat: *Flatten, expectedTypeI
 
                     if (x.tag.load(.acquire) == .neg) break;
 
-                    try checkLeaf(self, alloc, xI, expectedTypeI);
+                    checkLeaf(self, alloc, xI, expectedTypeI, reports) catch |e| switch (e) {
+                        Error.IncompatibleType, Error.TooBig => err = e,
+                        else => return @errorCast(e),
+                    };
+
                     _ = flat.pop();
                 },
                 else => unreachable,
@@ -186,11 +205,10 @@ fn checkFlatten(self: TypeCheck, alloc: Allocator, flat: *Flatten, expectedTypeI
         }
     }
 
-    flat.deinit(alloc);
+    if (err) |e| return e;
 }
 
-// TODO: Booble Up the error, or see how to manage it
-fn checkLeaf(self: TypeCheck, alloc: Allocator, leafI: Parser.NodeIndex, typeI: Parser.NodeIndex) Allocator.Error!void {
+fn checkLeaf(self: TypeCheck, alloc: Allocator, leafI: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
     const leaf = self.tu.global.nodes.get(leafI);
     const expectedType = self.tu.global.nodes.get(typeI);
     const leafTag = leaf.tag.load(.acquire);
@@ -198,13 +216,13 @@ fn checkLeaf(self: TypeCheck, alloc: Allocator, leafI: Parser.NodeIndex, typeI: 
     assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load }, leafTag) and expectedType.tag.load(.acquire) == .type);
 
     switch (leafTag) {
-        .lit => checkLitType(self, leafI, typeI),
-        .load => try checkVarType(self, alloc, leafI, typeI),
+        .lit => try checkLitType(self, alloc, leafI, typeI, reports),
+        .load => try checkVarType(self, alloc, leafI, typeI, reports),
         else => unreachable,
     }
 }
 
-fn checkVarType(self: TypeCheck, alloc: Allocator, leafI: Parser.NodeIndex, typeI: Parser.NodeIndex) Allocator.Error!void {
+fn checkVarType(self: TypeCheck, alloc: Allocator, leafI: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
     const leaf = self.tu.global.nodes.get(leafI);
     const id = leaf.getText(self.tu.global);
 
@@ -222,7 +240,7 @@ fn checkVarType(self: TypeCheck, alloc: Allocator, leafI: Parser.NodeIndex, type
             alloc,
             id,
             callBack,
-            .{ self, alloc, leafI, typeI },
+            .{ self, alloc, leafI, typeI, reports },
         ) orelse return;
 
     const variable = self.tu.global.nodes.get(variableI);
@@ -234,13 +252,7 @@ fn checkVarType(self: TypeCheck, alloc: Allocator, leafI: Parser.NodeIndex, type
         if (!Type.typeEqual(self, typeIndex, typeI)) {
             const tag = variable.tag.load(.acquire);
             if (tag == .variable) {
-                self.message.err.incompatibleType(typeIndex, typeI, leaf.getLocation(self.tu.global));
-                const flags = self.tu.global.nodes.get(typeIndex).flags.load(.acquire);
-                self.message.info.isDeclaredHere(variableI);
-                if (flags.inferedFromExpression or flags.inferedFromUse) {
-                    self.message.info.inferedType(typeIndex);
-                }
-                return;
+                try Report.incompatibleType(alloc, reports, typeIndex, typeI, leafI, variableI);
             } else {
                 assert(tag == .constant);
                 try addInferType(self, alloc, .inferedFromUse, leafI, variableI, typeI);
@@ -249,7 +261,7 @@ fn checkVarType(self: TypeCheck, alloc: Allocator, leafI: Parser.NodeIndex, type
     }
 }
 
-fn addInferType(self: TypeCheck, alloc: Allocator, comptime flag: std.meta.FieldEnum(Parser.Node.Flags), leafI: Parser.NodeIndex, varI: Parser.NodeIndex, typeI: Parser.NodeIndex) Allocator.Error!void {
+fn addInferType(self: TypeCheck, alloc: Allocator, comptime flag: std.meta.FieldEnum(Parser.Node.Flags), leafI: Parser.NodeIndex, varI: Parser.NodeIndex, typeI: Parser.NodeIndex) (Allocator.Error || Error)!void {
     assert(flag == .inferedFromUse or flag == .inferedFromExpression);
 
     const leaf = self.tu.global.nodes.get(leafI);
@@ -257,7 +269,7 @@ fn addInferType(self: TypeCheck, alloc: Allocator, comptime flag: std.meta.Field
 
     // Check Variable expression for that type
     // TODO: Check if this was successful
-    try checkType(self, alloc, variable.data.@"1".load(.acquire), typeI);
+    try checkType(self, alloc, variable.data.@"1".load(.acquire), typeI, null);
 
     // Reset data
     var nodeType = self.tu.global.nodes.get(typeI);
@@ -274,7 +286,7 @@ fn addInferType(self: TypeCheck, alloc: Allocator, comptime flag: std.meta.Field
     self.tu.global.nodes.getPtr(varI).data.@"0".store(x, .release);
 }
 
-fn checkLitType(self: TypeCheck, litI: Parser.NodeIndex, typeI: Parser.NodeIndex) void {
+fn checkLitType(self: TypeCheck, alloc: Allocator, litI: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
     const lit = self.tu.global.nodes.get(litI);
     const expectedType = self.tu.global.nodes.get(typeI);
 
@@ -282,48 +294,29 @@ fn checkLitType(self: TypeCheck, litI: Parser.NodeIndex, typeI: Parser.NodeIndex
 
     const primitive = expectedType.data[1].load(.acquire);
     const size = expectedType.data[0].load(.acquire);
-    const flags = expectedType.flags.load(.acquire);
 
     const text = lit.getText(self.tu.global);
     switch (@as(Parser.Node.Primitive, @enumFromInt(primitive))) {
         Parser.Node.Primitive.uint => {
             const max = std.math.pow(u64, 2, size) - 1;
-            const number = std.fmt.parseInt(u64, text, 10) catch {
-                self.message.err.numberDoesNotFit(litI, typeI);
-                if (flags.inferedFromExpression or flags.inferedFromUse) {
-                    self.message.info.inferedType(litI);
-                }
-                return;
-            };
+            const number = std.fmt.parseInt(u64, text, 10) catch return try Report.incompatibleLiteral(alloc, reports, litI, typeI);
 
             if (number < max) return;
-            self.message.err.numberDoesNotFit(litI, typeI);
-            if (flags.inferedFromExpression or flags.inferedFromUse) {
-                self.message.info.inferedType(litI);
-            }
+            try Report.incompatibleLiteral(alloc, reports, litI, typeI);
         },
-        Parser.Node.Primitive.int => {
+        Parser.Node.Primitive.sint => {
             const max = std.math.pow(i64, 2, (size - 1)) - 1;
-            const min = std.math.pow(i64, 2, (size - 1)) - 1;
-            const number = std.fmt.parseInt(i64, text, 10) catch {
-                self.message.err.numberDoesNotFit(litI, typeI);
-                if (flags.inferedFromExpression or flags.inferedFromUse) {
-                    self.message.info.inferedType(litI);
-                }
-                return;
-            };
+            const number = std.fmt.parseInt(i64, text, 10) catch
+                return try Report.incompatibleLiteral(alloc, reports, litI, typeI);
 
-            if (min < number and number < max) return;
-            self.message.err.numberDoesNotFit(litI, typeI);
-            if (flags.inferedFromExpression or flags.inferedFromUse) {
-                self.message.info.inferedType(litI);
-            }
+            if (number < max) return;
+            try Report.incompatibleLiteral(alloc, reports, litI, typeI);
         },
         Parser.Node.Primitive.float => unreachable,
     }
 }
 
-pub const ObserverParams = std.meta.Tuple(&.{ TypeCheck, Allocator, Parser.NodeIndex, Parser.NodeIndex });
+pub const ObserverParams = std.meta.Tuple(&.{ TypeCheck, Allocator, Parser.NodeIndex, Parser.NodeIndex, ?*Report.Reports });
 
 comptime {
     const Expected = Util.getTupleFromParams(toInferLater);
@@ -337,6 +330,7 @@ const TypeCheck = @import("TypeCheck.zig");
 const Type = @import("Type.zig");
 
 const TranslationUnit = @import("../TranslationUnit.zig");
+const Report = @import("../Report/mod.zig");
 const Parser = @import("../Parser/mod.zig");
 const Util = @import("../Util.zig");
 
