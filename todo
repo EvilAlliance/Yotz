@@ -347,6 +347,12 @@
         "desc": "",
         "time_created": "2025-12-28 01:05:05.949823023 -03:00:00",
         "time_completed": "2025-12-30 15:43:25.158976976 -03:00:00"
+      },
+      {
+        "id": "qyRcGaBX",
+        "title": "Report when adding to the list do not use an extending list to not need the allocator, and 128 is too many errors to print",
+        "desc": "",
+        "time_created": "2025-12-30 18:04:00.923226232 -03:00:00"
       }
     ]
   }
