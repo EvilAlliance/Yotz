@@ -1,0 +1,27 @@
+:i argc 0
+:b stdin 0
+
+:i returncode 0
+:b stdout 127
+main: () u8 : () u8 { 
+} 
+foo: () u8 : () u8 { 
+    bar: () u8 : () u8 { 
+    } 
+
+    return 20;
+} 
+outer: () u8 : () u8 { 
+} 
+
+:b stderr 471
+[ERROR]: Example/ParseError/NestedFunction.yt:3:20: Expected: "+", "-", "*", "/", "^", ";", ")" but found: '{' 
+    nested :: ( u8 {
+                   ^
+[ERROR]: Example/ParseError/NestedFunction.yt:13:19: Expected: "number literal", "(", "-", "identifier" but found: ';' 
+        return 3 +;
+                  ^
+[ERROR]: Example/ParseError/NestedFunction.yt:21:15: Expected: "number literal", "(", "-", "identifier" but found: ')' 
+    middle :: ) u8 {
+              ^
+

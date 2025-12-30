@@ -1,4 +1,5 @@
 pub const TypeCheck = @import("TypeCheck.zig");
+pub const Expression = @import("Expression.zig");
 
 pub const ScopeGlobal = @import("./Scope/ScopeGlobal.zig");
 pub const ScopeFunc = @import("./Scope/ScopeFunc.zig");

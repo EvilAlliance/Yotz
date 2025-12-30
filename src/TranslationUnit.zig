@@ -44,7 +44,7 @@ pub fn initFunc(self: *const Self, alloc: Allocator) Allocator.Error!Self {
     return tu;
 }
 
-pub fn startFunction(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex) Allocator.Error!void {
+pub fn startFunction(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
     std.debug.assert(self.tag == .Function);
 
     const selfDupe = try Util.dupe(alloc, self);
@@ -58,10 +58,10 @@ pub fn startFunction(self: Self, alloc: Allocator, start: Parser.TokenIndex, pla
         }
     }.callBack;
 
-    try self.global.threadPool.spawn(callBack, .{ _startFunction, .{ selfDupe, alloc, start, placeHolder } });
+    try self.global.threadPool.spawn(callBack, .{ _startFunction, .{ selfDupe, alloc, start, placeHolder, reports } });
 }
 
-fn _startFunction(self: *Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex) Allocator.Error!void {
+fn _startFunction(self: *Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
     defer self.scope.deinit(alloc);
     defer alloc.destroy(self);
 
@@ -70,7 +70,10 @@ fn _startFunction(self: *Self, alloc: Allocator, start: Parser.TokenIndex, place
     var parser = try Parser.Parser.init(self);
     defer parser.deinit(alloc);
 
-    try parser.parseFunction(alloc, start, placeHolder);
+    parser.parseFunction(alloc, start, placeHolder, reports) catch |err| switch (err) {
+        Parser.Error.UnexpectedToken => return,
+        else => return @errorCast(err),
+    };
 
     try self.global.observer.alert(alloc, placeHolder);
 
@@ -102,7 +105,7 @@ fn _startFunction(self: *Self, alloc: Allocator, start: Parser.TokenIndex, place
     // if (parser.errors.items.len > 0) return .{ "", 1 };
 }
 
-fn _startRoot(self: *Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex) Allocator.Error!void {
+fn _startRoot(self: *Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
     if (self.global.subCommand == .Lexer) unreachable;
 
     defer alloc.destroy(self);
@@ -110,7 +113,7 @@ fn _startRoot(self: *Self, alloc: Allocator, start: Parser.TokenIndex, placeHold
     var parser = try Parser.Parser.init(self);
     defer parser.deinit(alloc);
 
-    try parser.parseRoot(alloc, start, placeHolder);
+    try parser.parseRoot(alloc, start, placeHolder, reports);
 
     for (parser.errors.items) |e| {
         _ = e;
@@ -139,26 +142,15 @@ fn _startRoot(self: *Self, alloc: Allocator, start: Parser.TokenIndex, placeHold
     // if (parser.errors.items.len > 0) return .{ "", 1 };
 }
 
-pub fn startEntry(stakcSelf: Self, alloc: Allocator) std.mem.Allocator.Error!struct { []const u8, u8 } {
+pub fn startEntry(stakcSelf: Self, alloc: Allocator, reports: ?*Report.Reports) std.mem.Allocator.Error!void {
+    if (stakcSelf.global.subCommand == .Lexer) return;
+
     const self = try Util.dupe(alloc, stakcSelf);
 
-    if (self.global.subCommand == .Lexer) {
-        var parser = try Parser.Parser.init(self);
-        defer parser.deinit(alloc);
-        return .{ try self.global.toStringToken(alloc), 0 };
-    }
-
     const index = try self.global.nodes.appendIndex(alloc, Parser.Node{ .tag = .init(.entry) });
+    std.debug.assert(index == 0);
 
-    try self._startRoot(alloc, 0, index);
-
-    self.global.threadPool.deinit();
-
-    if (failed) return .{ "", 1 };
-
-    if (self.global.subCommand == .Parser) return .{ try self.global.toStringAst(alloc, self.global.nodes.get(index).data[1].load(.acquire)), 0 };
-
-    if (self.global.subCommand == .TypeCheck) return .{ try self.global.toStringAst(alloc, self.global.nodes.get(index).data[1].load(.acquire)), 0 };
+    try self._startRoot(alloc, 0, index, reports);
 
     // const err = try typeCheck(alloc, &ast);
     //
@@ -168,6 +160,22 @@ pub fn startEntry(stakcSelf: Self, alloc: Allocator) std.mem.Allocator.Error!str
     // if (failed) return .{ "", 1 };
     // if (err) return .{ "", 1 };
     // if (parser.errors.items.len > 0) return .{ "", 1 };
+}
+
+pub fn waitForWork(alloc: Allocator, global: *Global) Allocator.Error!struct { []const u8, u8 } {
+    if (global.subCommand == .Lexer) {
+        return .{ try global.toStringToken(alloc), 0 };
+    }
+
+    global.threadPool.deinit();
+
+    const index = 0;
+
+    if (failed) return .{ "", 1 };
+
+    if (global.subCommand == .Parser) return .{ try global.toStringAst(alloc, global.nodes.get(index).data[1].load(.acquire)), 0 };
+
+    if (global.subCommand == .TypeCheck) return .{ try global.toStringAst(alloc, global.nodes.get(index).data[1].load(.acquire)), 0 };
 
     return .{ "", 1 };
 }
@@ -176,6 +184,7 @@ const ParseArgs = @import("ParseArgs.zig");
 const Lexer = @import("./Lexer/mod.zig");
 const Parser = @import("./Parser/mod.zig");
 const TypeCheck = @import("./TypeCheck/mod.zig");
+const Report = @import("./Report/mod.zig");
 const Global = @import("Global.zig");
 
 const Util = @import("./Util.zig");

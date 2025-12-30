@@ -10,7 +10,7 @@ pub fn init(tu: *TranslationUnit) Self {
     };
 }
 
-pub fn checkRoot(self: *Self, alloc: Allocator, rootIndex: Parser.NodeIndex) Allocator.Error!void {
+pub fn checkRoot(self: Self, alloc: Allocator, rootIndex: Parser.NodeIndex) Allocator.Error!void {
     const root = self.tu.global.nodes.get(rootIndex);
 
     var nodeIndex = root.data.@"0".load(.acquire);
@@ -27,20 +27,8 @@ pub fn checkRoot(self: *Self, alloc: Allocator, rootIndex: Parser.NodeIndex) All
     }
 }
 
-pub fn dupe(self: *const Self, alloc: Allocator) Allocator.Error!*Self {
-    const selfDupe = try Util.dupe(alloc, self.*);
-
-    selfDupe.message = Report.Message.init(self.tu.global);
-
-    return selfDupe;
-}
-
-pub fn destroyDupe(self: *const Self, alloc: Allocator) void {
-    alloc.destroy(self);
-}
-
 // TODO: I have to add this variable to the context
-pub fn checkFunctionOuter(self: *Self, alloc: Allocator, variableIndex: Parser.NodeIndex) Allocator.Error!void {
+pub fn checkFunctionOuter(self: Self, alloc: Allocator, variableIndex: Parser.NodeIndex) Allocator.Error!void {
     self.tu.global.observer.mutex.lock();
 
     const variable = self.tu.global.nodes.get(variableIndex);
@@ -49,7 +37,6 @@ pub fn checkFunctionOuter(self: *Self, alloc: Allocator, variableIndex: Parser.N
         defer self.tu.global.observer.mutex.unlock();
         const callBack = struct {
             fn callBack(args: ObserverParams) void {
-                defer args[0].destroyDupe(args[1]);
                 @call(.auto, checkFunctionOuter, args) catch {
                     TranslationUnit.failed = true;
                     std.log.err("Run Out of Memory", .{});
@@ -57,7 +44,7 @@ pub fn checkFunctionOuter(self: *Self, alloc: Allocator, variableIndex: Parser.N
             }
         }.callBack;
 
-        try self.tu.global.observer.pushUnlock(alloc, variableIndex, callBack, .{ try self.dupe(alloc), alloc, variableIndex });
+        try self.tu.global.observer.pushUnlock(alloc, variableIndex, callBack, .{ self, alloc, variableIndex });
         return;
     }
 
@@ -81,7 +68,7 @@ pub fn checkFunctionOuter(self: *Self, alloc: Allocator, variableIndex: Parser.N
     }
 }
 
-pub fn checkTypeFunction(self: *const Self, alloc: Allocator, funcTypeIndex: Parser.NodeIndex, funcIndex: Parser.NodeIndex) void {
+pub fn checkTypeFunction(self: Self, alloc: Allocator, funcTypeIndex: Parser.NodeIndex, funcIndex: Parser.NodeIndex) void {
     _ = alloc;
     const funcProto = self.tu.global.nodes.get(funcIndex);
     std.debug.assert(funcProto.tag.load(.acquire) == .funcProto);
@@ -100,7 +87,7 @@ pub fn checkTypeFunction(self: *const Self, alloc: Allocator, funcTypeIndex: Par
     }
 }
 
-pub fn inferTypeFunction(self: *Self, alloc: Allocator, variableIndex: Parser.NodeIndex, funcIndex: Parser.NodeIndex) Allocator.Error!bool {
+pub fn inferTypeFunction(self: Self, alloc: Allocator, variableIndex: Parser.NodeIndex, funcIndex: Parser.NodeIndex) Allocator.Error!bool {
     const proto = self.tu.global.nodes.get(funcIndex);
     std.debug.assert(proto.tag.load(.acquire) == .funcProto);
 
@@ -121,7 +108,7 @@ pub fn inferTypeFunction(self: *Self, alloc: Allocator, variableIndex: Parser.No
     return result == null;
 }
 
-pub fn checkFunction(self: *Self, alloc: Allocator, funcIndex: Parser.NodeIndex) Allocator.Error!void {
+pub fn checkFunction(self: Self, alloc: Allocator, funcIndex: Parser.NodeIndex) Allocator.Error!void {
     const func = self.tu.global.nodes.get(funcIndex);
     std.debug.assert(func.tag.load(.acquire) == .funcProto);
 
@@ -141,7 +128,7 @@ pub fn checkFunction(self: *Self, alloc: Allocator, funcIndex: Parser.NodeIndex)
 }
 
 // TODO: Add scope to this
-fn checkScope(self: *Self, alloc: Allocator, scopeIndex: Parser.NodeIndex, typeI: Parser.NodeIndex) Allocator.Error!void {
+fn checkScope(self: Self, alloc: Allocator, scopeIndex: Parser.NodeIndex, typeI: Parser.NodeIndex) Allocator.Error!void {
     const scope = self.tu.global.nodes.get(scopeIndex);
     const retType = self.tu.global.nodes.get(typeI);
 
@@ -158,7 +145,7 @@ fn checkScope(self: *Self, alloc: Allocator, scopeIndex: Parser.NodeIndex, typeI
     }
 }
 
-fn checkStatements(self: *Self, alloc: Allocator, stmtI: Parser.NodeIndex, retTypeI: Parser.NodeIndex) Allocator.Error!void {
+fn checkStatements(self: Self, alloc: Allocator, stmtI: Parser.NodeIndex, retTypeI: Parser.NodeIndex) Allocator.Error!void {
     _ = .{ alloc, retTypeI };
     const stmt = self.tu.global.nodes.get(stmtI);
 
@@ -169,12 +156,12 @@ fn checkStatements(self: *Self, alloc: Allocator, stmtI: Parser.NodeIndex, retTy
     }
 }
 
-fn checkReturn(self: *const Self, alloc: Allocator, nodeI: Parser.NodeIndex, typeI: Parser.NodeIndex) Allocator.Error!void {
+fn checkReturn(self: Self, alloc: Allocator, nodeI: Parser.NodeIndex, typeI: Parser.NodeIndex) Allocator.Error!void {
     const stmt = self.tu.global.nodes.get(nodeI);
     try Expression.checkType(self, alloc, stmt.data[1].load(.acquire), typeI);
 }
 
-fn checkVariable(self: *Self, alloc: Allocator, nodeIndex: Parser.NodeIndex) Allocator.Error!void {
+fn checkVariable(self: Self, alloc: Allocator, nodeIndex: Parser.NodeIndex) Allocator.Error!void {
     const node = self.tu.global.nodes.get(nodeIndex);
     // NOTE: At the time being this is not changed so it should be fine;
     const expressionIndex = node.data.@"1".load(.acquire);
@@ -189,7 +176,7 @@ fn checkVariable(self: *Self, alloc: Allocator, nodeIndex: Parser.NodeIndex) All
 }
 
 // TODO:: If type is established chcek if the expression is valid
-fn checkPureVariable(self: *Self, alloc: Allocator, varIndex: Parser.NodeIndex) Allocator.Error!void {
+fn checkPureVariable(self: Self, alloc: Allocator, varIndex: Parser.NodeIndex) Allocator.Error!void {
     var variable = self.tu.global.nodes.get(varIndex);
 
     const typeIndex = variable.data[0].load(.acquire);
@@ -214,7 +201,7 @@ fn checkPureVariable(self: *Self, alloc: Allocator, varIndex: Parser.NodeIndex) 
     try self.tu.scope.put(alloc, variable.getText(self.tu.global), varIndex);
 }
 
-pub const ObserverParams = std.meta.Tuple(&.{ *Self, Allocator, Parser.NodeIndex });
+pub const ObserverParams = std.meta.Tuple(&.{ Self, Allocator, Parser.NodeIndex });
 
 comptime {
     const Expected = Util.getTupleFromParams(checkFunctionOuter);

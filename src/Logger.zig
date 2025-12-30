@@ -11,7 +11,7 @@ pub fn l(comptime message_level: std.log.Level, comptime scope: @TypeOf(.enum_li
     };
 
     const prefix2 = if (scope == .default) ": " else "(" ++ @tagName(scope) ++ "): ";
-    var buffer: [256]u8 = undefined;
+    var buffer: [std.math.pow(usize, 1, 8)]u8 = undefined;
     const stderr = std.debug.lockStderrWriter(&buffer);
     defer std.debug.unlockStderrWriter();
     nosuspend stderr.print(level_txt ++ prefix2 ++ format ++ "\n", args) catch return;

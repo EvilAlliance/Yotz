@@ -1,5 +1,6 @@
 const std = @import("std");
 const Result = @import("Result.zig");
+const normalize = @import("Normalize.zig").normalize;
 const diffz = @import("diffz");
 
 alloc: std.mem.Allocator,
@@ -23,7 +24,7 @@ pub fn init(
     returnCode: i64,
     stdout: []const u8,
     stderr: []const u8,
-) @This() {
+) std.mem.Allocator.Error!@This() {
     var fileAnswer = std.fs.openFileAbsolute(fileAbs, .{ .mode = .read_write }) catch null;
     if (fileAnswer == null) {
         std.fs.makeDirAbsolute(fileAbs[0..std.mem.lastIndexOf(u8, fileAbs, "/").?]) catch |e| {
@@ -41,8 +42,8 @@ pub fn init(
         .args = args,
         .stdin = stdin,
         .returnCode = returnCode,
-        .stdout = stdout,
-        .stderr = stderr,
+        .stdout = try normalize(alloc, stdout),
+        .stderr = try normalize(alloc, stderr),
 
         .file = fileAnswer.?,
         .filePath = fileAbs,

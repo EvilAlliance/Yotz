@@ -232,7 +232,8 @@
         "title": "For the message struct join the message in a single function so it is easier to edit",
         "desc": "",
         "time_created": "2025-08-04 08:50:57.035503142 -03:00:00",
-        "time_started": "2025-12-24 15:42:04.736747521 -03:00:00"
+        "time_started": "2025-12-24 15:42:04.736747521 -03:00:00",
+        "time_completed": "2025-12-30 15:43:43.385431527 -03:00:00"
       },
       {
         "id": "5GdLNL7o",
@@ -337,7 +338,15 @@
         "title": "Make it so that when the parser encounters an unexpected token to rocover so it is possible to tell more errors",
         "desc": "",
         "time_created": "2025-12-24 15:44:30.095647707 -03:00:00",
-        "time_started": "2025-12-24 15:44:31.216814252 -03:00:00"
+        "time_started": "2025-12-24 15:44:31.216814252 -03:00:00",
+        "time_completed": "2025-12-30 15:43:30.974726745 -03:00:00"
+      },
+      {
+        "id": "hKaSWqjm",
+        "title": "In the ParseError0.y I may report the same error, check if it for the same circuntanse (bad) or different (good)",
+        "desc": "",
+        "time_created": "2025-12-28 01:05:05.949823023 -03:00:00",
+        "time_completed": "2025-12-30 15:43:25.158976976 -03:00:00"
       }
     ]
   }

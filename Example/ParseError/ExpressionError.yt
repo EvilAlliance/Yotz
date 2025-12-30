@@ -1,0 +1,24 @@
+// Operator without right operand
+main :: () u8 {
+    return 5 +;
+}
+
+// Double operators
+foo :: () u8 {
+    return 3 + * 2;
+}
+
+// Unclosed parenthesis in expression
+bar :: () u8 {
+    return (10 + 5;
+}
+
+// Missing operand after minus
+baz :: () u8 {
+    return 7 - ;
+}
+
+// Invalid token in expression
+qux :: () u8 {
+    return 4 + };
+}

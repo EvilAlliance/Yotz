@@ -93,6 +93,7 @@ pub fn main() u8 {
         std.log.warn("Subcommand run wont print anything", .{});
     }
 
+    var reports = Report.Reports{};
     var global: Global = .{ .subCommand = arguments.subCom };
     global.init(alloc, 20) catch std.debug.panic("Could not create threads", .{});
 
@@ -107,7 +108,12 @@ pub fn main() u8 {
 
     const tu = TranslationUnit.initGlobal(&global, scope);
 
-    const bytes, const ret = tu.startEntry(alloc) catch {
+    tu.startEntry(alloc, &reports) catch {
+        std.log.err("Run Out of Memory", .{});
+        return 1;
+    };
+
+    const bytes, const ret = TranslationUnit.waitForWork(alloc, &global) catch {
         std.log.err("Run Out of Memory", .{});
         return 1;
     };
@@ -122,6 +128,11 @@ pub fn main() u8 {
         getName(arguments.path, arguments.subCom.getExt(), &buf),
     );
 
+    const message = Report.Message.init(&global);
+    for (0..reports.nextIndex.load(.acquire)) |i| {
+        reports.get(i).display(message);
+    }
+
     return ret;
 }
 
@@ -132,6 +143,7 @@ const Arguments = ParseArguments.Arguments;
 const TranslationUnit = @import("./TranslationUnit.zig");
 const Global = @import("Global.zig");
 const TypeCheck = @import("./TypeCheck/mod.zig");
+const Report = @import("./Report/mod.zig");
 
 const Logger = @import("Logger.zig");
 

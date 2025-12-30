@@ -1,3 +1,7 @@
+pub const Error = error{
+    UnexpectedToken,
+};
+
 tu: *TranslationUnit,
 
 index: mod.TokenIndex = 0,
@@ -18,19 +22,6 @@ pub fn deinit(self: *@This(), alloc: Allocator) void {
     self.errors.deinit(alloc);
 }
 
-pub fn expect(self: *@This(), alloc: Allocator, token: Lexer.Token, t: []const Lexer.Token.Type) std.mem.Allocator.Error!bool {
-    const is = Util.listContains(Lexer.Token.Type, t, token.tag);
-    if (!is) {
-        const ex = try alloc.dupe(Lexer.Token.Type, t);
-        try self.errors.append(alloc, UnexpectedToken{
-            .expected = ex,
-            .found = token.tag,
-            .loc = token.loc,
-        });
-    }
-
-    return is;
-}
 fn peek(self: *const @This()) struct { Lexer.Token, mod.TokenIndex } {
     return self.peekMany(0);
 }
@@ -53,51 +44,57 @@ fn pop(self: *@This()) struct { Lexer.Token, mod.TokenIndex } {
     return tuple;
 }
 
-pub fn parseFunction(self: *@This(), alloc: Allocator, start: mod.TokenIndex, placeHolder: mod.NodeIndex) (Allocator.Error)!void {
+fn popUnil(self: *@This(), tokenType: Lexer.Token.Type) void {
+    _ = self.pop();
+
+    var peeked = self.peek()[0].tag;
+    while (peeked != tokenType and peeked != .EOF) : (peeked = self.peek()[0].tag) {
+        _ = self.pop();
+    }
+}
+
+pub fn parseFunction(self: *@This(), alloc: Allocator, start: mod.TokenIndex, placeHolder: mod.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
     self.index = start;
     std.debug.assert(self.isFunction());
 
-    const index = self.parseFuncDecl(alloc) catch |err| {
-        switch (err) {
-            error.OutOfMemory => return error.OutOfMemory,
-            // TODO: Error Recovery
-            // I think error recovery when reaches here is must fail;
-            else => @panic("Do not know what to do"),
-        }
-    };
+    const index = try self.parseFuncDecl(alloc, reports);
 
     if (self.tu.global.nodes.getPtr(placeHolder).data[1].cmpxchgStrong(0, index, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
 
     std.debug.assert(self.tu.global.nodes.get(placeHolder).data.@"1".load(.acquire) == index);
 }
 
-pub fn parseRoot(self: *@This(), alloc: Allocator, start: mod.TokenIndex, placeHolder: mod.NodeIndex) (std.mem.Allocator.Error)!void {
+pub fn parseRoot(self: *@This(), alloc: Allocator, start: mod.TokenIndex, placeHolder: mod.NodeIndex, reports: ?*Report.Reports) (std.mem.Allocator.Error)!void {
     self.index = start;
 
-    const index = try self._parseRoot(alloc);
+    const index = try self._parseRoot(alloc, reports);
 
     if (self.tu.global.nodes.getPtr(placeHolder).data[1].cmpxchgStrong(0, index, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
 }
 
-fn _parseRoot(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error)!mod.NodeIndex {
+fn _parseRoot(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error)!mod.NodeIndex {
     var firstIndex: mod.NodeIndex = 0;
     var lastNodeParsed: mod.NodeIndex = 0;
 
     var t, _ = self.peek();
 
-    t, _ = self.peek();
-
     while (t.tag != .EOF) : (t, _ = self.peek()) {
-        if (!try self.expect(alloc, t, &.{.iden})) @panic("Error recovery");
+        Report.expect(alloc, reports, t, &.{.iden}) catch |err|
+            switch (err) {
+                Error.UnexpectedToken => {
+                    self.popUnil(.iden);
+                    continue;
+                },
+                else => return @errorCast(err),
+            };
 
         const nodeIndex = switch (t.tag) {
-            .iden => self.parseVariableDecl(alloc),
-            else => unreachable,
+            .iden => self.parseVariableDecl(alloc, reports),
+            else => std.debug.panic("Found {}", .{t}),
         } catch |err| switch (err) {
             error.UnexpectedToken => {
-                @panic("Can not do this when is multithreaded");
-                // self.tu.global.nodes.shrinkRetainingCapacity(top);
-                // continue;
+                self.popUnil(.iden);
+                continue;
             },
             error.OutOfMemory => return error.OutOfMemory,
         };
@@ -126,40 +123,56 @@ fn isFunction(self: *const @This()) bool {
     return self.peek()[0].tag == .openParen and self.peekMany(1)[0].tag == .closeParen;
 }
 
-fn skipFunction(self: *@This()) void {
+fn skipFunction(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
     std.debug.assert(self.isFunction());
 
-    //TODO: Error Recovery
     _ = self.popIf(.openParen) orelse unreachable;
     // TODO: Arguments
     _ = self.popIf(.closeParen) orelse unreachable;
 
-    self.skipType();
+    self.skipType(alloc, reports) catch |err| switch (err) {
+        error.UnexpectedToken => {
+            while (self.peek()[0].tag != .openBrace and
+                self.peek()[0].tag != .semicolon and
+                self.peek()[0].tag != .EOF)
+            {
+                _ = self.pop();
+            }
+        },
+        else => return err,
+    };
 
     if (self.peek()[0].tag == .openBrace) {
-        const depth = self.depth;
-
-        _ = self.pop();
-        self.depth += 1;
-
-        while (depth != self.depth) {
-            const token = self.pop();
-            switch (token[0].tag) {
-                .openBrace => self.depth += 1,
-                .closeBrace => self.depth -= 1,
-                else => {},
-            }
-        }
+        self.skipBlock();
     } else {
-        while (self.peek()[0].tag != .semicolon) : (_ = self.pop()) {}
-        _ = self.pop();
+        self.popUnil(.semicolon);
+        _ = self.popIf(.semicolon);
     }
 }
 
-fn skipType(self: *@This()) void {
-    //TODO: Error Recovery
+fn skipBlock(self: *@This()) void {
+    assert(self.peek()[0].tag == .openBrace);
 
-    if (!Util.listContains(Lexer.Token.Type, &.{ .openParen, .iden }, self.peek()[0].tag)) unreachable;
+    var braceDepth: u32 = 0;
+
+    while (self.peek()[0].tag != .EOF) {
+        const token = self.pop()[0];
+
+        switch (token.tag) {
+            .openBrace => {
+                braceDepth += 1;
+            },
+            .closeBrace => {
+                braceDepth -= 1;
+                if (braceDepth == 0) return;
+            },
+            else => {},
+        }
+    }
+}
+
+fn skipType(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
+    try Report.expect(alloc, reports, self.peek()[0], &.{ .openParen, .iden });
 
     if (self.peek()[0].tag == .openParen) {
         _ = self.popIf(.openParen) orelse unreachable;
@@ -172,63 +185,38 @@ fn skipType(self: *@This()) void {
     }
 }
 
-fn parseFuncDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
-    var funcProtoNode = self.parseFuncProto(alloc) catch |err| switch (err) {
-        error.UnexpectedToken => {
-            if (self.peek()[0].tag != .openBrace) {
-                var depth: usize = 1;
-                while (depth > 0) {
-                    const token, _ = self.pop();
-                    switch (token.tag) {
-                        .openBrace => depth += 1,
-                        .closeBrace => depth -= 1,
-                        else => {},
-                    }
-                }
-            } else {
-                while (self.peek()[0].tag != .semicolon) : (_ = self.pop()) {}
-                _ = self.pop();
-            }
-            return error.UnexpectedToken;
-        },
-        else => return error.OutOfMemory,
-    };
+fn parseFuncDecl(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
+    var funcProtoNode = try self.parseFuncProto(alloc, reports);
 
     funcProtoNode.next.store(
-        if (self.peek()[0].tag == .openBrace) try self.parseScope(alloc) else try self.parseStatement(alloc),
+        if (self.peek()[0].tag == .openBrace) try self.parseScope(alloc, reports) else try self.parseStatement(alloc, reports),
         .release,
     );
 
     return self.tu.global.nodes.appendIndex(alloc, funcProtoNode);
 }
 
-fn parseFuncProto(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!Node {
-    if (!try self.expect(alloc, self.pop()[0], &.{.openParen})) return error.UnexpectedToken;
+fn parseFuncProto(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!Node {
+    try Report.expect(alloc, reports, self.pop()[0], &.{.openParen});
     // TODO: Parse arguments
-    if (!try self.expect(alloc, self.pop()[0], &.{.closeParen})) return error.UnexpectedToken;
+    try Report.expect(alloc, reports, self.pop()[0], &.{.closeParen});
 
-    const p = self.parseType(alloc) catch |err| switch (err) {
-        error.UnexpectedToken => {
-            _ = self.pop();
-            return err;
-        },
-        else => return err,
-    };
+    const p = try self.parseType(alloc, reports);
 
     const nodeIndex: Node = .{ .tag = .init(.funcProto), .data = .{ .init(0), .init(p) } };
 
     return nodeIndex;
 }
 
-fn parseTypeFunction(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
+fn parseTypeFunction(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
     std.debug.assert(Util.listContains(Lexer.Token.Type, &.{.openParen}, self.peek()[0].tag));
 
-    if (!try self.expect(alloc, self.peek()[0], &.{.openParen})) return error.UnexpectedToken;
+    try Report.expect(alloc, reports, self.peek()[0], &.{.openParen});
     _, const initI = self.pop();
-    if (!try self.expect(alloc, self.peek()[0], &.{.closeParen})) return error.UnexpectedToken;
+    try Report.expect(alloc, reports, self.peek()[0], &.{.closeParen});
     _ = self.pop();
 
-    const x = try self.parseType(alloc);
+    const x = try self.parseType(alloc, reports);
 
     const node = Node{
         .tag = .init(.funcType),
@@ -239,10 +227,10 @@ fn parseTypeFunction(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error 
     return try self.tu.global.nodes.appendIndex(alloc, node);
 }
 
-fn parseType(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
-    if (!try self.expect(alloc, self.peek()[0], &.{ .openParen, .iden })) return error.UnexpectedToken;
+fn parseType(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
+    try Report.expect(alloc, reports, self.peek()[0], &.{ .openParen, .iden });
     if (self.peek()[0].tag == .openParen) {
-        return try self.parseTypeFunction(alloc);
+        return try self.parseTypeFunction(alloc, reports);
     } else {
         _, const tokenIndex = self.pop();
         return try self.tu.global.nodes.appendIndex(alloc, .{
@@ -252,19 +240,19 @@ fn parseType(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error
     }
 }
 
-fn parseScope(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
+fn parseScope(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
     var firstIndex: mod.NodeIndex = 0;
     var lastNodeParsed: mod.NodeIndex = 0;
 
     _ = self.popIf(.openBrace) orelse unreachable;
 
-    while (self.peek()[0].tag != .closeBrace) {
-        const nodeIndex = self.parseStatement(alloc) catch |err| switch (err) {
+    var peeked = self.peek()[0].tag;
+    while (peeked != .closeBrace and peeked != .EOF) : (peeked = self.peek()[0].tag) {
+        const nodeIndex = self.parseStatement(alloc, reports) catch |err| switch (err) {
             error.UnexpectedToken => {
-                @panic("Can not do this when is multithreaded");
-                // self.tu.global.nodes.shrinkRetainingCapacity(top);
-                // while (self.peek()[0].tag != .semicolon) : (_ = self.pop()) {}
-                // _ = self.pop();
+                self.popUnil(.semicolon);
+                _ = self.popIf(.semicolon);
+                continue;
             },
             error.OutOfMemory => return error.OutOfMemory,
         };
@@ -278,7 +266,7 @@ fn parseScope(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || erro
         lastNodeParsed = nodeIndex;
     }
 
-    if (!try self.expect(alloc, self.peek()[0], &.{.closeBrace})) return error.UnexpectedToken;
+    try Report.expect(alloc, reports, self.peek()[0], &.{.closeBrace});
     _ = self.pop();
 
     const nodeIndex = try self.tu.global.nodes.appendIndex(alloc, .{
@@ -289,22 +277,21 @@ fn parseScope(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || erro
     return nodeIndex;
 }
 
-fn parseStatement(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
-    if (!try self.expect(alloc, self.peek()[0], &.{ .ret, .iden })) return error.UnexpectedToken;
+fn parseStatement(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
+    try Report.expect(alloc, reports, self.peek()[0], &.{ .ret, .iden });
 
     const nodeIndex = switch (self.peek()[0].tag) {
-        .ret => try self.parseReturn(alloc),
-        .iden => try self.parseVariableDecl(alloc),
+        .ret => try self.parseReturn(alloc, reports),
+        .iden => try self.parseVariableDecl(alloc, reports),
         else => unreachable,
     };
 
-    if (!try self.expect(alloc, self.peek()[0], &.{.semicolon})) return error.UnexpectedToken;
-    _ = self.pop();
+    _ = self.popIf(.semicolon);
 
     return nodeIndex;
 }
 
-fn parseVariableDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
+fn parseVariableDecl(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
     _, const nameIndex = self.popIf(.iden) orelse unreachable;
 
     const index = try self.tu.global.nodes.appendIndex(alloc, .{
@@ -314,13 +301,13 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error 
 
     const node = self.tu.global.nodes.getPtr(index);
 
-    if (!try self.expect(alloc, self.peek()[0], &.{.colon})) return error.UnexpectedToken;
+    try Report.expect(alloc, reports, self.peek()[0], &.{.colon});
     _ = self.pop();
 
     const possibleType = self.peek()[0];
 
     if (possibleType.tag != .colon and possibleType.tag != .equal)
-        node.data[0].store(try self.parseType(alloc), .release);
+        node.data[0].store(try self.parseType(alloc, reports), .release);
 
     const possibleExpr = self.peek()[0];
 
@@ -330,62 +317,60 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error 
         if (self.pop()[0].tag == .colon)
             node.tag = .init(.constant);
 
-        expr = try self.parseExpression(alloc, index);
+        expr = try self.parseExpression(alloc, index, reports);
 
         if (expr != 0)
             node.data[1].store(expr, .release);
     }
 
-    if (expr != 0 and !try self.expect(alloc, self.peek()[0], &.{.semicolon}))
-        return error.UnexpectedToken;
+    if (expr != 0) try Report.expect(alloc, reports, self.peek()[0], &.{.semicolon});
 
     return index;
 }
 
-fn parseReturn(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
+fn parseReturn(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
     _, const retIndex = self.popIf(.ret) orelse unreachable;
 
     const nodeIndex = try self.tu.global.nodes.appendIndex(alloc, .{
         .tag = .init(.ret),
         .tokenIndex = .init(retIndex),
     });
-    const exp = try self.parseExpression(alloc, nodeIndex);
+    const exp = try self.parseExpression(alloc, nodeIndex, reports);
 
     const node = self.tu.global.nodes.getPtr(nodeIndex);
 
     node.data[1].store(exp, .release);
 
-    if (exp != 0 and !try self.expect(alloc, self.peek()[0], &.{.semicolon})) return error.UnexpectedToken;
+    if (exp != 0) try Report.expect(alloc, reports, self.peek()[0], &.{.semicolon});
 
     return nodeIndex;
 }
 
 // NOTE: Returns 0 if is a function
-fn parseExpression(self: *@This(), alloc: Allocator, index: mod.NodeIndex) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
+fn parseExpression(self: *@This(), alloc: Allocator, index: mod.NodeIndex, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
     if (self.isFunction()) {
         assert(index != 0);
         const start = self.index;
 
-        self.skipFunction();
+        try self.skipFunction(alloc, null);
 
-        try (try self.tu.initFunc(alloc)).startFunction(alloc, start, index);
+        try (try self.tu.initFunc(alloc)).startFunction(alloc, start, index, reports);
 
         return 0;
     } else {
-        return self.parseExpr(alloc, 1);
+        return self.parseExpr(alloc, 1, reports);
     }
 }
 
-fn parseExpr(self: *@This(), alloc: Allocator, minPrecedence: u8) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
+fn parseExpr(self: *@This(), alloc: Allocator, minPrecedence: u8, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
     var nextToken = self.peek()[0];
-    if (nextToken.tag == .semicolon) @panic("Void return is not implemented");
 
-    var leftIndex = try self.parseTerm(alloc);
+    var leftIndex = try self.parseTerm(alloc, reports);
     nextToken = self.peek()[0];
 
     while (nextToken.tag != .semicolon and nextToken.tag != .closeParen) : (nextToken = self.peek()[0]) {
         const op, const opIndex = self.peek();
-        if (!try self.expect(alloc, op, &.{ .plus, .minus, .asterik, .slash, .caret })) return error.UnexpectedToken;
+        try Report.expect(alloc, reports, op, &.{ .plus, .minus, .asterik, .slash, .caret, .semicolon, .closeParen });
 
         const tag: Node.Tag = Expression.tokenTagToNodeTag(op.tag);
         const prec = Expression.operandPresedence(tag);
@@ -395,7 +380,7 @@ fn parseExpr(self: *@This(), alloc: Allocator, minPrecedence: u8) (std.mem.Alloc
 
         const nextMinPrec = if (Expression.operandAssociativity(tag) == Expression.Associativity.left) prec + 1 else prec;
 
-        const right = try self.parseExpr(alloc, nextMinPrec);
+        const right = try self.parseExpr(alloc, nextMinPrec, reports);
 
         leftIndex = try self.tu.global.nodes.appendIndex(alloc, Node{
             .tag = .init(tag),
@@ -407,10 +392,10 @@ fn parseExpr(self: *@This(), alloc: Allocator, minPrecedence: u8) (std.mem.Alloc
     return leftIndex;
 }
 
-fn parseTerm(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
+fn parseTerm(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
     const nextToken = self.peek()[0];
 
-    if (!try self.expect(alloc, nextToken, &[_]Lexer.Token.Type{ .numberLiteral, .openParen, .minus, .iden })) return error.UnexpectedToken;
+    try Report.expect(alloc, reports, nextToken, &[_]Lexer.Token.Type{ .numberLiteral, .openParen, .minus, .iden });
 
     switch (nextToken.tag) {
         .numberLiteral => {
@@ -428,7 +413,7 @@ fn parseTerm(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error
         .minus => {
             const op, const opIndex = self.pop();
 
-            const expr = try self.parseTerm(alloc);
+            const expr = try self.parseTerm(alloc, reports);
 
             return try self.tu.global.nodes.appendIndex(alloc, .{
                 .tag = .init(switch (op.tag) {
@@ -444,8 +429,8 @@ fn parseTerm(self: *@This(), alloc: Allocator) (std.mem.Allocator.Error || error
 
             _ = self.pop();
 
-            const expr = try self.parseExpression(alloc, 0);
-            if (!try self.expect(alloc, self.peek()[0], &.{.closeParen})) return error.UnexpectedToken;
+            const expr = try self.parseExpression(alloc, 0, reports);
+            try Report.expect(alloc, reports, self.peek()[0], &.{.closeParen});
 
             _ = self.pop();
 
@@ -465,7 +450,7 @@ const Allocator = std.mem.Allocator;
 const Util = @import("../Util.zig");
 
 const Lexer = @import("../Lexer/mod.zig");
-
+const Report = @import("../Report/mod.zig");
 const TranslationUnit = @import("../TranslationUnit.zig");
 
 const Node = @import("Node.zig");

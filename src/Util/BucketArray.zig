@@ -5,6 +5,7 @@ pub fn BucketArray(comptime T: type, comptime BucketType: type, comptime nodesPe
 
         buckets: ArrayList(*Bucket) = .{},
         nextIndex: Atomic(BucketType) = .init(0),
+        bucketCount: Atomic(BucketType) = .init(0),
         protec: Thread.Mutex = .{},
 
         pub fn deinit(self: *Self, alloc: Allocator) void {
@@ -19,14 +20,18 @@ pub fn BucketArray(comptime T: type, comptime BucketType: type, comptime nodesPe
             const bucketId = index / nodesPerBucket;
             const offset = index % nodesPerBucket;
 
-            if (bucketId >= self.buckets.items.len) {
-                self.protec.lock();
-                defer self.protec.unlock();
+            if (bucketId < self.bucketCount.load(.acquire)) {
+                self.buckets.items[bucketId][offset] = item;
+                return;
+            }
 
-                if (bucketId >= self.buckets.items.len) {
-                    const bucket = try alloc.create(Bucket);
-                    try self.buckets.append(alloc, bucket);
-                }
+            self.protec.lock();
+            defer self.protec.unlock();
+
+            while (bucketId >= self.buckets.items.len) {
+                const bucket = try alloc.create(Bucket);
+                try self.buckets.append(alloc, bucket);
+                self.bucketCount.store(@intCast(self.buckets.items.len), .release);
             }
 
             self.buckets.items[bucketId][offset] = item;
@@ -37,14 +42,18 @@ pub fn BucketArray(comptime T: type, comptime BucketType: type, comptime nodesPe
             const bucketId = index / nodesPerBucket;
             const offset = index % nodesPerBucket;
 
-            if (bucketId >= self.buckets.items.len) {
-                self.protec.lock();
-                defer self.protec.unlock();
+            if (bucketId < self.bucketCount.load(.acquire)) {
+                self.buckets.items[bucketId][offset] = item;
+                return index;
+            }
 
-                if (bucketId >= self.buckets.items.len) {
-                    const bucket = try alloc.create(Bucket);
-                    try self.buckets.append(alloc, bucket);
-                }
+            self.protec.lock();
+            defer self.protec.unlock();
+
+            while (bucketId >= self.buckets.items.len) {
+                const bucket = try alloc.create(Bucket);
+                try self.buckets.append(alloc, bucket);
+                self.bucketCount.store(@intCast(self.buckets.items.len), .release);
             }
 
             self.buckets.items[bucketId][offset] = item;

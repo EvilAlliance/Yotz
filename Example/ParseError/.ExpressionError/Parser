@@ -1,0 +1,36 @@
+:i argc 0
+:b stdin 0
+
+:i returncode 0
+:b stdout 96
+main :: () u8 { 
+} 
+foo :: () u8 { 
+} 
+bar :: () u8 { 
+} 
+baz :: () u8 { 
+} 
+qux :: () u8 { 
+} 
+
+:b stderr 840
+[ERROR]: Example/ParseError/ExpressionError.yt:3:15: Expected: "number literal", "(", "-", "identifier" but found: ';' 
+    return 5 +;
+              ^
+[ERROR]: Example/ParseError/ExpressionError.yt:8:16: Expected: "number literal", "(", "-", "identifier" but found: '*' 
+    return 3 + * 2;
+               ^
+[ERROR]: Example/ParseError/ExpressionError.yt:13:19: Expected: ")" but found: ';' 
+    return (10 + 5;
+                  ^
+[ERROR]: Example/ParseError/ExpressionError.yt:18:16: Expected: "number literal", "(", "-", "identifier" but found: ';' 
+    return 7 - ;
+               ^
+[ERROR]: Example/ParseError/ExpressionError.yt:23:16: Expected: "number literal", "(", "-", "identifier" but found: '}' 
+    return 4 + };
+               ^
+[ERROR]: Example/ParseError/ExpressionError.yt:24:1: Expected: "identifier" but found: '}' 
+}
+^
+

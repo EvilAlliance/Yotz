@@ -1,6 +1,11 @@
 const Flatten = std.ArrayList(Parser.NodeIndex);
 
-pub fn inferType(self: *const TypeCheck, alloc: Allocator, varI: Parser.NodeIndex, exprI: Parser.NodeIndex) Allocator.Error!bool {
+pub const Error = error{
+    TooBig,
+    IncompatibleType,
+};
+
+pub fn inferType(self: TypeCheck, alloc: Allocator, varI: Parser.NodeIndex, exprI: Parser.NodeIndex) Allocator.Error!bool {
     const expr = self.tu.global.nodes.get(exprI);
     const variableToInfer = self.tu.global.nodes.get(varI);
 
@@ -27,7 +32,6 @@ pub fn inferType(self: *const TypeCheck, alloc: Allocator, varI: Parser.NodeInde
 
         const callBack = struct {
             fn callBack(args: ObserverParams) void {
-                defer args[0].destroyDupe(args[1]);
                 @call(.auto, toInferLater, args) catch {
                     TranslationUnit.failed = true;
                     std.log.err("Run Out of Memory", .{});
@@ -36,7 +40,7 @@ pub fn inferType(self: *const TypeCheck, alloc: Allocator, varI: Parser.NodeInde
         }.callBack;
 
         const id = first.getText(self.tu.global);
-        const variableI = try self.tu.scope.getOrWait(alloc, id, callBack, .{ try self.dupe(alloc), alloc, varI, firstI }) orelse continue;
+        const variableI = try self.tu.scope.getOrWait(alloc, id, callBack, .{ self, alloc, varI, firstI }) orelse continue;
 
         const variable = self.tu.global.nodes.get(variableI);
         const typeI = variable.data.@"0".load(.acquire);
@@ -60,7 +64,7 @@ pub fn inferType(self: *const TypeCheck, alloc: Allocator, varI: Parser.NodeInde
     return true;
 }
 
-pub fn toInferLater(self: *const TypeCheck, alloc: Allocator, varI: Parser.NodeIndex, waitedI: Parser.NodeIndex) Allocator.Error!void {
+pub fn toInferLater(self: TypeCheck, alloc: Allocator, varI: Parser.NodeIndex, waitedI: Parser.NodeIndex) Allocator.Error!void {
     const waited = self.tu.global.nodes.get(waitedI);
     const waitedTag = waited.tag.load(.acquire);
     std.debug.assert(waitedTag == .load);
@@ -91,7 +95,7 @@ pub fn toInferLater(self: *const TypeCheck, alloc: Allocator, varI: Parser.NodeI
     }
 }
 
-pub fn checkType(self: *const TypeCheck, alloc: Allocator, exprI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex) Allocator.Error!void {
+pub fn checkType(self: TypeCheck, alloc: Allocator, exprI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex) Allocator.Error!void {
     const expr = self.tu.global.nodes.get(exprI);
     const expectedType = self.tu.global.nodes.get(expectedTypeI);
 
@@ -107,7 +111,7 @@ pub fn checkType(self: *const TypeCheck, alloc: Allocator, exprI: Parser.NodeInd
     try checkFlatten(self, alloc, &flat, expectedTypeI);
 }
 
-fn flatten(self: *const TypeCheck, alloc: Allocator, stack: *Flatten, exprI: Parser.NodeIndex) std.mem.Allocator.Error!void {
+fn flatten(self: TypeCheck, alloc: Allocator, stack: *Flatten, exprI: Parser.NodeIndex) std.mem.Allocator.Error!void {
     const expr = self.tu.global.nodes.get(exprI);
     const exprTag = expr.tag.load(.acquire);
     assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, exprTag));
@@ -141,7 +145,7 @@ fn flatten(self: *const TypeCheck, alloc: Allocator, stack: *Flatten, exprI: Par
     }
 }
 
-fn checkFlatten(self: *const TypeCheck, alloc: Allocator, flat: *Flatten, expectedTypeI: Parser.NodeIndex) std.mem.Allocator.Error!void {
+fn checkFlatten(self: TypeCheck, alloc: Allocator, flat: *Flatten, expectedTypeI: Parser.NodeIndex) std.mem.Allocator.Error!void {
     const expectedType = self.tu.global.nodes.get(expectedTypeI);
     assert(expectedType.tag.load(.acquire) == .type);
 
@@ -186,7 +190,7 @@ fn checkFlatten(self: *const TypeCheck, alloc: Allocator, flat: *Flatten, expect
 }
 
 // TODO: Booble Up the error, or see how to manage it
-fn checkLeaf(self: *const TypeCheck, alloc: Allocator, leafI: Parser.NodeIndex, typeI: Parser.NodeIndex) Allocator.Error!void {
+fn checkLeaf(self: TypeCheck, alloc: Allocator, leafI: Parser.NodeIndex, typeI: Parser.NodeIndex) Allocator.Error!void {
     const leaf = self.tu.global.nodes.get(leafI);
     const expectedType = self.tu.global.nodes.get(typeI);
     const leafTag = leaf.tag.load(.acquire);
@@ -200,13 +204,12 @@ fn checkLeaf(self: *const TypeCheck, alloc: Allocator, leafI: Parser.NodeIndex, 
     }
 }
 
-fn checkVarType(self: *const TypeCheck, alloc: Allocator, leafI: Parser.NodeIndex, typeI: Parser.NodeIndex) Allocator.Error!void {
+fn checkVarType(self: TypeCheck, alloc: Allocator, leafI: Parser.NodeIndex, typeI: Parser.NodeIndex) Allocator.Error!void {
     const leaf = self.tu.global.nodes.get(leafI);
     const id = leaf.getText(self.tu.global);
 
     const callBack = struct {
         fn callBack(args: ObserverParams) void {
-            defer args[0].destroyDupe(args[1]);
             @call(.auto, checkVarType, args) catch {
                 TranslationUnit.failed = true;
                 std.log.err("Run Out of Memory", .{});
@@ -219,7 +222,7 @@ fn checkVarType(self: *const TypeCheck, alloc: Allocator, leafI: Parser.NodeInde
             alloc,
             id,
             callBack,
-            .{ try self.dupe(alloc), alloc, leafI, typeI },
+            .{ self, alloc, leafI, typeI },
         ) orelse return;
 
     const variable = self.tu.global.nodes.get(variableI);
@@ -246,7 +249,7 @@ fn checkVarType(self: *const TypeCheck, alloc: Allocator, leafI: Parser.NodeInde
     }
 }
 
-fn addInferType(self: *const TypeCheck, alloc: Allocator, comptime flag: std.meta.FieldEnum(Parser.Node.Flags), leafI: Parser.NodeIndex, varI: Parser.NodeIndex, typeI: Parser.NodeIndex) Allocator.Error!void {
+fn addInferType(self: TypeCheck, alloc: Allocator, comptime flag: std.meta.FieldEnum(Parser.Node.Flags), leafI: Parser.NodeIndex, varI: Parser.NodeIndex, typeI: Parser.NodeIndex) Allocator.Error!void {
     assert(flag == .inferedFromUse or flag == .inferedFromExpression);
 
     const leaf = self.tu.global.nodes.get(leafI);
@@ -271,7 +274,7 @@ fn addInferType(self: *const TypeCheck, alloc: Allocator, comptime flag: std.met
     self.tu.global.nodes.getPtr(varI).data.@"0".store(x, .release);
 }
 
-fn checkLitType(self: *const TypeCheck, litI: Parser.NodeIndex, typeI: Parser.NodeIndex) void {
+fn checkLitType(self: TypeCheck, litI: Parser.NodeIndex, typeI: Parser.NodeIndex) void {
     const lit = self.tu.global.nodes.get(litI);
     const expectedType = self.tu.global.nodes.get(typeI);
 
@@ -320,7 +323,7 @@ fn checkLitType(self: *const TypeCheck, litI: Parser.NodeIndex, typeI: Parser.No
     }
 }
 
-pub const ObserverParams = std.meta.Tuple(&.{ *const TypeCheck, Allocator, Parser.NodeIndex, Parser.NodeIndex });
+pub const ObserverParams = std.meta.Tuple(&.{ TypeCheck, Allocator, Parser.NodeIndex, Parser.NodeIndex });
 
 comptime {
     const Expected = Util.getTupleFromParams(toInferLater);

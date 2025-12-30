@@ -212,6 +212,37 @@ const Error = struct {
             },
         );
     }
+
+    pub inline fn unexpectedToken(self: @This(), actual: Lexer.Token.Type, expected: []Lexer.Token.Type, loc: Lexer.Location) void {
+        var buff: [256]u8 = undefined;
+        var arr = std.ArrayList(u8).initBuffer(&buff);
+
+        arr.appendBounded('\"') catch return;
+        arr.appendSliceBounded(expected[0].getName()) catch return;
+        arr.appendBounded('\"') catch return;
+        for (expected[1..]) |e| {
+            arr.appendSliceBounded(", ") catch return;
+            arr.appendBounded('\"') catch return;
+            arr.appendSliceBounded(e.getName()) catch return;
+            arr.appendBounded('\"') catch return;
+        }
+
+        const fileInfo = self.global.files.get(loc.source);
+        const where = placeSlice(loc, fileInfo.source);
+        std.log.err(
+            "{s}:{}:{}: Expected: {s} but found: \'{s}\' \n{s}\n{[6]c: >[7]}",
+            .{
+                fileInfo.path,
+                loc.row,
+                loc.col,
+                arr.items,
+                actual.getName(),
+                fileInfo.source[where.beg..where.end],
+                '^',
+                where.pad,
+            },
+        );
+    }
 };
 
 const Info = struct {

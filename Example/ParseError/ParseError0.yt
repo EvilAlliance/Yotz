@@ -1,0 +1,29 @@
+// Missing opening parenthesis
+main :: ) u8 {
+   return 1;
+}
+
+// Missing closing parenthesis
+foo :: ( u8 {
+    return 2;
+}
+
+// Missing semicolon
+bar :: () u8 {
+    return 3
+}
+
+// Missing return type
+test :: () {
+    return 6;
+}
+
+// Missing closing brace
+baz :: () u8 {
+    return 4;
+
+// Wrong token order - type before ::
+qux u8 :: () {
+    return 5;
+}
+

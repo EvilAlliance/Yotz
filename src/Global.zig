@@ -157,6 +157,10 @@ fn toStringScope(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(
         j = node.next.load(.acquire);
     }
 
+    for (0..d) |_| {
+        try cont.append(alloc, ' ');
+    }
+
     try cont.appendSlice(alloc, "} \n");
 }
 
@@ -167,10 +171,12 @@ fn toStringStatement(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayL
 
     const stmt = self.nodes.get(i);
 
+    const exprIndex = stmt.data[1].load(.acquire);
+
     switch (stmt.tag.load(.acquire)) {
         .ret => {
             try cont.appendSlice(alloc, "return ");
-            try self.toStringExpression(alloc, cont, d, stmt.data[1].load(.acquire));
+            if (exprIndex != 0) try self.toStringExpression(alloc, cont, d, exprIndex);
         },
         .variable, .constant => {
             try self.toStringVariable(alloc, cont, d, i);
@@ -178,7 +184,11 @@ fn toStringStatement(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayL
         else => unreachable,
     }
 
-    try cont.appendSlice(alloc, ";\n");
+    if (self.nodes.get(exprIndex).tag.load(.acquire) != .funcProto) {
+        try cont.appendSlice(alloc, ";");
+    }
+
+    try cont.appendSlice(alloc, "\n");
 }
 
 fn toStringVariable(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, i: Parser.NodeIndex) std.mem.Allocator.Error!void {
@@ -204,7 +214,8 @@ fn toStringVariable(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayLi
             .variable => try cont.appendSlice(alloc, "= "),
             else => unreachable,
         }
-        try self.toStringExpression(alloc, cont, d, variable.data[1].load(.acquire));
+        const expr = variable.data[1].load(.acquire);
+        if (expr != 0) try self.toStringExpression(alloc, cont, d, expr);
     }
 }
 
