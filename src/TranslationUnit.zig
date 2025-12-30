@@ -152,6 +152,10 @@ pub fn startEntry(stakcSelf: Self, alloc: Allocator, reports: ?*Report.Reports) 
 
     try self._startRoot(alloc, 0, index, reports);
 
+    if (self.scope.get("main") == null) {
+        Report.missingMain(alloc, reports) catch {};
+    }
+
     // const err = try typeCheck(alloc, &ast);
     //
     // if (self.cont.subCom == .TypeCheck)

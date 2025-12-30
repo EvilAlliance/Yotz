@@ -4,6 +4,7 @@ message: union(enum) {
     unexpectedToken: mod.UnexpectedToken,
     incompatibleType: mod.IncompatibleType,
     incompatibleLiteral: mod.IncompatibleLiteral,
+    missingMain: mod.MissingMain,
 },
 
 pub fn display(self: *const Self, message: mod.Message) void {
@@ -11,6 +12,7 @@ pub fn display(self: *const Self, message: mod.Message) void {
         .unexpectedToken => |ut| ut.display(message),
         .incompatibleType => |it| it.display(message),
         .incompatibleLiteral => |il| il.display(message),
+        .missingMain => |mm| mm.display(message),
     }
 }
 
@@ -60,6 +62,14 @@ pub fn incompatibleType(alloc: Allocator, reports: ?*mod.Reports, actualType: Pa
     });
 
     return TypeCheck.Expression.Error.IncompatibleType;
+}
+
+pub fn missingMain(alloc: Allocator, reports: ?*mod.Reports) Allocator.Error!void {
+    if (reports) |rs| try rs.append(alloc, .{
+        .message = .{
+            .missingMain = .{},
+        },
+    });
 }
 
 const mod = @import("mod.zig");
