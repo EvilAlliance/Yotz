@@ -113,7 +113,7 @@ pub fn main() u8 {
         return 1;
     };
 
-    const bytes, const ret = TranslationUnit.waitForWork(alloc, &global) catch {
+    const bytes, const ret = TranslationUnit.waitForWork(alloc, &global, scope, &reports) catch {
         std.log.err("Run Out of Memory", .{});
         return 1;
     };

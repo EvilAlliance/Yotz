@@ -152,10 +152,6 @@ pub fn startEntry(stakcSelf: Self, alloc: Allocator, reports: ?*Report.Reports) 
 
     try self._startRoot(alloc, 0, index, reports);
 
-    if (self.scope.get("main") == null) {
-        Report.missingMain(alloc, reports) catch {};
-    }
-
     // const err = try typeCheck(alloc, &ast);
     //
     // if (self.cont.subCom == .TypeCheck)
@@ -166,7 +162,7 @@ pub fn startEntry(stakcSelf: Self, alloc: Allocator, reports: ?*Report.Reports) 
     // if (parser.errors.items.len > 0) return .{ "", 1 };
 }
 
-pub fn waitForWork(alloc: Allocator, global: *Global) Allocator.Error!struct { []const u8, u8 } {
+pub fn waitForWork(alloc: Allocator, global: *Global, scope: TypeCheck.Scope, reports: ?*Report.Reports) Allocator.Error!struct { []const u8, u8 } {
     if (global.subCommand == .Lexer) {
         return .{ try global.toStringToken(alloc), 0 };
     }
@@ -178,6 +174,10 @@ pub fn waitForWork(alloc: Allocator, global: *Global) Allocator.Error!struct { [
     if (failed) return .{ "", 1 };
 
     if (global.subCommand == .Parser) return .{ try global.toStringAst(alloc, global.nodes.get(index).data[1].load(.acquire)), 0 };
+
+    if (scope.get("main") == null) {
+        Report.missingMain(alloc, reports) catch {};
+    }
 
     if (global.subCommand == .TypeCheck) return .{ try global.toStringAst(alloc, global.nodes.get(index).data[1].load(.acquire)), 0 };
 

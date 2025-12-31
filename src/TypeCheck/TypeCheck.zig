@@ -66,6 +66,8 @@ pub fn checkFunctionOuter(self: Self, alloc: Allocator, variableIndex: Parser.No
                 break;
         }
     }
+
+    try self.tu.scope.put(alloc, variable.getText(self.tu.global), variableIndex);
 }
 
 pub fn checkTypeFunction(self: Self, alloc: Allocator, funcTypeIndex: Parser.NodeIndex, funcIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
