@@ -1,5 +1,9 @@
+main :: () u8 {
+   return 1;
+}
+
 // Missing opening parenthesis
-main :: ) u8 {
+fail :: ) u8 {
    return 1;
 }
 

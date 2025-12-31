@@ -2,7 +2,10 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 72
+:b stdout 112
+main: () u8 : () u8 { 
+    return 1;
+} 
 bar: () u8 : () u8 { 
 } 
 test :;
@@ -10,23 +13,23 @@ baz: () u8 : () u8 {
     return 4;
 } 
 
-:b stderr 728
-[ERROR]: Example/ParseError/ParseError0.yt:2:9: Expected: "number literal", "(", "-", "identifier" but found: ')' 
-main :: ) u8 {
+:b stderr 729
+[ERROR]: Example/ParseError/ParseError0.yt:6:9: Expected: "number literal", "(", "-", "identifier" but found: ')' 
+fail :: ) u8 {
         ^
-[ERROR]: Example/ParseError/ParseError0.yt:2:14: Expected: ":" but found: '{' 
-main :: ) u8 {
+[ERROR]: Example/ParseError/ParseError0.yt:6:14: Expected: ":" but found: '{' 
+fail :: ) u8 {
              ^
-[ERROR]: Example/ParseError/ParseError0.yt:7:13: Expected: "+", "-", "*", "/", "^", ";", ")" but found: '{' 
+[ERROR]: Example/ParseError/ParseError0.yt:11:13: Expected: "+", "-", "*", "/", "^", ";", ")" but found: '{' 
 foo :: ( u8 {
             ^
-[ERROR]: Example/ParseError/ParseError0.yt:14:1: Expected: "+", "-", "*", "/", "^", ";", ")" but found: '}' 
+[ERROR]: Example/ParseError/ParseError0.yt:18:1: Expected: "+", "-", "*", "/", "^", ";", ")" but found: '}' 
 }
 ^
-[ERROR]: Example/ParseError/ParseError0.yt:17:12: Expected: "(", "identifier" but found: '{' 
+[ERROR]: Example/ParseError/ParseError0.yt:21:12: Expected: "(", "identifier" but found: '{' 
 test :: () {
            ^
-[ERROR]: Example/ParseError/ParseError0.yt:26:5: Expected: ":" but found: 'identifier' 
+[ERROR]: Example/ParseError/ParseError0.yt:30:5: Expected: ":" but found: 'identifier' 
 qux u8 :: () {
     ^
 
