@@ -68,7 +68,7 @@ const Error = struct {
     pub inline fn mainFunctionMissing(self: @This()) void {
         _ = self;
         std.log.err("Main function is missing, Expected: \n{s}", .{
-            \\ fn main() u8{
+            \\ main :: () u8 {
             \\     return 0;
             \\ }
         });
@@ -93,17 +93,18 @@ const Error = struct {
     }
 
     pub inline fn unknownIdentifier(self: @This(), unkownNode: Parser.NodeIndex) void {
-        const stmt = self.global.getNode(unkownNode);
-        const locStmt = stmt.getLocation(self.global.*);
-        const where = placeSlice(locStmt, self.global.cont.source);
+        const stmt = self.global.nodes.get(unkownNode);
+        const loc = stmt.getLocation(self.global);
+        const fileInfo = self.global.files.get(loc.source);
+        const where = placeSlice(loc, fileInfo.source);
         std.log.err(
             "{s}:{}:{}: Unknown identifier '{s}' \n{s}\n{[5]c: >[6]}",
             .{
-                self.global.cont.path,
-                locStmt.row,
-                locStmt.col,
+                fileInfo.path,
+                loc.row,
+                loc.col,
                 stmt.getText(self.global),
-                self.global.cont.source[where.beg..where.end],
+                fileInfo.source[where.beg..where.end],
                 '^',
                 where.pad,
             },

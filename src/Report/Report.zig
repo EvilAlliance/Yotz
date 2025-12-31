@@ -5,6 +5,7 @@ message: union(enum) {
     incompatibleType: mod.IncompatibleType,
     incompatibleLiteral: mod.IncompatibleLiteral,
     missingMain: mod.MissingMain,
+    undefinedVariable: mod.UndefinedVariable,
 },
 
 pub fn display(self: *const Self, message: mod.Message) void {
@@ -13,6 +14,7 @@ pub fn display(self: *const Self, message: mod.Message) void {
         .incompatibleType => |it| it.display(message),
         .incompatibleLiteral => |il| il.display(message),
         .missingMain => |mm| mm.display(message),
+        .undefinedVariable => |uv| uv.display(message),
     }
 }
 
@@ -68,6 +70,16 @@ pub fn missingMain(alloc: Allocator, reports: ?*mod.Reports) Allocator.Error!voi
     if (reports) |rs| try rs.append(alloc, .{
         .message = .{
             .missingMain = .{},
+        },
+    });
+}
+
+pub fn undefinedVariable(alloc: Allocator, reports: ?*mod.Reports, name: Parser.NodeIndex) (Allocator.Error)!void {
+    if (reports) |rs| try rs.append(alloc, .{
+        .message = .{
+            .undefinedVariable = .{
+                .name = name,
+            },
         },
     });
 }
