@@ -1,25 +1,15 @@
-const Self = @This();
-
-tu: *TranslationUnit,
-
-pub fn init(tu: *TranslationUnit) Self {
-    return Self{
-        .tu = tu,
-    };
-}
-
-pub fn checkRoot(self: Self, alloc: Allocator, rootIndex: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
-    const root = self.tu.global.nodes.get(rootIndex);
+pub fn checkRoot(self: *TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
+    const root = self.global.nodes.get(rootIndex);
 
     var nodeIndex = root.data.@"0".load(.acquire);
     const endIndex = root.data.@"1".load(.acquire);
 
     while (nodeIndex != endIndex) {
-        const node = self.tu.global.nodes.get(nodeIndex);
+        const node = self.global.nodes.get(nodeIndex);
         defer nodeIndex = node.next.load(.acquire);
 
         switch (node.tag.load(.acquire)) {
-            .variable, .constant => self.checkVariable(alloc, nodeIndex, reports) catch |err| switch (err) {
+            .variable, .constant => checkVariable(self, alloc, nodeIndex, reports) catch |err| switch (err) {
                 Expression.Error.TooBig, Expression.Error.IncompatibleType => continue,
                 else => return @errorCast(err),
             },
@@ -28,13 +18,13 @@ pub fn checkRoot(self: Self, alloc: Allocator, rootIndex: Parser.NodeIndex, repo
     }
 }
 
-pub fn checkFunctionOuter(self: Self, alloc: Allocator, variableIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
-    self.tu.global.observer.mutex.lock();
+pub fn checkFunctionOuter(self: *TranslationUnit, alloc: Allocator, variableIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
+    self.global.observer.mutex.lock();
 
-    const variable = self.tu.global.nodes.get(variableIndex);
+    const variable = self.global.nodes.get(variableIndex);
     const funcIndex = variable.data.@"1".load(.acquire);
     if (funcIndex == 0) {
-        defer self.tu.global.observer.mutex.unlock();
+        defer self.global.observer.mutex.unlock();
         const callBack = struct {
             fn callBack(args: ObserverParams) void {
                 @call(.auto, checkFunctionOuter, args) catch {
@@ -44,40 +34,40 @@ pub fn checkFunctionOuter(self: Self, alloc: Allocator, variableIndex: Parser.No
             }
         }.callBack;
 
-        try self.tu.global.observer.pushUnlock(alloc, variableIndex, callBack, .{ self, alloc, variableIndex, reports });
+        try self.global.observer.pushUnlock(alloc, variableIndex, callBack, .{ self, alloc, variableIndex, reports });
         return;
     }
 
-    self.tu.global.observer.mutex.unlock();
+    self.global.observer.mutex.unlock();
 
     // Return Type
-    Type.transformType(self, self.tu.global.nodes.get(funcIndex).data[1].load(.acquire));
+    Type.transformType(self, self.global.nodes.get(funcIndex).data[1].load(.acquire));
 
     while (true) {
         const typeIndex = variable.data[0].load(.acquire);
         if (typeIndex != 0) {
             Type.transformType(self, typeIndex);
-            try self.checkTypeFunction(alloc, typeIndex, funcIndex, reports);
+            try checkTypeFunction(self, alloc, typeIndex, funcIndex, reports);
             break;
         } else {
-            const result = try self.inferTypeFunction(alloc, variableIndex, funcIndex);
+            const result = try inferTypeFunction(self, alloc, variableIndex, funcIndex);
 
             if (result)
                 break;
         }
     }
 
-    try self.tu.scope.put(alloc, variable.getText(self.tu.global), variableIndex);
+    try self.scope.put(alloc, variable.getText(self.global), variableIndex);
 }
 
-pub fn checkTypeFunction(self: Self, alloc: Allocator, funcTypeIndex: Parser.NodeIndex, funcIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
-    const funcProto = self.tu.global.nodes.get(funcIndex);
+pub fn checkTypeFunction(self: *TranslationUnit, alloc: Allocator, funcTypeIndex: Parser.NodeIndex, funcIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
+    const funcProto = self.global.nodes.get(funcIndex);
     std.debug.assert(funcProto.tag.load(.acquire) == .funcProto);
     std.debug.assert(funcProto.data[0].load(.acquire) == 0);
 
     const funcRetTypeIndex = funcProto.data[1].load(.acquire);
 
-    const funcType = self.tu.global.nodes.get(funcTypeIndex);
+    const funcType = self.global.nodes.get(funcTypeIndex);
     std.debug.assert(funcType.tag.load(.acquire) == .funcType);
     std.debug.assert(funcType.data[0].load(.acquire) == 0);
 
@@ -88,43 +78,43 @@ pub fn checkTypeFunction(self: Self, alloc: Allocator, funcTypeIndex: Parser.Nod
     }
 }
 
-pub fn inferTypeFunction(self: Self, alloc: Allocator, variableIndex: Parser.NodeIndex, funcIndex: Parser.NodeIndex) Allocator.Error!bool {
-    const proto = self.tu.global.nodes.get(funcIndex);
+pub fn inferTypeFunction(self: *TranslationUnit, alloc: Allocator, variableIndex: Parser.NodeIndex, funcIndex: Parser.NodeIndex) Allocator.Error!bool {
+    const proto = self.global.nodes.get(funcIndex);
     std.debug.assert(proto.tag.load(.acquire) == .funcProto);
 
     const tIndex = proto.data[1].load(.acquire);
     std.debug.assert(tIndex != 0);
-    std.debug.assert(self.tu.global.nodes.get(tIndex).tag.load(.acquire) == .type);
+    std.debug.assert(self.global.nodes.get(tIndex).tag.load(.acquire) == .type);
 
-    const functionTypeIndex = try self.tu.global.nodes.appendIndex(alloc, Parser.Node{
+    const functionTypeIndex = try self.global.nodes.appendIndex(alloc, Parser.Node{
         .tag = .init(.funcType),
         .tokenIndex = .init(proto.tokenIndex.load(.acquire)),
         .data = .{ .init(0), .init(tIndex) },
         .flags = .init(.{ .inferedFromExpression = true }),
     });
 
-    const nodePtr = self.tu.global.nodes.getPtr(variableIndex);
+    const nodePtr = self.global.nodes.getPtr(variableIndex);
     const result = nodePtr.data.@"0".cmpxchgStrong(0, functionTypeIndex, .acq_rel, .monotonic);
 
     return result == null;
 }
 
-pub fn checkFunction(self: Self, alloc: Allocator, funcIndex: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
-    const func = self.tu.global.nodes.get(funcIndex);
+pub fn checkFunction(self: *TranslationUnit, alloc: Allocator, funcIndex: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
+    const func = self.global.nodes.get(funcIndex);
     std.debug.assert(func.tag.load(.acquire) == .funcProto);
 
     const tIndex = func.data[1].load(.acquire);
     Type.transformType(self, tIndex);
 
     const stmtORscopeIndex = func.next.load(.acquire);
-    const stmtORscope = self.tu.global.nodes.get(stmtORscopeIndex);
+    const stmtORscope = self.global.nodes.get(stmtORscopeIndex);
 
-    try self.tu.scope.push(alloc);
-    defer self.tu.scope.pop(alloc);
+    try self.scope.push(alloc);
+    defer self.scope.pop(alloc);
     if (stmtORscope.tag.load(.acquire) == .scope) {
-        try self.checkScope(alloc, stmtORscopeIndex, tIndex, reports);
+        try checkScope(self, alloc, stmtORscopeIndex, tIndex, reports);
     } else {
-        self.checkStatements(alloc, stmtORscopeIndex, tIndex, reports) catch |err| switch (err) {
+        checkStatements(self, alloc, stmtORscopeIndex, tIndex, reports) catch |err| switch (err) {
             Expression.Error.TooBig, Expression.Error.IncompatibleType => return,
             else => return @errorCast(err),
         };
@@ -132,70 +122,70 @@ pub fn checkFunction(self: Self, alloc: Allocator, funcIndex: Parser.NodeIndex, 
 }
 
 // TODO: Add scope to this
-fn checkScope(self: Self, alloc: Allocator, scopeIndex: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
-    const scope = self.tu.global.nodes.get(scopeIndex);
-    const retType = self.tu.global.nodes.get(typeI);
+fn checkScope(self: *TranslationUnit, alloc: Allocator, scopeIndex: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
+    const scope = self.global.nodes.get(scopeIndex);
+    const retType = self.global.nodes.get(typeI);
 
     std.debug.assert(scope.tag.load(.acquire) == .scope and retType.tag.load(.acquire) == .type);
 
     var i = scope.data[0].load(.acquire);
 
     while (i != 0) {
-        const stmt = self.tu.global.nodes.get(i);
+        const stmt = self.global.nodes.get(i);
         defer i = stmt.next.load(.acquire);
 
-        self.checkStatements(alloc, i, typeI, reports) catch |err| switch (err) {
+        checkStatements(self, alloc, i, typeI, reports) catch |err| switch (err) {
             Expression.Error.TooBig, Expression.Error.IncompatibleType => continue,
             else => return @errorCast(err),
         };
     }
 }
 
-fn checkStatements(self: Self, alloc: Allocator, stmtI: Parser.NodeIndex, retTypeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
+fn checkStatements(self: *TranslationUnit, alloc: Allocator, stmtI: Parser.NodeIndex, retTypeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
     _ = .{ alloc, retTypeI };
-    const stmt = self.tu.global.nodes.get(stmtI);
+    const stmt = self.global.nodes.get(stmtI);
 
     switch (stmt.tag.load(.acquire)) {
-        .ret => try self.checkReturn(alloc, stmtI, retTypeI, reports),
-        .variable, .constant => try self.checkVariable(alloc, stmtI, reports),
+        .ret => try checkReturn(self, alloc, stmtI, retTypeI, reports),
+        .variable, .constant => try checkVariable(self, alloc, stmtI, reports),
         else => unreachable,
     }
 }
 
-fn checkReturn(self: Self, alloc: Allocator, nodeI: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
-    const stmt = self.tu.global.nodes.get(nodeI);
+fn checkReturn(self: *TranslationUnit, alloc: Allocator, nodeI: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
+    const stmt = self.global.nodes.get(nodeI);
     try Expression.checkType(self, alloc, stmt.data[1].load(.acquire), typeI, reports);
 }
 
-fn checkVariable(self: Self, alloc: Allocator, nodeIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
-    const node = self.tu.global.nodes.get(nodeIndex);
+fn checkVariable(self: *TranslationUnit, alloc: Allocator, nodeIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
+    const node = self.global.nodes.get(nodeIndex);
     // NOTE: At the time being this is not changed so it should be fine;
     const expressionIndex = node.data.@"1".load(.acquire);
-    const expressionNode = self.tu.global.nodes.get(expressionIndex);
+    const expressionNode = self.global.nodes.get(expressionIndex);
     const expressionTag = expressionNode.tag.load(.acquire);
 
     if (expressionIndex == 0 or expressionTag == .funcProto) {
-        try self.checkFunctionOuter(alloc, nodeIndex, reports);
+        try checkFunctionOuter(self, alloc, nodeIndex, reports);
     } else {
-        try self.checkPureVariable(alloc, nodeIndex, reports);
+        try checkPureVariable(self, alloc, nodeIndex, reports);
     }
 }
 
-fn checkPureVariable(self: Self, alloc: Allocator, varIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
-    var variable = self.tu.global.nodes.get(varIndex);
+fn checkPureVariable(self: *TranslationUnit, alloc: Allocator, varIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
+    var variable = self.global.nodes.get(varIndex);
 
     const typeIndex = variable.data[0].load(.acquire);
 
     // NOTE: This case if for variables that do not have type and cannot be inferred from the expression itself
     if (typeIndex == 0) {
         if (!try Expression.inferType(self, alloc, varIndex, variable.data.@"1".load(.acquire), reports)) {
-            try self.tu.scope.put(alloc, variable.getText(self.tu.global), varIndex);
+            try self.scope.put(alloc, variable.getText(self.global), varIndex);
             return;
         }
     } else {
         Type.transformType(self, typeIndex);
     }
-    variable = self.tu.global.nodes.get(varIndex);
+    variable = self.global.nodes.get(varIndex);
 
     const typeIndex2 = variable.data.@"0".load(.acquire);
     std.debug.assert(typeIndex2 != 0);
@@ -203,10 +193,10 @@ fn checkPureVariable(self: Self, alloc: Allocator, varIndex: Parser.NodeIndex, r
 
     try Expression.checkType(self, alloc, exprI, typeIndex2, reports);
 
-    try self.tu.scope.put(alloc, variable.getText(self.tu.global), varIndex);
+    try self.scope.put(alloc, variable.getText(self.global), varIndex);
 }
 
-pub const ObserverParams = std.meta.Tuple(&.{ Self, Allocator, Parser.NodeIndex, ?*Report.Reports });
+pub const ObserverParams = std.meta.Tuple(&.{ *TranslationUnit, Allocator, Parser.NodeIndex, ?*Report.Reports });
 
 comptime {
     const Expected = Util.getTupleFromParams(checkFunctionOuter);

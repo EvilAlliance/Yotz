@@ -89,8 +89,7 @@ fn _startFunction(self: *Self, alloc: Allocator, start: Parser.TokenIndex, place
 
     if (self.global.subCommand == .Parser) return;
 
-    var checker = TypeCheck.TypeCheck.init(self);
-    try checker.checkFunction(alloc, self.global.nodes.get(placeHolder).data[1].load(.acquire), reports);
+    try TypeCheck.TypeCheck.checkFunction(self, alloc, self.global.nodes.get(placeHolder).data[1].load(.acquire), reports);
     if (failed) return;
 
     if (self.global.subCommand == .TypeCheck) return;
@@ -126,8 +125,7 @@ fn _startRoot(self: *Self, alloc: Allocator, start: Parser.TokenIndex, placeHold
     }
     if (self.global.subCommand == .Parser) return;
 
-    var checker = TypeCheck.TypeCheck.init(self);
-    try checker.checkRoot(alloc, self.global.nodes.get(placeHolder).data[1].load(.acquire), reports);
+    try TypeCheck.TypeCheck.checkRoot(self, alloc, self.global.nodes.get(placeHolder).data[1].load(.acquire), reports);
 
     if (self.global.subCommand == .TypeCheck) return;
 

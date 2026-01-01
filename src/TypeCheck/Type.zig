@@ -1,5 +1,5 @@
-pub fn transformType(self: TypeChecker, typeIndex: Parser.NodeIndex) void {
-    const node = self.tu.global.nodes.get(typeIndex);
+pub fn transformType(self: *TranslationUnit, typeIndex: Parser.NodeIndex) void {
+    const node = self.global.nodes.get(typeIndex);
 
     const tag = node.tag.load(.acquire);
     switch (tag) {
@@ -10,8 +10,8 @@ pub fn transformType(self: TypeChecker, typeIndex: Parser.NodeIndex) void {
     }
 }
 
-fn transformFuncType(self: TypeChecker, typeIndex: Parser.NodeIndex) void {
-    const node = self.tu.global.nodes.get(typeIndex);
+fn transformFuncType(self: *TranslationUnit, typeIndex: Parser.NodeIndex) void {
+    const node = self.global.nodes.get(typeIndex);
     std.debug.assert(node.tag.load(.acquire) == .funcType);
 
     std.debug.assert(node.data[0].load(.acquire) == 0);
@@ -22,7 +22,7 @@ fn transformFuncType(self: TypeChecker, typeIndex: Parser.NodeIndex) void {
 }
 
 // NOTE: Maybe good idea to create a new node, if the panic is triggered and cannot check if the correctness is still okey
-fn transformIdentiferType(self: TypeChecker, typeIndex: Parser.NodeIndex) void {
+fn transformIdentiferType(self: *TranslationUnit, typeIndex: Parser.NodeIndex) void {
     const TypeName = enum {
         u8,
         u16,
@@ -50,17 +50,17 @@ fn transformIdentiferType(self: TypeChecker, typeIndex: Parser.NodeIndex) void {
         }
     };
 
-    const node = self.tu.global.nodes.get(typeIndex);
+    const node = self.global.nodes.get(typeIndex);
 
     const type_ = node.tag.load(.acquire);
     if (type_ == .type) return;
     std.debug.assert(type_ == .fakeType);
 
-    const name = node.getText(self.tu.global);
+    const name = node.getText(self.global);
 
     const typeInfo = std.meta.stringToEnum(TypeName, name) orelse @panic("Aliases or struct arent supported yet");
 
-    const nodePtr = self.tu.global.nodes.getPtr(typeIndex);
+    const nodePtr = self.global.nodes.getPtr(typeIndex);
 
     if (nodePtr.tag.cmpxchgStrong(.fakeType, .type, .seq_cst, .monotonic) != null) {
         std.debug.assert(nodePtr.tag.load(.acquire) == .type);
@@ -74,22 +74,22 @@ fn transformIdentiferType(self: TypeChecker, typeIndex: Parser.NodeIndex) void {
     std.debug.assert(resultSize == null and resultPrimitive == null);
 }
 
-pub fn typeEqual(self: TypeChecker, actualI: Parser.NodeIndex, expectedI: Parser.NodeIndex) bool {
-    const actual = self.tu.global.nodes.get(actualI);
-    const expected = self.tu.global.nodes.get(expectedI);
+pub fn typeEqual(self: *TranslationUnit, actualI: Parser.NodeIndex, expectedI: Parser.NodeIndex) bool {
+    const actual = self.global.nodes.get(actualI);
+    const expected = self.global.nodes.get(expectedI);
 
     std.debug.assert(actual.tag.load(.acquire) == .type and expected.tag.load(.acquire) == .type);
 
     return expected.data[1].load(.acquire) == actual.data[1].load(.acquire) and expected.data[0].load(.acquire) == actual.data[0].load(.acquire);
 }
 
-pub fn canTypeBeCoerced(self: TypeChecker, actualI: Parser.NodeIndex, expectedI: Parser.NodeIndex) bool {
-    const actual = self.tu.global.nodes.get(actualI);
-    const expected = self.tu.global.nodes.get(expectedI);
+pub fn canTypeBeCoerced(self: *TranslationUnit, actualI: Parser.NodeIndex, expectedI: Parser.NodeIndex) bool {
+    const actual = self.global.nodes.get(actualI);
+    const expected = self.global.nodes.get(expectedI);
     return expected.data[1].load(.acquire) == actual.data[1].load(.acquire) and expected.data[0].load(.acquire) >= actual.data[0].load(.acquire);
 }
 
 const std = @import("std");
 
-const TypeChecker = @import("./TypeCheck.zig");
+const TranslationUnit = @import("../TranslationUnit.zig");
 const Parser = @import("../Parser/mod.zig");
