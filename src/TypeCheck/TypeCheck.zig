@@ -176,7 +176,6 @@ fn checkPureVariable(self: TranslationUnit, alloc: Allocator, varIndex: Parser.N
 
     const typeIndex = variable.data[0].load(.acquire);
 
-    // NOTE: This case if for variables that do not have type and cannot be inferred from the expression itself
     if (typeIndex == 0) {
         if (!try Expression.inferType(self, alloc, varIndex, variable.data.@"1".load(.acquire), reports)) {
             try self.scope.put(alloc, variable.getText(self.global), varIndex);

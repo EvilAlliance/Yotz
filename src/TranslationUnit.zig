@@ -28,7 +28,6 @@ pub fn initGlobal(cont: *Global, scope: TypeCheck.Scope) Self {
     return tu;
 }
 
-// TODO: Aquire the content (Ref Counter)
 pub fn initFunc(self: *const Self, alloc: Allocator) Allocator.Error!Self {
     const scope = try TypeCheck.ScopeFunc.initHeap(alloc, self.scope.getGlobal());
 

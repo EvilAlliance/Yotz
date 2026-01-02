@@ -268,7 +268,6 @@ fn addInferType(self: TranslationUnit, alloc: Allocator, comptime flag: std.meta
     const variable = self.global.nodes.get(varI);
 
     // Check Variable expression for that type
-    // TODO: Check if this was successful
     try checkType(self, alloc, variable.data.@"1".load(.acquire), typeI, null);
 
     // Reset data
