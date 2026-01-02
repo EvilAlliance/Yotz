@@ -3,6 +3,16 @@ const Self = @This();
 global: *ScopeGlobal,
 base: ArrayList(StringHashMapUnmanaged(Parser.NodeIndex)) = .{},
 
+// NOTE: Always initializes on heap
+pub fn initHeap(alloc: Allocator, globaScope: *ScopeGlobal) Allocator.Error!*Self {
+    const self: *Self = try alloc.create(Self);
+    self.* = .{
+        .global = globaScope,
+    };
+
+    return self;
+}
+
 pub fn put(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: Parser.NodeIndex) Allocator.Error!void {
     const self: *Self = @ptrCast(@alignCast(ctx));
     const count = self.base.items.len;
@@ -59,11 +69,13 @@ pub fn pop(ctx: *anyopaque, alloc: Allocator) void {
     var dic = self.base.pop();
 
     dic.?.deinit(alloc);
+
+    alloc.destroy(self);
 }
 
 pub fn getGlobal(ctx: *anyopaque) *ScopeGlobal {
     const self: *Self = @ptrCast(@alignCast(ctx));
-    return self.global.acquire();
+    return ScopeGlobal.getGlobal(self.global);
 }
 
 pub fn putGlobal(self: *Self, alloc: Allocator, key: []const u8, value: Parser.NodeIndex) Allocator.Error!void {

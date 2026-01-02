@@ -97,12 +97,8 @@ pub fn main() u8 {
     var global: Global = .{ .subCommand = arguments.subCom };
     global.init(alloc, 20) catch std.debug.panic("Could not create threads", .{});
 
-    var globalScope = TypeCheck.ScopeGlobal.init(&global.threadPool);
-    var scope = globalScope.scope();
-    defer {
-        scope.deinit(alloc);
-        std.debug.assert(globalScope.refCount.load(.acquire) == 0);
-    }
+    var globalScope = TypeCheck.ScopeGlobal.initHeap(alloc, &global.threadPool) catch std.debug.panic("Run Out of Memory", .{});
+    const scope = globalScope.scope();
 
     if (!(global.addFile(alloc, arguments.path) catch std.debug.panic("Run Out of Memory", .{}))) return 1;
 

@@ -1,4 +1,4 @@
-pub fn checkRoot(self: *TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
+pub fn checkRoot(self: TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
     const root = self.global.nodes.get(rootIndex);
 
     var nodeIndex = root.data.@"0".load(.acquire);
@@ -18,7 +18,7 @@ pub fn checkRoot(self: *TranslationUnit, alloc: Allocator, rootIndex: Parser.Nod
     }
 }
 
-pub fn checkFunctionOuter(self: *TranslationUnit, alloc: Allocator, variableIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
+pub fn checkFunctionOuter(self: TranslationUnit, alloc: Allocator, variableIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
     self.global.observer.mutex.lock();
 
     const variable = self.global.nodes.get(variableIndex);
@@ -60,7 +60,7 @@ pub fn checkFunctionOuter(self: *TranslationUnit, alloc: Allocator, variableInde
     try self.scope.put(alloc, variable.getText(self.global), variableIndex);
 }
 
-pub fn checkTypeFunction(self: *TranslationUnit, alloc: Allocator, funcTypeIndex: Parser.NodeIndex, funcIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
+pub fn checkTypeFunction(self: TranslationUnit, alloc: Allocator, funcTypeIndex: Parser.NodeIndex, funcIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
     const funcProto = self.global.nodes.get(funcIndex);
     std.debug.assert(funcProto.tag.load(.acquire) == .funcProto);
     std.debug.assert(funcProto.data[0].load(.acquire) == 0);
@@ -78,7 +78,7 @@ pub fn checkTypeFunction(self: *TranslationUnit, alloc: Allocator, funcTypeIndex
     }
 }
 
-pub fn inferTypeFunction(self: *TranslationUnit, alloc: Allocator, variableIndex: Parser.NodeIndex, funcIndex: Parser.NodeIndex) Allocator.Error!bool {
+pub fn inferTypeFunction(self: TranslationUnit, alloc: Allocator, variableIndex: Parser.NodeIndex, funcIndex: Parser.NodeIndex) Allocator.Error!bool {
     const proto = self.global.nodes.get(funcIndex);
     std.debug.assert(proto.tag.load(.acquire) == .funcProto);
 
@@ -99,7 +99,7 @@ pub fn inferTypeFunction(self: *TranslationUnit, alloc: Allocator, variableIndex
     return result == null;
 }
 
-pub fn checkFunction(self: *TranslationUnit, alloc: Allocator, funcIndex: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
+pub fn checkFunction(self: TranslationUnit, alloc: Allocator, funcIndex: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
     const func = self.global.nodes.get(funcIndex);
     std.debug.assert(func.tag.load(.acquire) == .funcProto);
 
@@ -122,7 +122,7 @@ pub fn checkFunction(self: *TranslationUnit, alloc: Allocator, funcIndex: Parser
 }
 
 // TODO: Add scope to this
-fn checkScope(self: *TranslationUnit, alloc: Allocator, scopeIndex: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
+fn checkScope(self: TranslationUnit, alloc: Allocator, scopeIndex: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
     const scope = self.global.nodes.get(scopeIndex);
     const retType = self.global.nodes.get(typeI);
 
@@ -141,7 +141,7 @@ fn checkScope(self: *TranslationUnit, alloc: Allocator, scopeIndex: Parser.NodeI
     }
 }
 
-fn checkStatements(self: *TranslationUnit, alloc: Allocator, stmtI: Parser.NodeIndex, retTypeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
+fn checkStatements(self: TranslationUnit, alloc: Allocator, stmtI: Parser.NodeIndex, retTypeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
     _ = .{ alloc, retTypeI };
     const stmt = self.global.nodes.get(stmtI);
 
@@ -152,12 +152,12 @@ fn checkStatements(self: *TranslationUnit, alloc: Allocator, stmtI: Parser.NodeI
     }
 }
 
-fn checkReturn(self: *TranslationUnit, alloc: Allocator, nodeI: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
+fn checkReturn(self: TranslationUnit, alloc: Allocator, nodeI: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
     const stmt = self.global.nodes.get(nodeI);
     try Expression.checkType(self, alloc, stmt.data[1].load(.acquire), typeI, reports);
 }
 
-fn checkVariable(self: *TranslationUnit, alloc: Allocator, nodeIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
+fn checkVariable(self: TranslationUnit, alloc: Allocator, nodeIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
     const node = self.global.nodes.get(nodeIndex);
     // NOTE: At the time being this is not changed so it should be fine;
     const expressionIndex = node.data.@"1".load(.acquire);
@@ -171,7 +171,7 @@ fn checkVariable(self: *TranslationUnit, alloc: Allocator, nodeIndex: Parser.Nod
     }
 }
 
-fn checkPureVariable(self: *TranslationUnit, alloc: Allocator, varIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
+fn checkPureVariable(self: TranslationUnit, alloc: Allocator, varIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
     var variable = self.global.nodes.get(varIndex);
 
     const typeIndex = variable.data[0].load(.acquire);
@@ -196,7 +196,7 @@ fn checkPureVariable(self: *TranslationUnit, alloc: Allocator, varIndex: Parser.
     try self.scope.put(alloc, variable.getText(self.global), varIndex);
 }
 
-pub const ObserverParams = std.meta.Tuple(&.{ *TranslationUnit, Allocator, Parser.NodeIndex, ?*Report.Reports });
+pub const ObserverParams = std.meta.Tuple(&.{ TranslationUnit, Allocator, Parser.NodeIndex, ?*Report.Reports });
 
 comptime {
     const Expected = Util.getTupleFromParams(checkFunctionOuter);

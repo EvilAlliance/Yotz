@@ -30,10 +30,7 @@ pub fn initGlobal(cont: *Global, scope: TypeCheck.Scope) Self {
 
 // TODO: Aquire the content (Ref Counter)
 pub fn initFunc(self: *const Self, alloc: Allocator) Allocator.Error!Self {
-    const scope = try alloc.create(TypeCheck.ScopeFunc);
-    scope.* = TypeCheck.ScopeFunc{
-        .global = self.scope.getGlobal(),
-    };
+    const scope = try TypeCheck.ScopeFunc.initHeap(alloc, self.scope.getGlobal());
 
     const tu = Self{
         .tag = .Function,
@@ -47,8 +44,6 @@ pub fn initFunc(self: *const Self, alloc: Allocator) Allocator.Error!Self {
 pub fn startFunction(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
     std.debug.assert(self.tag == .Function);
 
-    const selfDupe = try Util.dupe(alloc, self);
-
     const callBack = struct {
         fn callBack(comptime func: anytype, args: anytype) void {
             @call(.auto, func, args) catch {
@@ -58,16 +53,15 @@ pub fn startFunction(self: Self, alloc: Allocator, start: Parser.TokenIndex, pla
         }
     }.callBack;
 
-    try self.global.threadPool.spawn(callBack, .{ _startFunction, .{ selfDupe, alloc, start, placeHolder, reports } });
+    try self.global.threadPool.spawn(callBack, .{ _startFunction, .{ self, alloc, start, placeHolder, reports } });
 }
 
-fn _startFunction(self: *Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
+fn _startFunction(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
     defer self.scope.deinit(alloc);
-    defer alloc.destroy(self);
 
     if (self.global.subCommand == .Lexer) unreachable;
 
-    var parser = try Parser.Parser.init(self);
+    var parser = try Parser.Parser.init(&self);
     defer parser.deinit(alloc);
 
     parser.parseFunction(alloc, start, placeHolder, reports) catch |err| switch (err) {
@@ -104,12 +98,11 @@ fn _startFunction(self: *Self, alloc: Allocator, start: Parser.TokenIndex, place
     // if (parser.errors.items.len > 0) return .{ "", 1 };
 }
 
-fn _startRoot(self: *Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
+fn _startRoot(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
     if (self.global.subCommand == .Lexer) unreachable;
+    defer self.scope.deinit(alloc);
 
-    defer alloc.destroy(self);
-
-    var parser = try Parser.Parser.init(self);
+    var parser = try Parser.Parser.init(&self);
     defer parser.deinit(alloc);
 
     try parser.parseRoot(alloc, start, placeHolder, reports);

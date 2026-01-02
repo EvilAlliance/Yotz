@@ -19,35 +19,35 @@ pub const VTable = struct {
     deinit: *const fn (*anyopaque, alloc: Allocator) void,
 };
 
-pub fn put(self: *Self, alloc: Allocator, key: []const u8, value: Parser.NodeIndex) Allocator.Error!void {
+pub fn put(self: Self, alloc: Allocator, key: []const u8, value: Parser.NodeIndex) Allocator.Error!void {
     try self.vtable.put(self.ptr, alloc, key, value);
 }
 
-pub fn get(self: *const Self, key: []const u8) ?Parser.NodeIndex {
+pub fn get(self: Self, key: []const u8) ?Parser.NodeIndex {
     return self.vtable.get(self.ptr, key);
 }
 
-pub fn waitingFor(self: *Self, alloc: Allocator, key: []const u8, func: *const fn (Expression.ObserverParams) void, args: Expression.ObserverParams) Allocator.Error!void {
+pub fn waitingFor(self: Self, alloc: Allocator, key: []const u8, func: *const fn (Expression.ObserverParams) void, args: Expression.ObserverParams) Allocator.Error!void {
     try self.vtable.waitingFor(self.ptr, alloc, key, func, args);
 }
 
-pub fn getOrWait(self: *Self, alloc: Allocator, key: []const u8, func: *const fn (Expression.ObserverParams) void, args: Expression.ObserverParams) Allocator.Error!?Parser.NodeIndex {
+pub fn getOrWait(self: Self, alloc: Allocator, key: []const u8, func: *const fn (Expression.ObserverParams) void, args: Expression.ObserverParams) Allocator.Error!?Parser.NodeIndex {
     return try self.vtable.getOrWait(self.ptr, alloc, key, func, args);
 }
 
-pub fn push(self: *const Self, alloc: Allocator) Allocator.Error!void {
+pub fn push(self: Self, alloc: Allocator) Allocator.Error!void {
     try self.vtable.push(self.ptr, alloc);
 }
 
-pub fn pop(self: *const Self, alloc: Allocator) void {
+pub fn pop(self: Self, alloc: Allocator) void {
     self.vtable.pop(self.ptr, alloc);
 }
 
-pub fn getGlobal(self: *const Self) *ScopeGlobal {
+pub fn getGlobal(self: Self) *ScopeGlobal {
     return self.vtable.getGlobal(self.ptr);
 }
 
-pub fn deinit(self: *const Self, alloc: Allocator) void {
+pub fn deinit(self: Self, alloc: Allocator) void {
     self.vtable.deinit(self.ptr, alloc);
 }
 

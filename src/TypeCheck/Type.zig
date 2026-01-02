@@ -1,4 +1,4 @@
-pub fn transformType(self: *TranslationUnit, typeIndex: Parser.NodeIndex) void {
+pub fn transformType(self: TranslationUnit, typeIndex: Parser.NodeIndex) void {
     const node = self.global.nodes.get(typeIndex);
 
     const tag = node.tag.load(.acquire);
@@ -10,7 +10,7 @@ pub fn transformType(self: *TranslationUnit, typeIndex: Parser.NodeIndex) void {
     }
 }
 
-fn transformFuncType(self: *TranslationUnit, typeIndex: Parser.NodeIndex) void {
+fn transformFuncType(self: TranslationUnit, typeIndex: Parser.NodeIndex) void {
     const node = self.global.nodes.get(typeIndex);
     std.debug.assert(node.tag.load(.acquire) == .funcType);
 
@@ -22,7 +22,7 @@ fn transformFuncType(self: *TranslationUnit, typeIndex: Parser.NodeIndex) void {
 }
 
 // NOTE: Maybe good idea to create a new node, if the panic is triggered and cannot check if the correctness is still okey
-fn transformIdentiferType(self: *TranslationUnit, typeIndex: Parser.NodeIndex) void {
+fn transformIdentiferType(self: TranslationUnit, typeIndex: Parser.NodeIndex) void {
     const TypeName = enum {
         u8,
         u16,
@@ -74,7 +74,7 @@ fn transformIdentiferType(self: *TranslationUnit, typeIndex: Parser.NodeIndex) v
     std.debug.assert(resultSize == null and resultPrimitive == null);
 }
 
-pub fn typeEqual(self: *TranslationUnit, actualI: Parser.NodeIndex, expectedI: Parser.NodeIndex) bool {
+pub fn typeEqual(self: TranslationUnit, actualI: Parser.NodeIndex, expectedI: Parser.NodeIndex) bool {
     const actual = self.global.nodes.get(actualI);
     const expected = self.global.nodes.get(expectedI);
 
@@ -83,7 +83,7 @@ pub fn typeEqual(self: *TranslationUnit, actualI: Parser.NodeIndex, expectedI: P
     return expected.data[1].load(.acquire) == actual.data[1].load(.acquire) and expected.data[0].load(.acquire) == actual.data[0].load(.acquire);
 }
 
-pub fn canTypeBeCoerced(self: *TranslationUnit, actualI: Parser.NodeIndex, expectedI: Parser.NodeIndex) bool {
+pub fn canTypeBeCoerced(self: TranslationUnit, actualI: Parser.NodeIndex, expectedI: Parser.NodeIndex) bool {
     const actual = self.global.nodes.get(actualI);
     const expected = self.global.nodes.get(expectedI);
     return expected.data[1].load(.acquire) == actual.data[1].load(.acquire) and expected.data[0].load(.acquire) >= actual.data[0].load(.acquire);

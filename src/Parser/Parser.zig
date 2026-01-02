@@ -2,7 +2,7 @@ pub const Error = error{
     UnexpectedToken,
 };
 
-tu: *TranslationUnit,
+tu: *const TranslationUnit,
 
 index: mod.TokenIndex = 0,
 
@@ -10,7 +10,7 @@ errors: std.ArrayList(UnexpectedToken),
 
 depth: mod.NodeIndex = 0,
 
-pub fn init(tu: *TranslationUnit) Allocator.Error!@This() {
+pub fn init(tu: *const TranslationUnit) Allocator.Error!@This() {
     return @This(){
         .tu = tu,
 

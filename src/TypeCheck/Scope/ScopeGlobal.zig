@@ -5,10 +5,18 @@ observer: Util.Observer([]const u8, Expression.ObserverParams) = .{},
 refCount: std.atomic.Value(usize) = std.atomic.Value(usize).init(1),
 rwLock: std.Thread.RwLock = .{},
 
-pub fn init(pool: *std.Thread.Pool) Self {
+fn init(pool: *std.Thread.Pool) Self {
     var self: Self = .{};
 
     self.observer.init(pool);
+    return self;
+}
+
+// NOTE: Always initializes on heap
+pub fn initHeap(alloc: Allocator, pool: *std.Thread.Pool) Allocator.Error!*Self {
+    const self: *Self = try alloc.create(Self);
+    self.* = init(pool);
+
     return self;
 }
 
@@ -16,7 +24,6 @@ pub fn put(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: Parser.Nod
     const self: *Self = @ptrCast(@alignCast(ctx));
     std.debug.assert(get(self, key) == null);
     {
-
         self.rwLock.lock();
         defer self.rwLock.unlock();
 
@@ -88,8 +95,11 @@ pub fn deepClone(ctx: *anyopaque, alloc: Allocator) Allocator.Error!ScopeFunc {
 
 pub fn deinit(ctx: *anyopaque, alloc: Allocator) void {
     const self: *Self = @ptrCast(@alignCast(ctx));
-    if (self.release())
+    if (self.release()) {
         self.base.deinit(alloc);
+        self.observer.deinit(alloc);
+        alloc.destroy(self);
+    }
 }
 
 pub fn acquire(self: *@This()) *Self {
