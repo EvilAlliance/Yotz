@@ -8,10 +8,8 @@ pub const Type = enum {
 // TODO: Take this out
 pub var failed = false;
 
-pub fn deinit(self: *const Self, alloc: Allocator, bytes: []const u8) void {
+pub fn deinitStatic(alloc: Allocator, bytes: []const u8) void {
     alloc.free(bytes);
-
-    self.global.deinit(alloc);
 }
 
 tag: Type,
@@ -40,6 +38,18 @@ pub fn initFunc(self: *const Self, alloc: Allocator) Allocator.Error!Self {
     return tu;
 }
 
+pub fn deinit(self: Self, alloc: Allocator) void {
+    self.scope.deinit(alloc);
+}
+
+pub fn acquire(self: Self, alloc: Allocator) Allocator.Error!Self {
+    return Self{
+        .tag = self.tag,
+        .global = self.global,
+        .scope = try self.scope.deepClone(alloc),
+    };
+}
+
 pub fn startFunction(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
     std.debug.assert(self.tag == .Function);
 
@@ -56,7 +66,7 @@ pub fn startFunction(self: Self, alloc: Allocator, start: Parser.TokenIndex, pla
 }
 
 fn _startFunction(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
-    defer self.scope.deinit(alloc);
+    defer self.deinit(alloc);
 
     if (self.global.subCommand == .Lexer) unreachable;
 
@@ -68,26 +78,14 @@ fn _startFunction(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeH
         else => return @errorCast(err),
     };
 
-    try self.global.observer.alert(alloc, placeHolder);
-
-    for (parser.errors.items) |e| {
-        _ = e;
-        @panic("TODO:");
-    }
-
-    if (parser.errors.items.len > 0) {
-        failed = true;
-        return;
-    }
-
     if (self.global.subCommand == .Parser) return;
 
-    try TypeCheck.TypeCheck.checkFunction(self, alloc, self.global.nodes.get(placeHolder).data[1].load(.acquire), reports);
+    try TypeCheck.TypeCheck.checkFunction(self, alloc, placeHolder, reports);
     if (failed) return;
 
     if (self.global.subCommand == .TypeCheck) return;
-    //
-    // unreachable;
+
+    unreachable;
     // const err = try typeCheck(alloc, &ast);
     //
     // if (self.cont.subCom == .TypeCheck)
@@ -99,22 +97,13 @@ fn _startFunction(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeH
 
 fn _startRoot(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
     if (self.global.subCommand == .Lexer) unreachable;
-    defer self.scope.deinit(alloc);
+    defer self.deinit(alloc);
 
     var parser = try Parser.Parser.init(&self);
     defer parser.deinit(alloc);
 
     try parser.parseRoot(alloc, start, placeHolder, reports);
 
-    for (parser.errors.items) |e| {
-        _ = e;
-        @panic("TODO");
-    }
-
-    if (parser.errors.items.len > 0) {
-        failed = true;
-        return;
-    }
     if (self.global.subCommand == .Parser) return;
 
     try TypeCheck.TypeCheck.checkRoot(self, alloc, self.global.nodes.get(placeHolder).data[1].load(.acquire), reports);
@@ -152,7 +141,7 @@ pub fn startEntry(stakcSelf: Self, alloc: Allocator, reports: ?*Report.Reports) 
     // if (parser.errors.items.len > 0) return .{ "", 1 };
 }
 
-pub fn waitForWork(alloc: Allocator, global: *Global, scope: TypeCheck.Scope, reports: ?*Report.Reports) Allocator.Error!struct { []const u8, u8 } {
+pub fn waitForWork(alloc: Allocator, global: *Global) Allocator.Error!struct { []const u8, u8 } {
     if (global.subCommand == .Lexer) {
         return .{ try global.toStringToken(alloc), 0 };
     }
@@ -164,10 +153,6 @@ pub fn waitForWork(alloc: Allocator, global: *Global, scope: TypeCheck.Scope, re
     if (failed) return .{ "", 1 };
 
     if (global.subCommand == .Parser) return .{ try global.toStringAst(alloc, global.nodes.get(index).data[1].load(.acquire)), 0 };
-
-    if (scope.get("main") == null) {
-        Report.missingMain(alloc, reports) catch {};
-    }
 
     if (global.subCommand == .TypeCheck) return .{ try global.toStringAst(alloc, global.nodes.get(index).data[1].load(.acquire)), 0 };
 

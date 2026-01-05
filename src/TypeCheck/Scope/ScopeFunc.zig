@@ -86,10 +86,11 @@ pub fn getFromGlobal(self: *Self, key: []const u8) ?Parser.NodeIndex {
     return self.global.vtable.get(self.global, key);
 }
 
-pub fn deepClone(ctx: *anyopaque, alloc: Allocator) Allocator.Error!Self {
+pub fn deepClone(ctx: *anyopaque, alloc: Allocator) Allocator.Error!Scope {
     const self: *Self = @ptrCast(@alignCast(ctx));
 
-    var x: Self = .{
+    const x: *Self = try alloc.create(Self);
+    x.* = .{
         .global = self.global.acquire(),
         .base = .{},
     };
@@ -98,7 +99,7 @@ pub fn deepClone(ctx: *anyopaque, alloc: Allocator) Allocator.Error!Self {
         try x.base.append(alloc, try value.clone(alloc));
     }
 
-    return x;
+    return x.scope();
 }
 
 pub fn deinit(ctx: *anyopaque, alloc: Allocator) void {

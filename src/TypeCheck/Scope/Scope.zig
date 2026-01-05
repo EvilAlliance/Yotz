@@ -14,7 +14,7 @@ pub const VTable = struct {
     pop: *const fn (*anyopaque, alloc: Allocator) void,
 
     getGlobal: *const fn (*anyopaque) *ScopeGlobal,
-    deepClone: *const fn (*anyopaque, alloc: Allocator) Allocator.Error!ScopeFunc,
+    deepClone: *const fn (*anyopaque, alloc: Allocator) Allocator.Error!Self,
 
     deinit: *const fn (*anyopaque, alloc: Allocator) void,
 };
@@ -45,6 +45,10 @@ pub fn pop(self: Self, alloc: Allocator) void {
 
 pub fn getGlobal(self: Self) *ScopeGlobal {
     return self.vtable.getGlobal(self.ptr);
+}
+
+pub fn deepClone(self: Self, alloc: Allocator) Allocator.Error!Self {
+    return self.vtable.deepClone(self.ptr, alloc);
 }
 
 pub fn deinit(self: Self, alloc: Allocator) void {

@@ -87,10 +87,11 @@ pub fn getGlobal(ctx: *anyopaque) *Self {
     return self.acquire();
 }
 
-pub fn deepClone(ctx: *anyopaque, alloc: Allocator) Allocator.Error!ScopeFunc {
-    const self: *const Self = @ptrCast(@alignCast(ctx));
-    _ = .{ self, alloc };
-    unreachable;
+pub fn deepClone(ctx: *anyopaque, alloc: Allocator) Allocator.Error!Scope {
+    const self: *Self = @ptrCast(@alignCast(ctx));
+    _ = alloc;
+
+    return self.acquire().scope();
 }
 
 pub fn deinit(ctx: *anyopaque, alloc: Allocator) void {

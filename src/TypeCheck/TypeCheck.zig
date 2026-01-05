@@ -27,6 +27,7 @@ pub fn checkFunctionOuter(self: TranslationUnit, alloc: Allocator, variableIndex
         defer self.global.observer.mutex.unlock();
         const callBack = struct {
             fn callBack(args: ObserverParams) void {
+                defer args[0].deinit(args[1]);
                 @call(.auto, checkFunctionOuter, args) catch {
                     TranslationUnit.failed = true;
                     std.log.err("Run Out of Memory", .{});
@@ -34,7 +35,7 @@ pub fn checkFunctionOuter(self: TranslationUnit, alloc: Allocator, variableIndex
             }
         }.callBack;
 
-        try self.global.observer.pushUnlock(alloc, variableIndex, callBack, .{ self, alloc, variableIndex, reports });
+        try self.global.observer.pushUnlock(alloc, variableIndex, callBack, .{ try self.acquire(alloc), alloc, variableIndex, reports });
         return;
     }
 

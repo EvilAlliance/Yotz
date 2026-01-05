@@ -96,6 +96,7 @@ pub fn main() u8 {
     var reports = Report.Reports{};
     var global: Global = .{ .subCommand = arguments.subCom };
     global.init(alloc, 20) catch std.debug.panic("Could not create threads", .{});
+    defer global.deinit(alloc);
 
     var globalScope = TypeCheck.ScopeGlobal.initHeap(alloc, &global.threadPool) catch std.debug.panic("Run Out of Memory", .{});
     const scope = globalScope.scope();
@@ -109,12 +110,12 @@ pub fn main() u8 {
         return 1;
     };
 
-    const bytes, const ret = TranslationUnit.waitForWork(alloc, &global, scope, &reports) catch {
+    const bytes, const ret = TranslationUnit.waitForWork(alloc, &global) catch {
         std.log.err("Run Out of Memory", .{});
         return 1;
     };
 
-    defer tu.deinit(alloc, bytes);
+    defer TranslationUnit.deinitStatic(alloc, bytes);
 
     var buf: [5 * 1024]u8 = undefined;
 
