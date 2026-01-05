@@ -177,6 +177,15 @@ fn checkPureVariable(self: TranslationUnit, alloc: Allocator, varIndex: Parser.N
     try self.scope.put(alloc, variable.getText(self.global), varIndex);
 }
 
+pub const ObserverParams = std.meta.Tuple(&.{ TranslationUnit, Allocator, Parser.NodeIndex, ?*Report.Reports });
+
+comptime {
+    const Expected = Util.getTupleFromParams(checkFunctionOuter);
+    if (ObserverParams != Expected) {
+        @compileError("ObserverParams type mismatch with checkFunctionOuter signature");
+    }
+}
+
 const Type = @import("Type.zig");
 const Expression = @import("Expression.zig");
 
