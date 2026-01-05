@@ -315,7 +315,7 @@ fn checkLitType(self: TranslationUnit, alloc: Allocator, litI: Parser.NodeIndex,
     }
 }
 
-pub const ObserverParams = std.meta.Tuple(&.{ TranslationUnit, Allocator, Parser.NodeIndex, Parser.NodeIndex, ?*Report.Reports });
+pub const ObserverParams = struct { TranslationUnit, Allocator, Parser.NodeIndex, Parser.NodeIndex, ?*Report.Reports };
 
 comptime {
     const Expected = Util.getTupleFromParams(toInferLater);

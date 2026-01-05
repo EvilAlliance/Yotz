@@ -177,7 +177,7 @@ fn checkPureVariable(self: TranslationUnit, alloc: Allocator, varIndex: Parser.N
     try self.scope.put(alloc, variable.getText(self.global), varIndex);
 }
 
-pub const ObserverParams = std.meta.Tuple(&.{ TranslationUnit, Allocator, Parser.NodeIndex, ?*Report.Reports });
+pub const ObserverParams = struct { TranslationUnit, Allocator, Parser.NodeIndex, ?*Report.Reports };
 
 comptime {
     const Expected = Util.getTupleFromParams(checkFunctionOuter);
