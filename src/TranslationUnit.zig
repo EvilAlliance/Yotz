@@ -14,7 +14,7 @@ pub fn deinitStatic(alloc: Allocator, bytes: []const u8) void {
 
 tag: Type,
 global: *Global,
-scope: TypeCheck.Scope,
+scope: Scope.Scope,
 
 pub fn initGlobal(cont: *Global, scope: TypeCheck.Scope) Self {
     const tu = Self{
@@ -160,6 +160,7 @@ pub fn waitForWork(alloc: Allocator, global: *Global) Allocator.Error!struct { [
 const ParseArgs = @import("ParseArgs.zig");
 const Lexer = @import("Lexer/mod.zig");
 const Parser = @import("Parser/mod.zig");
+const Scope = @import("Scope/mod.zig");
 const TypeCheck = @import("TypeCheck/mod.zig");
 const Report = @import("Report/mod.zig");
 const Global = @import("Global.zig");

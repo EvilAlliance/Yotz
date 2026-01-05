@@ -1,7 +1,7 @@
 const Self = @This();
 
 base: StringHashMapUnmanaged(Parser.NodeIndex) = .{},
-observer: Util.Observer([]const u8, Expression.ObserverParams) = .{},
+observer: Util.Observer([]const u8, ObserverParams) = .{},
 refCount: std.atomic.Value(usize) = std.atomic.Value(usize).init(1),
 rwLock: std.Thread.RwLock = .{},
 
@@ -41,7 +41,7 @@ pub fn get(ctx: *anyopaque, key: []const u8) ?Parser.NodeIndex {
     return self.base.get(key);
 }
 
-pub fn waitingFor(ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (Expression.ObserverParams) void, args: Expression.ObserverParams) Allocator.Error!void {
+pub fn waitingFor(ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (ObserverParams) void, args: ObserverParams) Allocator.Error!void {
     const self: *Self = @ptrCast(@alignCast(ctx));
     try self.observer.push(alloc, key, func, args);
 
@@ -50,12 +50,12 @@ pub fn waitingFor(ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *con
     }
 }
 
-pub fn waitingForUnlock(ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (Expression.ObserverParams) void, args: Expression.ObserverParams) Allocator.Error!void {
+pub fn waitingForUnlock(ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (ObserverParams) void, args: ObserverParams) Allocator.Error!void {
     const self: *Self = @ptrCast(@alignCast(ctx));
     try self.observer.pushUnlock(alloc, key, func, args);
 }
 
-pub fn getOrWait(ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (Expression.ObserverParams) void, args: Expression.ObserverParams) Allocator.Error!?Parser.NodeIndex {
+pub fn getOrWait(ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (ObserverParams) void, args: ObserverParams) Allocator.Error!?Parser.NodeIndex {
     const self: *Self = @ptrCast(@alignCast(ctx));
 
     self.observer.mutex.lock();
@@ -134,12 +134,14 @@ pub fn scope(self: *Self) Scope {
     };
 }
 
+pub const ObserverParams = struct { @import("../TranslationUnit.zig"), @import("std").mem.Allocator, Parser.NodeIndex, Parser.NodeIndex, ?*Report.Reports };
+
 const Scope = @import("Scope.zig");
 const ScopeFunc = @import("ScopeFunc.zig");
 
-const Expression = @import("../Expression.zig");
-const Parser = @import("../../Parser/mod.zig");
-const Util = @import("../../Util/Observer.zig");
+const Parser = @import("../Parser/mod.zig");
+const Report = @import("../Report/mod.zig");
+const Util = @import("../Util/Observer.zig");
 
 const std = @import("std");
 const StringHashMapUnmanaged = std.StringHashMapUnmanaged;

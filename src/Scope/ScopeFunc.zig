@@ -37,13 +37,13 @@ pub fn get(ctx: *anyopaque, key: []const u8) ?Parser.NodeIndex {
     return null;
 }
 
-pub fn waitingFor(ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (Expression.ObserverParams) void, args: Expression.ObserverParams) Allocator.Error!void {
+pub fn waitingFor(ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (TypeCheck.Expression.ObserverParams) void, args: TypeCheck.Expression.ObserverParams) Allocator.Error!void {
     const self: *Self = @ptrCast(@alignCast(ctx));
 
     try ScopeGlobal.waitingFor(self.global, alloc, key, func, args);
 }
 
-pub fn getOrWait(ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (Expression.ObserverParams) void, args: Expression.ObserverParams) Allocator.Error!?Parser.NodeIndex {
+pub fn getOrWait(ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (TypeCheck.Expression.ObserverParams) void, args: TypeCheck.Expression.ObserverParams) Allocator.Error!?Parser.NodeIndex {
     const self: *Self = @ptrCast(@alignCast(ctx));
 
     self.global.observer.mutex.lock();
@@ -137,9 +137,9 @@ pub fn scope(self: *Self) Scope {
 const Scope = @import("Scope.zig");
 const ScopeGlobal = @import("ScopeGlobal.zig");
 
-const Expression = @import("../Expression.zig");
+const TypeCheck = @import("../TypeCheck/mod.zig");
 
-const Parser = @import("../../Parser/mod.zig");
+const Parser = @import("../Parser/mod.zig");
 
 const std = @import("std");
 const StringHashMapUnmanaged = std.StringHashMapUnmanaged;

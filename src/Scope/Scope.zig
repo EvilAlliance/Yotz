@@ -7,8 +7,8 @@ pub const VTable = struct {
     put: *const fn (*anyopaque, alloc: Allocator, key: []const u8, varI: Parser.NodeIndex) Allocator.Error!void,
     get: *const fn (*anyopaque, key: []const u8) ?Parser.NodeIndex,
 
-    waitingFor: *const fn (ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (Expression.ObserverParams) void, args: Expression.ObserverParams) Allocator.Error!void,
-    getOrWait: *const fn (ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (Expression.ObserverParams) void, args: Expression.ObserverParams) Allocator.Error!?Parser.NodeIndex,
+    waitingFor: *const fn (ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (ScopeGlobal.ObserverParams) void, args: ScopeGlobal.ObserverParams) Allocator.Error!void,
+    getOrWait: *const fn (ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (ScopeGlobal.ObserverParams) void, args: ScopeGlobal.ObserverParams) Allocator.Error!?Parser.NodeIndex,
 
     push: *const fn (*anyopaque, alloc: Allocator) Allocator.Error!void,
     pop: *const fn (*anyopaque, alloc: Allocator) void,
@@ -27,11 +27,11 @@ pub fn get(self: Self, key: []const u8) ?Parser.NodeIndex {
     return self.vtable.get(self.ptr, key);
 }
 
-pub fn waitingFor(self: Self, alloc: Allocator, key: []const u8, func: *const fn (Expression.ObserverParams) void, args: Expression.ObserverParams) Allocator.Error!void {
+pub fn waitingFor(self: Self, alloc: Allocator, key: []const u8, func: *const fn (ScopeGlobal.ObserverParams) void, args: ScopeGlobal.ObserverParams) Allocator.Error!void {
     try self.vtable.waitingFor(self.ptr, alloc, key, func, args);
 }
 
-pub fn getOrWait(self: Self, alloc: Allocator, key: []const u8, func: *const fn (Expression.ObserverParams) void, args: Expression.ObserverParams) Allocator.Error!?Parser.NodeIndex {
+pub fn getOrWait(self: Self, alloc: Allocator, key: []const u8, func: *const fn (ScopeGlobal.ObserverParams) void, args: ScopeGlobal.ObserverParams) Allocator.Error!?Parser.NodeIndex {
     return try self.vtable.getOrWait(self.ptr, alloc, key, func, args);
 }
 
@@ -56,9 +56,10 @@ pub fn deinit(self: Self, alloc: Allocator) void {
 }
 
 const ScopeGlobal = @import("ScopeGlobal.zig");
+const mod = @import("mod.zig");
 
-const Expression = @import("../Expression.zig");
-const Parser = @import("../../Parser/mod.zig");
+const TypeCheck = @import("../TypeCheck/mod.zig");
+const Parser = @import("../Parser/mod.zig");
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;

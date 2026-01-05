@@ -2,7 +2,7 @@ const Self = @This();
 pub const FileInfo = struct { path: []const u8, source: [:0]const u8 };
 
 threadPool: Thread.Pool = undefined,
-observer: TypeCheck.Observer = .{},
+// observer: TypeCheck.Observer = .{},
 
 subCommand: ParseArgs.SubCommand,
 

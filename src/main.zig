@@ -98,7 +98,7 @@ pub fn main() u8 {
     global.init(alloc, 20) catch std.debug.panic("Could not create threads", .{});
     defer global.deinit(alloc);
 
-    var globalScope = TypeCheck.ScopeGlobal.initHeap(alloc, &global.threadPool) catch std.debug.panic("Run Out of Memory", .{});
+    var globalScope = Scope.Global.initHeap(alloc, &global.threadPool) catch std.debug.panic("Run Out of Memory", .{});
     const scope = globalScope.scope();
 
     if (!(global.addFile(alloc, arguments.path) catch std.debug.panic("Run Out of Memory", .{}))) return 1;
@@ -138,7 +138,7 @@ const getArguments = ParseArguments.getArguments;
 const Arguments = ParseArguments.Arguments;
 const TranslationUnit = @import("TranslationUnit.zig");
 const Global = @import("Global.zig");
-const TypeCheck = @import("TypeCheck/mod.zig");
+const Scope = @import("Scope/mod.zig");
 const Report = @import("Report/mod.zig");
 const Logger = @import("Logger.zig");
 

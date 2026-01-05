@@ -31,7 +31,7 @@ pub fn inferType(self: TranslationUnit, alloc: Allocator, varI: Parser.NodeIndex
         if (first.tag.load(.acquire) != .load) continue;
 
         const callBack = struct {
-            fn callBack(args: ObserverParams) void {
+            fn callBack(args: Scope.ObserverParams) void {
                 @call(.auto, toInferLater, args) catch {
                     TranslationUnit.failed = true;
                     std.log.err("Run Out of Memory", .{});
@@ -227,7 +227,7 @@ fn checkVarType(self: TranslationUnit, alloc: Allocator, leafI: Parser.NodeIndex
     const id = leaf.getText(self.global);
 
     const callBack = struct {
-        fn callBack(args: ObserverParams) void {
+        fn callBack(args: Scope.ObserverParams) void {
             @call(.auto, checkVarType, args) catch {
                 TranslationUnit.failed = true;
                 std.log.err("Run Out of Memory", .{});
@@ -315,12 +315,10 @@ fn checkLitType(self: TranslationUnit, alloc: Allocator, litI: Parser.NodeIndex,
     }
 }
 
-pub const ObserverParams = struct { TranslationUnit, Allocator, Parser.NodeIndex, Parser.NodeIndex, ?*Report.Reports };
-
 comptime {
     const Expected = Util.getTupleFromParams(toInferLater);
     const Expected1 = Util.getTupleFromParams(checkVarType);
-    if (ObserverParams != Expected or ObserverParams != Expected1) {
+    if (Scope.ObserverParams != Expected or Scope.ObserverParams != Expected1) {
         @compileError("ObserverParams type mismatch with toInferLater signature");
     }
 }
@@ -330,6 +328,7 @@ const Type = @import("Type.zig");
 const TranslationUnit = @import("../TranslationUnit.zig");
 const Report = @import("../Report/mod.zig");
 const Parser = @import("../Parser/mod.zig");
+const Scope = @import("../Scope/mod.zig");
 const Util = @import("../Util.zig");
 
 const std = @import("std");
