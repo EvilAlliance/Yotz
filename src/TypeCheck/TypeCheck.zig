@@ -19,27 +19,8 @@ pub fn checkRoot(self: TranslationUnit, alloc: Allocator, rootIndex: Parser.Node
 }
 
 pub fn checkFunctionOuter(self: TranslationUnit, alloc: Allocator, variableIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
-    self.global.observer.mutex.lock();
-
     const variable = self.global.nodes.get(variableIndex);
     const funcIndex = variable.data.@"1".load(.acquire);
-    if (funcIndex == 0) {
-        defer self.global.observer.mutex.unlock();
-        const callBack = struct {
-            fn callBack(args: ObserverParams) void {
-                defer args[0].deinit(args[1]);
-                @call(.auto, checkFunctionOuter, args) catch {
-                    TranslationUnit.failed = true;
-                    std.log.err("Run Out of Memory", .{});
-                };
-            }
-        }.callBack;
-
-        try self.global.observer.pushUnlock(alloc, variableIndex, callBack, .{ try self.acquire(alloc), alloc, variableIndex, reports });
-        return;
-    }
-
-    self.global.observer.mutex.unlock();
 
     // Return Type
     Type.transformType(self, self.global.nodes.get(funcIndex).data[1].load(.acquire));
@@ -194,15 +175,6 @@ fn checkPureVariable(self: TranslationUnit, alloc: Allocator, varIndex: Parser.N
     try Expression.checkType(self, alloc, exprI, typeIndex2, reports);
 
     try self.scope.put(alloc, variable.getText(self.global), varIndex);
-}
-
-pub const ObserverParams = std.meta.Tuple(&.{ TranslationUnit, Allocator, Parser.NodeIndex, ?*Report.Reports });
-
-comptime {
-    const Expected = Util.getTupleFromParams(checkFunctionOuter);
-    if (ObserverParams != Expected) {
-        @compileError("ObserverParams type mismatch with checkFunctionOuter signature");
-    }
 }
 
 const Type = @import("Type.zig");

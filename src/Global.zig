@@ -2,7 +2,6 @@ const Self = @This();
 pub const FileInfo = struct { path: []const u8, source: [:0]const u8 };
 
 threadPool: Thread.Pool = undefined,
-observer: TypeCheck.Observer = .{},
 
 subCommand: ParseArgs.SubCommand,
 
@@ -15,7 +14,6 @@ pub fn init(self: *Self, alloc: Allocator, threads: usize) !void {
         .allocator = alloc,
         .n_jobs = threads,
     });
-    self.observer.init(&self.threadPool);
 }
 
 pub fn addFile(self: *Self, alloc: Allocator, path: []const u8) Allocator.Error!bool {
@@ -255,7 +253,6 @@ fn toStringExpression(self: *@This(), alloc: std.mem.Allocator, cont: *std.Array
 const Lexer = @import("./Lexer/mod.zig");
 const ParseArgs = @import("./ParseArgs.zig");
 const Parser = @import("./Parser/mod.zig");
-const TypeCheck = @import("./TypeCheck/mod.zig");
 
 const ArrayListThreadSafe = @import("./Util/ArrayListThreadSafe.zig").ArrayListThreadSafe;
 const Util = @import("Util.zig");
