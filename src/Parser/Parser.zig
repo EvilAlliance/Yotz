@@ -6,20 +6,12 @@ tu: *const TranslationUnit,
 
 index: mod.TokenIndex = 0,
 
-errors: std.ArrayList(UnexpectedToken),
-
 depth: mod.NodeIndex = 0,
 
 pub fn init(tu: *const TranslationUnit) Allocator.Error!@This() {
     return @This(){
         .tu = tu,
-
-        .errors = .{},
     };
-}
-
-pub fn deinit(self: *@This(), alloc: Allocator) void {
-    self.errors.deinit(alloc);
 }
 
 fn peek(self: *const @This()) struct { Lexer.Token, mod.TokenIndex } {
@@ -404,8 +396,6 @@ const Report = @import("../Report/mod.zig");
 const TranslationUnit = @import("../TranslationUnit.zig");
 
 const Node = @import("Node.zig");
-const UnexpectedToken = @import("UnexpectedToken.zig");
 const Expression = @import("Expression.zig");
-const Ast = @import("Ast.zig");
 
 pub const mod = @import("mod.zig");

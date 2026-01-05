@@ -71,7 +71,6 @@ fn _startFunction(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeH
     if (self.global.subCommand == .Lexer) unreachable;
 
     var parser = try Parser.Parser.init(&self);
-    defer parser.deinit(alloc);
 
     parser.parseFunction(alloc, start, placeHolder, reports) catch |err| switch (err) {
         Parser.Error.UnexpectedToken => return,
@@ -100,7 +99,6 @@ fn _startRoot(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeHolde
     defer self.deinit(alloc);
 
     var parser = try Parser.Parser.init(&self);
-    defer parser.deinit(alloc);
 
     try parser.parseRoot(alloc, start, placeHolder, reports);
 
