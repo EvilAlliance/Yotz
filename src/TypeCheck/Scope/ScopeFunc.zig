@@ -138,6 +138,7 @@ const Scope = @import("Scope.zig");
 const ScopeGlobal = @import("ScopeGlobal.zig");
 
 const Expression = @import("../Expression.zig");
+
 const Parser = @import("../../Parser/mod.zig");
 
 const std = @import("std");

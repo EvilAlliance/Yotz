@@ -89,7 +89,7 @@ pub fn getText(self: @This(), content: [:0]const u8) []const u8 {
     return self.tag.toSymbol() orelse self.loc.getText(content);
 }
 
-pub fn toString(self: @This(), alloc: Allocator, cont: *std.ArrayList(u8), path: []const u8, content: [:0]const u8) std.mem.Allocator.Error!void {
+pub fn toString(self: @This(), alloc: Allocator, cont: *std.ArrayList(u8), path: []const u8, content: [:0]const u8) Allocator.Error!void {
     try cont.appendSlice(alloc, path);
     try cont.append(alloc, ':');
 
@@ -114,8 +114,5 @@ pub fn toString(self: @This(), alloc: Allocator, cont: *std.ArrayList(u8), path:
 
 const Location = @import("Location.zig");
 
-const Util = @import("../Util.zig");
-
 const std = @import("std");
-const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;

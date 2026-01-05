@@ -19,7 +19,7 @@ fn peek(self: *const @This()) struct { Lexer.Token, mod.TokenIndex } {
 }
 
 fn peekMany(self: *const @This(), n: mod.NodeIndex) struct { Lexer.Token, mod.TokenIndex } {
-    std.debug.assert(self.index + n < self.tu.global.tokens.len());
+    assert(self.index + n < self.tu.global.tokens.len());
     return .{ self.tu.global.tokens.get(self.index + n), self.index };
 }
 
@@ -146,7 +146,7 @@ fn parseFuncProto(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (
 }
 
 fn parseTypeFunction(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
-    std.debug.assert(Util.listContains(Lexer.Token.Type, &.{.openParen}, self.peek()[0].tag));
+    assert(Util.listContains(Lexer.Token.Type, &.{.openParen}, self.peek()[0].tag));
 
     try Report.expect(alloc, reports, self.peek()[0], &.{.openParen});
     _, const initI = self.pop();
@@ -376,7 +376,7 @@ fn parseTerm(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.m
 
             _ = self.pop();
 
-            std.debug.assert(self.depth != 0);
+            assert(self.depth != 0);
             self.depth -= 1;
 
             return expr;

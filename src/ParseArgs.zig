@@ -94,9 +94,6 @@ pub fn getArguments(allocator: std.mem.Allocator) Arguments {
     };
 }
 
-const Logger = @import("Logger.zig");
-const util = @import("Util.zig");
-
 const clap = @import("clap");
 
 const std = @import("std");

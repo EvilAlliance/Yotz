@@ -45,11 +45,11 @@ pub const Flags = packed struct {
     reserved: u29 = undefined,
 };
 
-tag: Atomic(Tag) = .init(.poison),
-tokenIndex: Atomic(mod.TokenIndex) = .init(0),
-data: struct { Atomic(mod.NodeIndex), Atomic(mod.NodeIndex) } = .{ .init(0), .init(0) },
-flags: Atomic(Flags) = .init(Flags{}),
-next: Atomic(mod.NodeIndex) = .init(0),
+tag: Value(Tag) = .init(.poison),
+tokenIndex: Value(mod.TokenIndex) = .init(0),
+data: struct { Value(mod.NodeIndex), Value(mod.NodeIndex) } = .{ .init(0), .init(0) },
+flags: Value(Flags) = .init(Flags{}),
+next: Value(mod.NodeIndex) = .init(0),
 
 pub inline fn getToken(self: *const @This(), global: *Global) Lexer.Token {
     return global.tokens.get(self.tokenIndex.load(.acquire));
@@ -86,4 +86,4 @@ const Lexer = @import("../Lexer/mod.zig");
 const Global = @import("../Global.zig");
 
 const std = @import("std");
-const Atomic = std.atomic.Value;
+const Value = std.atomic.Value;

@@ -18,6 +18,5 @@ pub fn lex(alloc: std.mem.Allocator, tokens: *Tokens, c: [:0]const u8, index: u3
 }
 
 const ArrayListThreadSafe = @import("../Util/ArrayListThreadSafe.zig").ArrayListThreadSafe;
-const Parser = @import("../Parser/mod.zig");
 
 const std = @import("std");

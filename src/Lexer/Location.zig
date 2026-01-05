@@ -27,6 +27,3 @@ pub fn init() @This() {
         .end = undefined,
     };
 }
-
-const Lexer = @import("Lexer.zig");
-const PrettyLocation = Lexer.PrettyLocation;

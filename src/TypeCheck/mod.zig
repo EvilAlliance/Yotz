@@ -7,5 +7,3 @@ pub const Scope = @import("Scope/Scope.zig");
 pub const Observer = @import("../Util/Observer.zig").Observer(Parser.NodeIndex, TypeCheck.ObserverParams);
 
 const Parser = @import("../Parser/mod.zig");
-
-const std = @import("std");
