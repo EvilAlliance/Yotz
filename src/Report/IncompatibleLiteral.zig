@@ -11,5 +11,6 @@ pub fn display(self: @This(), message: Message) void {
     }
 }
 
-const Parser = @import("../Parser/mod.zig");
 const Message = @import("Message.zig");
+
+const Parser = @import("../Parser/mod.zig");

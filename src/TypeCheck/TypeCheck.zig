@@ -189,10 +189,9 @@ comptime {
 const Type = @import("Type.zig");
 const Expression = @import("Expression.zig");
 
-const Parser = @import("./../Parser/mod.zig");
+const Parser = @import("../Parser/mod.zig");
 const Report = @import("../Report/mod.zig");
 const TranslationUnit = @import("../TranslationUnit.zig");
-
 const Util = @import("../Util.zig");
 
 const std = @import("std");

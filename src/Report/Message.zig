@@ -305,8 +305,8 @@ pub fn init(global: *Global) Self {
     };
 }
 
-const Lexer = @import("./../Lexer/mod.zig");
-const Parser = @import("./../Parser/mod.zig");
-const Global = @import("./../Global.zig");
+const Lexer = @import("../Lexer/mod.zig");
+const Parser = @import("../Parser/mod.zig");
+const Global = @import("../Global.zig");
 
 const std = @import("std");

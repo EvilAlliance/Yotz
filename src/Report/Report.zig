@@ -87,11 +87,9 @@ pub fn undefinedVariable(alloc: Allocator, reports: ?*mod.Reports, name: Parser.
 const mod = @import("mod.zig");
 
 const Util = @import("../Util.zig");
-
 const Lexer = @import("../Lexer/mod.zig");
 const Parser = @import("../Parser/mod.zig");
 const TypeCheck = @import("../TypeCheck/mod.zig");
 
 const std = @import("std");
-
 const Allocator = std.mem.Allocator;

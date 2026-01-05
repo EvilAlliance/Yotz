@@ -251,15 +251,13 @@ fn toStringExpression(self: *@This(), alloc: std.mem.Allocator, cont: *std.Array
     }
 }
 
-const Lexer = @import("./Lexer/mod.zig");
-const ParseArgs = @import("./ParseArgs.zig");
-const Parser = @import("./Parser/mod.zig");
-const TypeCheck = @import("./TypeCheck/mod.zig");
-
-const ArrayListThreadSafe = @import("./Util/ArrayListThreadSafe.zig").ArrayListThreadSafe;
+const Lexer = @import("Lexer/mod.zig");
+const ParseArgs = @import("ParseArgs.zig");
+const Parser = @import("Parser/mod.zig");
+const TypeCheck = @import("TypeCheck/mod.zig");
+const ArrayListThreadSafe = @import("Util/ArrayListThreadSafe.zig").ArrayListThreadSafe;
 const Util = @import("Util.zig");
 
 const std = @import("std");
-
 const Allocator = std.mem.Allocator;
 const Thread = std.Thread;

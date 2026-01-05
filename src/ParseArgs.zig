@@ -1,8 +1,3 @@
-const std = @import("std");
-const Logger = @import("Logger.zig");
-const util = @import("Util.zig");
-const clap = @import("clap");
-
 pub const SubCommand = enum {
     const Self = @This();
 
@@ -98,3 +93,10 @@ pub fn getArguments(allocator: std.mem.Allocator) Arguments {
         .path = res.positionals[1].?,
     };
 }
+
+const Logger = @import("Logger.zig");
+const util = @import("Util.zig");
+
+const clap = @import("clap");
+
+const std = @import("std");

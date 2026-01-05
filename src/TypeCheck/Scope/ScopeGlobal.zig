@@ -138,12 +138,9 @@ const Scope = @import("Scope.zig");
 const ScopeFunc = @import("ScopeFunc.zig");
 
 const Expression = @import("../Expression.zig");
-
 const Parser = @import("../../Parser/mod.zig");
 const Util = @import("../../Util/Observer.zig");
 
 const std = @import("std");
-
 const StringHashMapUnmanaged = std.StringHashMapUnmanaged;
-
 const Allocator = std.mem.Allocator;

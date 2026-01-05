@@ -79,10 +79,11 @@ pub fn typeToString(self: @This()) u8 {
         .float => 'f',
     });
 }
-const Lexer = @import("./../Lexer/mod.zig");
-const Global = @import("../Global.zig");
+
 const mod = @import("mod.zig");
 
-const std = @import("std");
+const Lexer = @import("../Lexer/mod.zig");
+const Global = @import("../Global.zig");
 
+const std = @import("std");
 const Atomic = std.atomic.Value;

@@ -136,12 +136,10 @@ pub fn main() u8 {
 const ParseArguments = @import("ParseArgs.zig");
 const getArguments = ParseArguments.getArguments;
 const Arguments = ParseArguments.Arguments;
-
-const TranslationUnit = @import("./TranslationUnit.zig");
+const TranslationUnit = @import("TranslationUnit.zig");
 const Global = @import("Global.zig");
-const TypeCheck = @import("./TypeCheck/mod.zig");
-const Report = @import("./Report/mod.zig");
-
+const TypeCheck = @import("TypeCheck/mod.zig");
+const Report = @import("Report/mod.zig");
 const Logger = @import("Logger.zig");
 
 const std = @import("std");

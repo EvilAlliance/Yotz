@@ -1,10 +1,3 @@
-const std = @import("std");
-const assert = std.debug.assert;
-const Allocator = std.mem.Allocator;
-
-const Util = @import("../Util.zig");
-
-const Location = @import("Location.zig");
 const Token = @This();
 
 pub const Type = enum(u32) {
@@ -118,3 +111,11 @@ pub fn toString(self: @This(), alloc: Allocator, cont: *std.ArrayList(u8), path:
     try cont.appendSlice(alloc, @tagName(self.tag));
     try cont.appendSlice(alloc, ")\n");
 }
+
+const Location = @import("Location.zig");
+
+const Util = @import("../Util.zig");
+
+const std = @import("std");
+const assert = std.debug.assert;
+const Allocator = std.mem.Allocator;

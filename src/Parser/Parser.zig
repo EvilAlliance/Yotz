@@ -385,17 +385,15 @@ fn parseTerm(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.m
     }
 }
 
-const std = @import("std");
-const assert = std.debug.assert;
-const Allocator = std.mem.Allocator;
+const Node = @import("Node.zig");
+const Expression = @import("Expression.zig");
+pub const mod = @import("mod.zig");
 
 const Util = @import("../Util.zig");
-
 const Lexer = @import("../Lexer/mod.zig");
 const Report = @import("../Report/mod.zig");
 const TranslationUnit = @import("../TranslationUnit.zig");
 
-const Node = @import("Node.zig");
-const Expression = @import("Expression.zig");
-
-pub const mod = @import("mod.zig");
+const std = @import("std");
+const assert = std.debug.assert;
+const Allocator = std.mem.Allocator;

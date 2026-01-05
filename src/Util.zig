@@ -1,5 +1,3 @@
-const std = @import("std");
-
 pub fn Result(comptime Success: type, comptime Error: type) type {
     return union(enum) {
         err: Error,
@@ -125,3 +123,5 @@ pub fn makeCallbackWithCleanup(
         }
     }.callback;
 }
+
+const std = @import("std");

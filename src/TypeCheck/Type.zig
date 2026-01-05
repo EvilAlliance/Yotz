@@ -89,7 +89,7 @@ pub fn canTypeBeCoerced(self: TranslationUnit, actualI: Parser.NodeIndex, expect
     return expected.data[1].load(.acquire) == actual.data[1].load(.acquire) and expected.data[0].load(.acquire) >= actual.data[0].load(.acquire);
 }
 
-const std = @import("std");
-
 const TranslationUnit = @import("../TranslationUnit.zig");
 const Parser = @import("../Parser/mod.zig");
+
+const std = @import("std");

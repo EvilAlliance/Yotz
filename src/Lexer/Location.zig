@@ -1,6 +1,3 @@
-const Lexer = @import("Lexer.zig");
-const PrettyLocation = Lexer.PrettyLocation;
-
 row: u32,
 col: u32,
 
@@ -30,3 +27,6 @@ pub fn init() @This() {
         .end = undefined,
     };
 }
+
+const Lexer = @import("Lexer.zig");
+const PrettyLocation = Lexer.PrettyLocation;

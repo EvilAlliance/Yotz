@@ -158,17 +158,14 @@ pub fn waitForWork(alloc: Allocator, global: *Global) Allocator.Error!struct { [
 }
 
 const ParseArgs = @import("ParseArgs.zig");
-const Lexer = @import("./Lexer/mod.zig");
-const Parser = @import("./Parser/mod.zig");
-const TypeCheck = @import("./TypeCheck/mod.zig");
-const Report = @import("./Report/mod.zig");
+const Lexer = @import("Lexer/mod.zig");
+const Parser = @import("Parser/mod.zig");
+const TypeCheck = @import("TypeCheck/mod.zig");
+const Report = @import("Report/mod.zig");
 const Global = @import("Global.zig");
-
-const Util = @import("./Util.zig");
+const Util = @import("Util.zig");
 
 const std = @import("std");
-
 const mem = std.mem;
-
 const Allocator = mem.Allocator;
 const Thread = std.Thread;

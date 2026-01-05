@@ -1,7 +1,3 @@
-const Node = @import("Node.zig");
-
-const Lexer = @import("../Lexer/mod.zig");
-
 //https://en.cppreference.com/w/c/language/operator_precedence
 pub fn operandPresedence(t: Node.Tag) u8 {
     return switch (t) {
@@ -40,3 +36,7 @@ pub fn tokenTagToNodeTag(tag: Lexer.Token.Type) Node.Tag {
         else => unreachable,
     };
 }
+
+const Node = @import("Node.zig");
+
+const Lexer = @import("../Lexer/mod.zig");

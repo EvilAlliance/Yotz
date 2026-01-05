@@ -17,7 +17,7 @@ pub fn lex(alloc: std.mem.Allocator, tokens: *Tokens, c: [:0]const u8, index: u3
     try tokens.appendUnlock(alloc, t);
 }
 
-const std = @import("std");
-
 const ArrayListThreadSafe = @import("../Util/ArrayListThreadSafe.zig").ArrayListThreadSafe;
 const Parser = @import("../Parser/mod.zig");
+
+const std = @import("std");

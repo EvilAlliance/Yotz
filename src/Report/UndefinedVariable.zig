@@ -7,4 +7,5 @@ pub fn display(self: *const Self, message: Message) void {
 }
 
 const Message = @import("Message.zig");
+
 const Parser = @import("../Parser/mod.zig");
