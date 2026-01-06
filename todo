@@ -174,7 +174,9 @@
         "id": "3t28BVzt",
         "title": "Make Parser better error recovery For function, if etc",
         "desc": "Do not know how, it seems there is no solution available",
-        "time_created": "2025-06-06 19:07:23.099283545 -03:00:00"
+        "time_created": "2025-06-06 19:07:23.099283545 -03:00:00",
+        "time_started": "2026-01-06 15:10:37.624593531 -03:00:00",
+        "time_completed": "2026-01-06 15:10:37.707122364 -03:00:00"
       },
       {
         "id": "AHzzxJdF",
@@ -283,7 +285,8 @@
         "id": "gxC4jUbv",
         "title": "Solucionar los memory leaks",
         "desc": "Hay unos problemas con los rangos de los chunks",
-        "time_created": "2025-12-11 11:26:43.313950701 -03:00:00"
+        "time_created": "2025-12-11 11:26:43.313950701 -03:00:00",
+        "time_completed": "2026-01-06 15:10:25.820585903 -03:00:00"
       },
       {
         "id": "pPNrvFaF",
