@@ -77,7 +77,7 @@ pub fn Observer(Key: type, Args: type, ContextOpt: ?type) type {
             while (link.value.popFirst()) |node| {
                 const handler: *Handler = @fieldParentPtr("node", node);
 
-                self.ctx.init(handler.args);
+                self.ctx.init(&handler.args);
                 try self.pool.spawn(executeHandler, .{ self, handler.func, handler.args });
 
                 self.nodeList.appendBounded(node) catch {

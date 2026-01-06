@@ -307,7 +307,8 @@
         "title": "When deinit global scope report undef variables and deinit the observer",
         "desc": "",
         "time_created": "2025-12-18 17:38:29.897530703 -03:00:00",
-        "time_started": "2025-12-24 15:41:55.7456948 -03:00:00"
+        "time_started": "2026-01-06 17:07:24.513217831 -03:00:00",
+        "time_completed": "2026-01-06 17:07:24.785005199 -03:00:00"
       },
       {
         "id": "d7wVpU2t",

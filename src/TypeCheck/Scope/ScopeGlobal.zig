@@ -2,18 +2,19 @@ const Self = @This();
 
 base: StringHashMapUnmanaged(Parser.NodeIndex) = .{},
 observer: Util.Observer([]const u8, ObserverParams, struct {
-    pub fn init(self: @This(), arg: ObserverParams) void {
+    pub fn init(self: @This(), arg: *ObserverParams) void {
         _ = self;
-        const tu, _, _, _, _ = arg;
+        const tu, _, _, _, _ = arg.*;
 
         tu.* = tu.acquire() catch @panic("Run Out of Memory");
     }
 
     pub fn deinit(self: @This(), arg: ObserverParams, runned: bool) void {
         _ = self;
-        const tu, const alloc, _, _, _ = arg;
+        const tu, const alloc, const leafI, _, const reports = arg;
 
         if (runned or @intFromPtr(tu.scope.ptr) != @intFromPtr(tu.scope.getGlobal())) tu.deinit(alloc);
+        if (!runned) Report.undefinedVariable(alloc, reports, leafI) catch @panic("Run Out of Memory");
 
         alloc.destroy(tu);
     }
@@ -104,8 +105,8 @@ pub fn deepClone(ctx: *anyopaque, alloc: Allocator) Allocator.Error!Scope {
 pub fn deinit(ctx: *anyopaque, alloc: Allocator) void {
     const self: *Self = @ptrCast(@alignCast(ctx));
     if (self.release()) {
-        self.base.deinit(alloc);
         self.observer.deinit(alloc);
+        self.base.deinit(alloc);
         alloc.destroy(self);
     }
 }

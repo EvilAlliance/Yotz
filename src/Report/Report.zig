@@ -75,13 +75,15 @@ pub fn missingMain(alloc: Allocator, reports: ?*mod.Reports) Allocator.Error!voi
 }
 
 pub fn undefinedVariable(alloc: Allocator, reports: ?*mod.Reports, name: Parser.NodeIndex) (Allocator.Error)!void {
-    if (reports) |rs| try rs.append(alloc, .{
-        .message = .{
-            .undefinedVariable = .{
-                .name = name,
+    if (reports) |rs| {
+        try rs.append(alloc, .{
+            .message = .{
+                .undefinedVariable = .{
+                    .name = name,
+                },
             },
-        },
-    });
+        });
+    }
 }
 
 const mod = @import("mod.zig");

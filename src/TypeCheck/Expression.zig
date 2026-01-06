@@ -40,7 +40,7 @@ pub fn inferType(self: TranslationUnit, alloc: Allocator, varI: Parser.NodeIndex
         }.callBack;
 
         const id = first.getText(self.global);
-        const variableI = try self.scope.getOrWait(alloc, id, callBack, .{ try Util.dupe(alloc, try self.reserve(alloc)), alloc, varI, firstI, reports }) orelse continue;
+        const variableI = try self.scope.getOrWait(alloc, id, callBack, .{ try Util.dupe(alloc, try self.reserve(alloc)), alloc, firstI, varI, reports }) orelse continue;
 
         const variable = self.global.nodes.get(variableI);
         const newTypeI = variable.data.@"0".load(.acquire);
@@ -64,7 +64,7 @@ pub fn inferType(self: TranslationUnit, alloc: Allocator, varI: Parser.NodeIndex
     return true;
 }
 
-pub fn toInferLater(self: TranslationUnit, alloc: Allocator, varI: Parser.NodeIndex, waitedI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
+pub fn toInferLater(self: TranslationUnit, alloc: Allocator, waitedI: Parser.NodeIndex, varI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
     const waited = self.global.nodes.get(waitedI);
     const waitedTag = waited.tag.load(.acquire);
     std.debug.assert(waitedTag == .load);
