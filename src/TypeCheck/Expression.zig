@@ -32,7 +32,7 @@ pub fn inferType(self: TranslationUnit, alloc: Allocator, varI: Parser.NodeIndex
 
         const callBack = struct {
             fn callBack(args: Scope.ObserverParams) void {
-                @call(.auto, toInferLater, args) catch {
+                @call(.auto, toInferLater, .{ args[0].*, args[1], args[2], args[3], args[4] }) catch {
                     TranslationUnit.failed = true;
                     std.log.err("Run Out of Memory", .{});
                 };
@@ -40,7 +40,7 @@ pub fn inferType(self: TranslationUnit, alloc: Allocator, varI: Parser.NodeIndex
         }.callBack;
 
         const id = first.getText(self.global);
-        const variableI = try self.scope.getOrWait(alloc, id, callBack, .{ self, alloc, varI, firstI, reports }) orelse continue;
+        const variableI = try self.scope.getOrWait(alloc, id, callBack, .{ try Util.dupe(alloc, try self.reserve(alloc)), alloc, varI, firstI, reports }) orelse continue;
 
         const variable = self.global.nodes.get(variableI);
         const newTypeI = variable.data.@"0".load(.acquire);
@@ -228,7 +228,7 @@ fn checkVarType(self: TranslationUnit, alloc: Allocator, leafI: Parser.NodeIndex
 
     const callBack = struct {
         fn callBack(args: Scope.ObserverParams) void {
-            @call(.auto, checkVarType, args) catch {
+            @call(.auto, checkVarType, .{ args[0].*, args[1], args[2], args[3], args[4] }) catch {
                 TranslationUnit.failed = true;
                 std.log.err("Run Out of Memory", .{});
             };
@@ -240,7 +240,7 @@ fn checkVarType(self: TranslationUnit, alloc: Allocator, leafI: Parser.NodeIndex
             alloc,
             id,
             callBack,
-            .{ self, alloc, leafI, typeI, reports },
+            .{ try Util.dupe(alloc, try self.reserve(alloc)), alloc, leafI, typeI, reports },
         ) orelse return;
 
     const variable = self.global.nodes.get(variableI);
@@ -315,20 +315,12 @@ fn checkLitType(self: TranslationUnit, alloc: Allocator, litI: Parser.NodeIndex,
     }
 }
 
-comptime {
-    const Expected = Util.getTupleFromParams(toInferLater);
-    const Expected1 = Util.getTupleFromParams(checkVarType);
-    if (Scope.ObserverParams != Expected or Scope.ObserverParams != Expected1) {
-        @compileError("ObserverParams type mismatch with toInferLater signature");
-    }
-}
-
 const Type = @import("Type.zig");
 
 const TranslationUnit = @import("../TranslationUnit.zig");
 const Report = @import("../Report/mod.zig");
 const Parser = @import("../Parser/mod.zig");
-const Scope = @import("../Scope/mod.zig");
+const Scope = @import("Scope/mod.zig");
 const Util = @import("../Util.zig");
 
 const std = @import("std");

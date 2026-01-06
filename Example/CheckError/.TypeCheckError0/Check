@@ -23,22 +23,22 @@ baz: () u8 : () u8 {
 } 
 
 :b stderr 772
+[INFO]: Example/CheckError/TypeCheckError0.yt:3:5: x is declared in use 
+    x : s8 = 5;
+    ^
 [ERROR]: Example/CheckError/TypeCheckError0.yt:4:14: Type s8, is incompatible with u8 
     y : u8 = x;  // Error: cannot assign s8 to u8
              ^
-[INFO]: Example/CheckError/TypeCheckError0.yt:3:5: x is declared in use 
-    x : s8 = 5;
+[INFO]: Example/CheckError/TypeCheckError0.yt:10:5: a is declared in use 
+    a : u8 = 5;
     ^
 [ERROR]: Example/CheckError/TypeCheckError0.yt:12:10: Type u8, is incompatible with s8 
     c := a + b;  // Error: cannot infer type from incompatible operands
          ^
-[INFO]: Example/CheckError/TypeCheckError0.yt:10:5: a is declared in use 
-    a : u8 = 5;
+[INFO]: Example/CheckError/TypeCheckError0.yt:23:5: x is declared in use 
+    x : s8 = 42;
     ^
 [ERROR]: Example/CheckError/TypeCheckError0.yt:24:12: Type s8, is incompatible with u8 
     return x;  // Error: cannot return s8 where u8 expected
            ^
-[INFO]: Example/CheckError/TypeCheckError0.yt:23:5: x is declared in use 
-    x : s8 = 42;
-    ^
 

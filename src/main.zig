@@ -79,12 +79,7 @@ pub fn main() u8 {
     defer _ = arena.deinit();
 
     // var generalPurpose: std.heap.DebugAllocator(.{ .thread_safe = true }) = .init;
-    // const allocGpa = generalPurpose.allocator();
-    // var allocSafe = std.heap.ThreadSafeAllocator{
-    //     .child_allocator = allocGpa,
-    //     .mutex = std.Thread.Mutex{},
-    // };
-    // const alloc = allocSafe.allocator();
+    // const alloc = generalPurpose.allocator();
     // defer _ = generalPurpose.deinit();
 
     const arguments = getArguments(alloc);
@@ -98,7 +93,7 @@ pub fn main() u8 {
     global.init(alloc, 20) catch std.debug.panic("Could not create threads", .{});
     defer global.deinit(alloc);
 
-    var globalScope = Scope.Global.initHeap(alloc, &global.threadPool) catch std.debug.panic("Run Out of Memory", .{});
+    var globalScope = TypeCheck.Scope.Global.initHeap(alloc, &global.threadPool) catch std.debug.panic("Run Out of Memory", .{});
     const scope = globalScope.scope();
 
     if (!(global.addFile(alloc, arguments.path) catch std.debug.panic("Run Out of Memory", .{}))) return 1;
@@ -138,7 +133,7 @@ const getArguments = ParseArguments.getArguments;
 const Arguments = ParseArguments.Arguments;
 const TranslationUnit = @import("TranslationUnit.zig");
 const Global = @import("Global.zig");
-const Scope = @import("Scope/mod.zig");
+const TypeCheck = @import("TypeCheck/mod.zig");
 const Report = @import("Report/mod.zig");
 const Logger = @import("Logger.zig");
 

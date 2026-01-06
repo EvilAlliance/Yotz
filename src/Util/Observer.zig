@@ -1,4 +1,17 @@
-pub fn Observer(Key: type, Args: type) type {
+pub fn Observer(Key: type, Args: type, ContextOpt: ?type) type {
+    const Context = if (ContextOpt) |T| T else struct {
+        pub fn init(arg: Args) void {
+            _ = arg;
+        }
+        pub fn deinit(arg: Args, runned: bool) void {
+            _ = arg;
+            _ = runned;
+        }
+    };
+
+    if (@sizeOf(Context) != 0)
+        @compileError("Cannot infer context " ++ @typeName(Context) ++ ", call promoteContext instead.");
+
     return struct {
         const Self = @This();
         const Handler = struct {
@@ -12,6 +25,7 @@ pub fn Observer(Key: type, Args: type) type {
 
         pool: *std.Thread.Pool = undefined,
         mutex: std.Thread.Mutex = .{},
+        ctx: Context = undefined,
 
         eventToFunc: if (Key == []const u8) std.StringHashMapUnmanaged(std.SinglyLinkedList) else std.AutoHashMapUnmanaged(
             Key,
@@ -49,8 +63,9 @@ pub fn Observer(Key: type, Args: type) type {
             }
         }
 
-        fn exevuteHandler(func: *const fn (Args) void, args: Args) void {
+        fn executeHandler(self: *Self, func: *const fn (Args) void, args: Args) void {
             func(args);
+            self.ctx.deinit(args, true);
         }
 
         pub fn alert(self: *Self, alloc: Allocator, waited: Key) Allocator.Error!void {
@@ -62,7 +77,8 @@ pub fn Observer(Key: type, Args: type) type {
             while (link.value.popFirst()) |node| {
                 const handler: *Handler = @fieldParentPtr("node", node);
 
-                try self.pool.spawn(exevuteHandler, .{ handler.func, handler.args });
+                self.ctx.init(handler.args);
+                try self.pool.spawn(executeHandler, .{ self, handler.func, handler.args });
 
                 self.nodeList.appendBounded(node) catch {
                     alloc.destroy(handler);
@@ -71,6 +87,15 @@ pub fn Observer(Key: type, Args: type) type {
         }
 
         pub fn deinit(self: *Self, alloc: Allocator) void {
+            var it = self.eventToFunc.valueIterator();
+            while (it.next()) |entry| {
+                while (entry.popFirst()) |node| {
+                    const handler: *Handler = @fieldParentPtr("node", node);
+                    self.ctx.deinit(handler.args, false);
+                    alloc.destroy(handler);
+                }
+            }
+
             self.eventToFunc.deinit(alloc);
         }
     };

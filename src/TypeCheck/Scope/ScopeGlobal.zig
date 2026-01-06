@@ -1,7 +1,23 @@
 const Self = @This();
 
 base: StringHashMapUnmanaged(Parser.NodeIndex) = .{},
-observer: Util.Observer([]const u8, ObserverParams) = .{},
+observer: Util.Observer([]const u8, ObserverParams, struct {
+    pub fn init(self: @This(), arg: ObserverParams) void {
+        _ = self;
+        const tu, _, _, _, _ = arg;
+
+        tu.* = tu.acquire() catch @panic("Run Out of Memory");
+    }
+
+    pub fn deinit(self: @This(), arg: ObserverParams, runned: bool) void {
+        _ = self;
+        const tu, const alloc, _, _, _ = arg;
+
+        if (runned or @intFromPtr(tu.scope.ptr) != @intFromPtr(tu.scope.getGlobal())) tu.deinit(alloc);
+
+        alloc.destroy(tu);
+    }
+}) = .{},
 refCount: std.atomic.Value(usize) = std.atomic.Value(usize).init(1),
 rwLock: std.Thread.RwLock = .{},
 
@@ -41,15 +57,6 @@ pub fn get(ctx: *anyopaque, key: []const u8) ?Parser.NodeIndex {
     return self.base.get(key);
 }
 
-pub fn waitingFor(ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (ObserverParams) void, args: ObserverParams) Allocator.Error!void {
-    const self: *Self = @ptrCast(@alignCast(ctx));
-    try self.observer.push(alloc, key, func, args);
-
-    if (get(self, key)) |_| {
-        try self.observer.alert(alloc, key);
-    }
-}
-
 pub fn waitingForUnlock(ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (ObserverParams) void, args: ObserverParams) Allocator.Error!void {
     const self: *Self = @ptrCast(@alignCast(ctx));
     try self.observer.pushUnlock(alloc, key, func, args);
@@ -84,14 +91,14 @@ pub fn pop(ctx: *const anyopaque, alloc: Allocator) void {
 
 pub fn getGlobal(ctx: *anyopaque) *Self {
     const self: *Self = @ptrCast(@alignCast(ctx));
-    return self.acquire();
+    return self;
 }
 
 pub fn deepClone(ctx: *anyopaque, alloc: Allocator) Allocator.Error!Scope {
     const self: *Self = @ptrCast(@alignCast(ctx));
     _ = alloc;
 
-    return self.acquire().scope();
+    return self.scope();
 }
 
 pub fn deinit(ctx: *anyopaque, alloc: Allocator) void {
@@ -120,7 +127,6 @@ pub fn scope(self: *Self) Scope {
             .put = put,
             .get = get,
 
-            .waitingFor = waitingFor,
             .getOrWait = getOrWait,
 
             .push = push,
@@ -134,14 +140,15 @@ pub fn scope(self: *Self) Scope {
     };
 }
 
-pub const ObserverParams = struct { @import("../TranslationUnit.zig"), @import("std").mem.Allocator, Parser.NodeIndex, Parser.NodeIndex, ?*Report.Reports };
+pub const ObserverParams = struct { *TranslationUnit, Allocator, Parser.NodeIndex, Parser.NodeIndex, ?*Report.Reports };
 
 const Scope = @import("Scope.zig");
 const ScopeFunc = @import("ScopeFunc.zig");
 
-const Parser = @import("../Parser/mod.zig");
-const Report = @import("../Report/mod.zig");
-const Util = @import("../Util/Observer.zig");
+const TranslationUnit = @import("../../TranslationUnit.zig");
+const Parser = @import("../../Parser/mod.zig");
+const Report = @import("../../Report/mod.zig");
+const Util = @import("../../Util/Observer.zig");
 
 const std = @import("std");
 const StringHashMapUnmanaged = std.StringHashMapUnmanaged;

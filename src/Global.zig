@@ -10,6 +10,9 @@ files: ArrayListThreadSafe(FileInfo) = .{},
 tokens: Lexer.Tokens = .{},
 nodes: Parser.NodeList = .{},
 
+// Mutex to prevent interleaved log output from multiple threads
+logMutex: Thread.Mutex = .{},
+
 pub fn init(self: *Self, alloc: Allocator, threads: usize) !void {
     try self.threadPool.init(.{
         .allocator = alloc,
@@ -38,8 +41,6 @@ pub fn addFile(self: *Self, alloc: Allocator, path: []const u8) Allocator.Error!
 }
 
 pub fn deinit(self: *Self, alloc: Allocator) void {
-    self.observer.deinit(alloc);
-
     for (self.files.slice()) |f| {
         alloc.free(f.path);
         alloc.free(f.source);

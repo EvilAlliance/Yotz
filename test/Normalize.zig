@@ -59,10 +59,27 @@ fn parseLocation(reportText: []const u8) struct { line: u32, column: u32 } {
 }
 
 fn nextReport(str: []const u8) ?usize {
-    return std.mem.indexOf(u8, str, "[INFO]") orelse
-        std.mem.indexOf(u8, str, "[WARNING]") orelse
-        std.mem.indexOf(u8, str, "[ERROR]") orelse
-        std.mem.indexOf(u8, str, "[DEBUG]");
+    const info_pos = std.mem.indexOf(u8, str, "[INFO]");
+    const warning_pos = std.mem.indexOf(u8, str, "[WARNING]");
+    const error_pos = std.mem.indexOf(u8, str, "[ERROR]");
+    const debug_pos = std.mem.indexOf(u8, str, "[DEBUG]");
+
+    var min_pos: ?usize = null;
+
+    if (info_pos) |pos| {
+        min_pos = pos;
+    }
+    if (warning_pos) |pos| {
+        min_pos = if (min_pos) |m| @min(m, pos) else pos;
+    }
+    if (error_pos) |pos| {
+        min_pos = if (min_pos) |m| @min(m, pos) else pos;
+    }
+    if (debug_pos) |pos| {
+        min_pos = if (min_pos) |m| @min(m, pos) else pos;
+    }
+
+    return min_pos;
 }
 
 const std = @import("std");

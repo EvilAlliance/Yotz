@@ -37,13 +37,7 @@ pub fn get(ctx: *anyopaque, key: []const u8) ?Parser.NodeIndex {
     return null;
 }
 
-pub fn waitingFor(ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (TypeCheck.Expression.ObserverParams) void, args: TypeCheck.Expression.ObserverParams) Allocator.Error!void {
-    const self: *Self = @ptrCast(@alignCast(ctx));
-
-    try ScopeGlobal.waitingFor(self.global, alloc, key, func, args);
-}
-
-pub fn getOrWait(ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (TypeCheck.Expression.ObserverParams) void, args: TypeCheck.Expression.ObserverParams) Allocator.Error!?Parser.NodeIndex {
+pub fn getOrWait(ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (ScopeGlobal.ObserverParams) void, args: ScopeGlobal.ObserverParams) Allocator.Error!?Parser.NodeIndex {
     const self: *Self = @ptrCast(@alignCast(ctx));
 
     self.global.observer.mutex.lock();
@@ -66,11 +60,9 @@ pub fn push(ctx: *anyopaque, alloc: Allocator) Allocator.Error!void {
 pub fn pop(ctx: *anyopaque, alloc: Allocator) void {
     const self: *Self = @ptrCast(@alignCast(ctx));
     assert(self.base.items.len > 0);
-    var dic = self.base.pop();
+    var dic = self.base.pop().?;
 
-    dic.?.deinit(alloc);
-
-    alloc.destroy(self);
+    dic.deinit(alloc);
 }
 
 pub fn getGlobal(ctx: *anyopaque) *ScopeGlobal {
@@ -89,11 +81,7 @@ pub fn getFromGlobal(self: *Self, key: []const u8) ?Parser.NodeIndex {
 pub fn deepClone(ctx: *anyopaque, alloc: Allocator) Allocator.Error!Scope {
     const self: *Self = @ptrCast(@alignCast(ctx));
 
-    const x: *Self = try alloc.create(Self);
-    x.* = .{
-        .global = self.global.acquire(),
-        .base = .{},
-    };
+    const x = try initHeap(alloc, self.global);
 
     for (self.base.items) |value| {
         try x.base.append(alloc, try value.clone(alloc));
@@ -108,9 +96,12 @@ pub fn deinit(ctx: *anyopaque, alloc: Allocator) void {
     for (self.base.items) |*value| {
         value.deinit(alloc);
     }
+
     self.base.deinit(alloc);
 
     ScopeGlobal.deinit(self.global, alloc);
+
+    alloc.destroy(self);
 }
 
 pub fn scope(self: *Self) Scope {
@@ -120,7 +111,6 @@ pub fn scope(self: *Self) Scope {
             .put = put,
             .get = get,
 
-            .waitingFor = waitingFor,
             .getOrWait = getOrWait,
 
             .push = push,
@@ -137,9 +127,9 @@ pub fn scope(self: *Self) Scope {
 const Scope = @import("Scope.zig");
 const ScopeGlobal = @import("ScopeGlobal.zig");
 
-const TypeCheck = @import("../TypeCheck/mod.zig");
+const TypeCheck = @import("../mod.zig");
 
-const Parser = @import("../Parser/mod.zig");
+const Parser = @import("../../Parser/mod.zig");
 
 const std = @import("std");
 const StringHashMapUnmanaged = std.StringHashMapUnmanaged;

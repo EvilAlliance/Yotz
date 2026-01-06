@@ -10,13 +10,13 @@ main: () u8 : () u8 {
 } 
 
 :b stderr 295
-[ERROR]: Example/Inference/Inference2.yt:6:12: Type u16, is incompatible with u8 
-    return a;
-           ^
 [INFO]: Example/Inference/Inference2.yt:2:5: a is declared in use 
     a := 8;
     ^
 [INFO]: Example/Inference/Inference2.yt:4:14: Infered Type u16 here: 
     b :u16 = a;
              ^
+[ERROR]: Example/Inference/Inference2.yt:6:12: Type u16, is incompatible with u8 
+    return a;
+           ^
 

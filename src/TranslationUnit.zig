@@ -14,9 +14,9 @@ pub fn deinitStatic(alloc: Allocator, bytes: []const u8) void {
 
 tag: Type,
 global: *Global,
-scope: Scope.Scope,
+scope: TypeCheck.Scope.Scope,
 
-pub fn initGlobal(cont: *Global, scope: TypeCheck.Scope) Self {
+pub fn initGlobal(cont: *Global, scope: TypeCheck.Scope.Scope) Self {
     const tu = Self{
         .tag = .Global,
         .global = cont,
@@ -27,7 +27,7 @@ pub fn initGlobal(cont: *Global, scope: TypeCheck.Scope) Self {
 }
 
 pub fn initFunc(self: *const Self, alloc: Allocator) Allocator.Error!Self {
-    const scope = try TypeCheck.ScopeFunc.initHeap(alloc, self.scope.getGlobal());
+    const scope = try TypeCheck.Scope.Func.initHeap(alloc, self.scope.getGlobal().acquire());
 
     const tu = Self{
         .tag = .Function,
@@ -42,11 +42,21 @@ pub fn deinit(self: Self, alloc: Allocator) void {
     self.scope.deinit(alloc);
 }
 
-pub fn acquire(self: Self, alloc: Allocator) Allocator.Error!Self {
+pub fn reserve(self: Self, alloc: Allocator) Allocator.Error!Self {
     return Self{
         .tag = self.tag,
         .global = self.global,
         .scope = try self.scope.deepClone(alloc),
+    };
+}
+
+pub fn acquire(self: Self) Allocator.Error!Self {
+    _ = self.scope.getGlobal().acquire();
+
+    return Self{
+        .tag = self.tag,
+        .global = self.global,
+        .scope = self.scope,
     };
 }
 
@@ -119,10 +129,8 @@ fn _startRoot(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeHolde
     // if (parser.errors.items.len > 0) return .{ "", 1 };
 }
 
-pub fn startEntry(stakcSelf: Self, alloc: Allocator, reports: ?*Report.Reports) std.mem.Allocator.Error!void {
-    if (stakcSelf.global.subCommand == .Lexer) return;
-
-    const self = try Util.dupe(alloc, stakcSelf);
+pub fn startEntry(self: Self, alloc: Allocator, reports: ?*Report.Reports) std.mem.Allocator.Error!void {
+    if (self.global.subCommand == .Lexer) return;
 
     const index = try self.global.nodes.appendIndex(alloc, Parser.Node{ .tag = .init(.entry) });
     std.debug.assert(index == 0);
@@ -160,7 +168,6 @@ pub fn waitForWork(alloc: Allocator, global: *Global) Allocator.Error!struct { [
 const ParseArgs = @import("ParseArgs.zig");
 const Lexer = @import("Lexer/mod.zig");
 const Parser = @import("Parser/mod.zig");
-const Scope = @import("Scope/mod.zig");
 const TypeCheck = @import("TypeCheck/mod.zig");
 const Report = @import("Report/mod.zig");
 const Global = @import("Global.zig");
