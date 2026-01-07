@@ -358,6 +358,12 @@
         "title": "Report when adding to the list do not use an extending list to not need the allocator, and 128 is too many errors to print",
         "desc": "",
         "time_created": "2025-12-30 18:04:00.923226232 -03:00:00"
+      },
+      {
+        "id": "vyvtnQyd",
+        "title": "When updating the zig version of zig to 0.16 try to make the observer params the translation unit not allocated on the heap",
+        "desc": "",
+        "time_created": "2026-01-07 00:19:49.309837734 -03:00:00"
       }
     ]
   }
