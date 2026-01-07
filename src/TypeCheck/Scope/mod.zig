@@ -3,3 +3,7 @@ pub const Global = @import("ScopeGlobal.zig");
 pub const Func = @import("ScopeFunc.zig");
 
 pub const ObserverParams = Global.ObserverParams;
+
+pub const Error = error{
+    KeyAlreadyExists,
+};

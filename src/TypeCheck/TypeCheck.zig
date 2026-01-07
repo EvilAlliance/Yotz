@@ -39,7 +39,10 @@ pub fn checkFunctionOuter(self: TranslationUnit, alloc: Allocator, variableIndex
         }
     }
 
-    try self.scope.put(alloc, variable.getText(self.global), variableIndex);
+    self.scope.put(alloc, variable.getText(self.global), variableIndex) catch |err| switch (err) {
+        Scope.Error.KeyAlreadyExists => try Report.redefinition(alloc, reports, variableIndex, self.scope.get(variable.getText(self.global)).?),
+        else => return @errorCast(err),
+    };
 }
 
 pub fn checkTypeFunction(self: TranslationUnit, alloc: Allocator, funcTypeIndex: Parser.NodeIndex, funcIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
@@ -160,7 +163,10 @@ fn checkPureVariable(self: TranslationUnit, alloc: Allocator, varIndex: Parser.N
 
     if (typeIndex == 0) {
         if (!try Expression.inferType(self, alloc, varIndex, variable.data.@"1".load(.acquire), reports)) {
-            try self.scope.put(alloc, variable.getText(self.global), varIndex);
+            self.scope.put(alloc, variable.getText(self.global), varIndex) catch |err| switch (err) {
+                Scope.Error.KeyAlreadyExists => try Report.redefinition(alloc, reports, varIndex, self.scope.get(variable.getText(self.global)).?),
+                else => return @errorCast(err),
+            };
             return;
         }
     } else {
@@ -174,7 +180,10 @@ fn checkPureVariable(self: TranslationUnit, alloc: Allocator, varIndex: Parser.N
 
     try Expression.checkType(self, alloc, exprI, typeIndex2, reports);
 
-    try self.scope.put(alloc, variable.getText(self.global), varIndex);
+    self.scope.put(alloc, variable.getText(self.global), varIndex) catch |err| switch (err) {
+        Scope.Error.KeyAlreadyExists => try Report.redefinition(alloc, reports, varIndex, self.scope.get(variable.getText(self.global)).?),
+        else => return @errorCast(err),
+    };
 }
 
 pub const ObserverParams = struct { TranslationUnit, Allocator, Parser.NodeIndex, ?*Report.Reports };
@@ -191,6 +200,7 @@ const Expression = @import("Expression.zig");
 
 const Parser = @import("../Parser/mod.zig");
 const Report = @import("../Report/mod.zig");
+const Scope = @import("Scope/mod.zig");
 const TranslationUnit = @import("../TranslationUnit.zig");
 const Util = @import("../Util.zig");
 

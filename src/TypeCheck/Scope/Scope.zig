@@ -4,7 +4,7 @@ ptr: *anyopaque,
 vtable: *const VTable,
 
 pub const VTable = struct {
-    put: *const fn (*anyopaque, alloc: Allocator, key: []const u8, varI: Parser.NodeIndex) Allocator.Error!void,
+    put: *const fn (*anyopaque, alloc: Allocator, key: []const u8, varI: Parser.NodeIndex) (Allocator.Error || mod.Error)!void,
     get: *const fn (*anyopaque, key: []const u8) ?Parser.NodeIndex,
 
     getOrWait: *const fn (ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (ScopeGlobal.ObserverParams) void, args: ScopeGlobal.ObserverParams) Allocator.Error!?Parser.NodeIndex,
@@ -18,7 +18,7 @@ pub const VTable = struct {
     deinit: *const fn (*anyopaque, alloc: Allocator) void,
 };
 
-pub fn put(self: Self, alloc: Allocator, key: []const u8, value: Parser.NodeIndex) Allocator.Error!void {
+pub fn put(self: Self, alloc: Allocator, key: []const u8, value: Parser.NodeIndex) (Allocator.Error || mod.Error)!void {
     try self.vtable.put(self.ptr, alloc, key, value);
 }
 

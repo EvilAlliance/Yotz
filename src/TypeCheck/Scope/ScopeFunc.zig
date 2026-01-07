@@ -13,8 +13,10 @@ pub fn initHeap(alloc: Allocator, globaScope: *ScopeGlobal) Allocator.Error!*Sel
     return self;
 }
 
-pub fn put(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: Parser.NodeIndex) Allocator.Error!void {
+pub fn put(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: Parser.NodeIndex) (Allocator.Error || mod.Error)!void {
     const self: *Self = @ptrCast(@alignCast(ctx));
+    if (get(self, key)) |_| return mod.Error.KeyAlreadyExists;
+
     const count = self.base.items.len;
     assert(count > 0);
 
@@ -126,6 +128,7 @@ pub fn scope(self: *Self) Scope {
 
 const Scope = @import("Scope.zig");
 const ScopeGlobal = @import("ScopeGlobal.zig");
+const mod = @import("mod.zig");
 
 const TypeCheck = @import("../mod.zig");
 

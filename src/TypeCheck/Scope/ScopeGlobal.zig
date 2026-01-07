@@ -37,9 +37,9 @@ pub fn initHeap(alloc: Allocator, pool: *std.Thread.Pool) Allocator.Error!*Self 
     return self;
 }
 
-pub fn put(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: Parser.NodeIndex) Allocator.Error!void {
+pub fn put(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: Parser.NodeIndex) (Allocator.Error || mod.Error)!void {
     const self: *Self = @ptrCast(@alignCast(ctx));
-    std.debug.assert(get(self, key) == null);
+    if (get(self, key)) |_| return mod.Error.KeyAlreadyExists;
     {
         self.rwLock.lock();
         defer self.rwLock.unlock();
@@ -145,6 +145,7 @@ pub const ObserverParams = struct { *TranslationUnit, Allocator, Parser.NodeInde
 
 const Scope = @import("Scope.zig");
 const ScopeFunc = @import("ScopeFunc.zig");
+const mod = @import("mod.zig");
 
 const TranslationUnit = @import("../../TranslationUnit.zig");
 const Parser = @import("../../Parser/mod.zig");

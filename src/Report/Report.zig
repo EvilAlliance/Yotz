@@ -6,6 +6,7 @@ message: union(enum) {
     incompatibleLiteral: mod.IncompatibleLiteral,
     missingMain: mod.MissingMain,
     undefinedVariable: mod.UndefinedVariable,
+    redefinition: mod.Redefinition,
 },
 
 pub fn display(self: *const Self, message: mod.Message) void {
@@ -15,6 +16,7 @@ pub fn display(self: *const Self, message: mod.Message) void {
         .incompatibleLiteral => |il| il.display(message),
         .missingMain => |mm| mm.display(message),
         .undefinedVariable => |uv| uv.display(message),
+        .redefinition => |rd| rd.display(message),
     }
 }
 
@@ -80,6 +82,19 @@ pub fn undefinedVariable(alloc: Allocator, reports: ?*mod.Reports, name: Parser.
             .message = .{
                 .undefinedVariable = .{
                     .name = name,
+                },
+            },
+        });
+    }
+}
+
+pub fn redefinition(alloc: Allocator, reports: ?*mod.Reports, name: Parser.NodeIndex, original: Parser.NodeIndex) (Allocator.Error)!void {
+    if (reports) |rs| {
+        try rs.append(alloc, .{
+            .message = .{
+                .redefinition = .{
+                    .name = name,
+                    .original = original,
                 },
             },
         });

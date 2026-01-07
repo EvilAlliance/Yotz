@@ -74,18 +74,19 @@ const Error = struct {
         });
     }
 
-    pub inline fn identifierIsUsed(self: @This(), reDefI: Parser.NodeIndex, varI: Parser.NodeIndex) void {
-        const locStmt = self.global.getNode(reDefI).getLocation(self.global.*);
-        const varia = self.global.getNode(varI);
-        const where = placeSlice(locStmt, self.global.cont.source);
+    pub inline fn identifierIsUsed(self: @This(), reDefI: Parser.NodeIndex) void {
+        const locStmt = self.global.nodes.get(reDefI).getLocation(self.global);
+        const varia = self.global.nodes.get(reDefI);
+        const fileInfo = self.global.files.get(locStmt.source);
+        const where = placeSlice(locStmt, fileInfo.source);
         std.log.err(
             "{s}:{}:{}: Identifier {s} is already in use \n{s}\n{[5]c: >[6]}",
             .{
-                self.global.cont.path,
+                fileInfo.path,
                 locStmt.row,
                 locStmt.col,
                 varia.getText(self.global),
-                self.global.cont.source[where.beg..where.end],
+                fileInfo.source[where.beg..where.end],
                 '^',
                 where.pad,
             },
