@@ -1,4 +1,4 @@
-pub fn Observer(Key: type, Args: type, ContextOpt: ?type) type {
+pub fn Multiple(Key: type, Args: type, ContextOpt: ?type) type {
     const Context = if (ContextOpt) |T| T else struct {
         pub fn init(arg: Args) void {
             _ = arg;
@@ -97,6 +97,78 @@ pub fn Observer(Key: type, Args: type, ContextOpt: ?type) type {
             }
 
             self.eventToFunc.deinit(alloc);
+        }
+    };
+}
+
+pub fn Simple(Args: type, ContextOpt: ?type) type {
+    const Context = if (ContextOpt) |T| T else struct {
+        pub fn init(arg: Args) void {
+            _ = arg;
+        }
+        pub fn deinit(arg: Args, runned: bool) void {
+            _ = arg;
+            _ = runned;
+        }
+    };
+
+    if (@sizeOf(Context) != 0)
+        @compileError("Cannot infer context " ++ @typeName(Context) ++ ", call promoteContext instead.");
+    return struct {
+        const Self = @This();
+
+        const Handler = struct {
+            func: *const fn (Args) void,
+            args: Args,
+        };
+
+        list: std.ArrayList(Handler) = .{},
+        pool: *std.Thread.Pool = undefined,
+        mutex: std.Thread.Mutex = .{},
+        ctx: Context = undefined,
+
+        pub fn initCapacity(self: *Self, alloc: Allocator, pool: *std.Thread.Pool, capacity: usize) Allocator.Error!void {
+            self.list = try .initCapacity(alloc, capacity);
+            self.pool = pool;
+        }
+
+        fn executeHandler(self: *Self, func: *const fn (Args) void, args: Args) void {
+            func(args);
+            self.ctx.deinit(args, true);
+        }
+
+        pub fn push(self: *Self, alloc: Allocator, func: *const fn (Args) void, args: Args) Allocator.Error!void {
+            self.mutex.lock();
+            defer self.mutex.unlock();
+
+            try self.pushUnlock(alloc, func, args);
+        }
+
+        pub fn pushUnlock(self: *Self, alloc: Allocator, func: *const fn (Args) void, args: Args) Allocator.Error!void {
+            const handler: Handler = .{
+                .func = func,
+                .args = args,
+            };
+
+            try self.list.append(alloc, handler);
+        }
+
+        pub fn alert(self: *Self) Allocator.Error!void {
+            self.mutex.lock();
+            defer self.mutex.unlock();
+
+            while (self.list.pop()) |handler| {
+                self.ctx.init(&handler.args);
+                try self.pool.spawn(executeHandler, .{ self, handler.func, handler.args });
+            }
+        }
+
+        pub fn deinit(self: *Self, alloc: Allocator) void {
+            while (self.list.pop()) |handler| {
+                self.ctx.deinit(handler.args, false);
+            }
+
+            self.list.deinit(alloc);
         }
     };
 }
