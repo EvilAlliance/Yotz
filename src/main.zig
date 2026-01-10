@@ -88,28 +88,10 @@ pub fn main() u8 {
         std.log.warn("Subcommand run wont print anything", .{});
     }
 
-    var reports = Report.Reports{};
-    var global: Global = .{ .subCommand = arguments.subCom };
-    global.init(alloc, 20) catch std.debug.panic("Could not create threads", .{});
-    defer global.deinit(alloc);
-
-    var globalScope = TypeCheck.Scope.Global.initHeap(alloc, &global.threadPool) catch std.debug.panic("Run Out of Memory", .{});
-    const scope = globalScope.scope();
-
-    if (!(global.addFile(alloc, arguments.path) catch std.debug.panic("Run Out of Memory", .{}))) return 1;
-
-    const tu = TranslationUnit.initGlobal(&global, scope);
-
-    tu.startEntry(alloc, &reports) catch {
+    const bytes, const ret = TranslationUnit.startEntry(alloc, &arguments) catch {
         std.log.err("Run Out of Memory", .{});
         return 1;
     };
-
-    const bytes, const ret = TranslationUnit.waitForWork(alloc, &global) catch {
-        std.log.err("Run Out of Memory", .{});
-        return 1;
-    };
-
     defer TranslationUnit.deinitStatic(alloc, bytes);
 
     var buf: [5 * 1024]u8 = undefined;
@@ -119,11 +101,6 @@ pub fn main() u8 {
         arguments,
         getName(arguments.path, arguments.subCom.getExt(), &buf),
     );
-
-    const message = Report.Message.init(&global);
-    for (0..reports.nextIndex.load(.acquire)) |i| {
-        reports.get(i).display(message);
-    }
 
     return ret;
 }

@@ -1,7 +1,7 @@
 const Self = @This();
 
 base: StringHashMapUnmanaged(Parser.NodeIndex) = .{},
-observer: Util.Observer([]const u8, ObserverParams, struct {
+observer: Observer.Multiple([]const u8, ObserverParams, struct {
     pub fn init(self: @This(), arg: *ObserverParams) void {
         _ = self;
         const tu, _, _, _, _ = arg.*;
@@ -150,7 +150,7 @@ const mod = @import("mod.zig");
 const TranslationUnit = @import("../../TranslationUnit.zig");
 const Parser = @import("../../Parser/mod.zig");
 const Report = @import("../../Report/mod.zig");
-const Util = @import("../../Util/Observer.zig");
+const Observer = @import("../../Util/Observer.zig");
 
 const std = @import("std");
 const StringHashMapUnmanaged = std.StringHashMapUnmanaged;

@@ -364,6 +364,12 @@
         "title": "When updating the zig version of zig to 0.16 try to make the observer params the translation unit not allocated on the heap",
         "desc": "",
         "time_created": "2026-01-07 00:19:49.309837734 -03:00:00"
+      },
+      {
+        "id": "GCrkBbRc",
+        "title": "In the observer multiple do not use a LinkedList",
+        "desc": "",
+        "time_created": "2026-01-08 19:22:31.961898194 -03:00:00"
       }
     ]
   }

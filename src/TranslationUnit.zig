@@ -1,7 +1,7 @@
 const Self = @This();
 
 pub const Type = enum {
-    Global,
+    Root,
     Function,
 };
 
@@ -15,12 +15,13 @@ pub fn deinitStatic(alloc: Allocator, bytes: []const u8) void {
 tag: Type,
 global: *Global,
 scope: TypeCheck.Scope.Scope,
+rootIndex: Parser.NodeIndex = 0,
 
-pub fn initGlobal(cont: *Global, scope: TypeCheck.Scope.Scope) Self {
+pub fn initRoot(alloc: Allocator, globa: *Global) Allocator.Error!Self {
     const tu = Self{
-        .tag = .Global,
-        .global = cont,
-        .scope = scope,
+        .tag = .Root,
+        .global = globa,
+        .scope = (try TypeCheck.Scope.Global.initHeap(alloc, &globa.threadPool)).scope(),
     };
 
     return tu;
@@ -104,6 +105,20 @@ fn _startFunction(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeH
     // if (parser.errors.items.len > 0) return .{ "", 1 };
 }
 
+pub fn startRoot(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
+    std.debug.assert(self.tag == .Root);
+
+    const callBack = struct {
+        fn callBack(comptime func: anytype, args: anytype) void {
+            @call(.auto, func, args) catch {
+                std.debug.panic("Run Out of Memory", .{});
+            };
+        }
+    }.callBack;
+
+    try self.global.threadPool.spawn(callBack, .{ _startRoot, .{ self, alloc, start, placeHolder, reports } });
+}
+
 fn _startRoot(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
     if (self.global.subCommand == .Lexer) unreachable;
     defer self.deinit(alloc);
@@ -129,22 +144,29 @@ fn _startRoot(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeHolde
     // if (parser.errors.items.len > 0) return .{ "", 1 };
 }
 
-pub fn startEntry(self: Self, alloc: Allocator, reports: ?*Report.Reports) std.mem.Allocator.Error!void {
-    if (self.global.subCommand == .Lexer) return;
+pub fn startEntry(alloc: Allocator, arguments: *const ParseArgs.Arguments) std.mem.Allocator.Error!struct { []const u8, u8 } {
+    var global: Global = .{ .subCommand = arguments.subCom };
+    global.init(alloc, 20) catch std.debug.panic("Could not create threads", .{});
+    defer global.deinit(alloc);
 
-    const index = try self.global.nodes.appendIndex(alloc, Parser.Node{ .tag = .init(.entry) });
-    std.debug.assert(index == 0);
+    if (!try global.addFile(alloc, arguments.path)) return .{ "", 1 };
 
-    try self._startRoot(alloc, 0, index, reports);
+    const tu = try initRoot(alloc, &global);
 
-    // const err = try typeCheck(alloc, &ast);
-    //
-    // if (self.cont.subCom == .TypeCheck)
-    //     return .{ try ast.toString(alloc), if (err or (parser.errors.items.len > 1)) 1 else 0 };
-    //
-    // if (failed) return .{ "", 1 };
-    // if (err) return .{ "", 1 };
-    // if (parser.errors.items.len > 0) return .{ "", 1 };
+    const index = try global.nodes.appendIndex(alloc, Parser.Node{ .tag = .init(.entry) });
+
+    var reports = Report.Reports{};
+
+    try tu.startRoot(alloc, 0, index, &reports);
+
+    const ret = try waitForWork(alloc, &global);
+
+    const message = Report.Message.init(&global);
+    for (0..reports.nextIndex.load(.acquire)) |i| {
+        reports.get(i).display(message);
+    }
+
+    return ret;
 }
 
 pub fn waitForWork(alloc: Allocator, global: *Global) Allocator.Error!struct { []const u8, u8 } {
@@ -172,6 +194,7 @@ const TypeCheck = @import("TypeCheck/mod.zig");
 const Report = @import("Report/mod.zig");
 const Global = @import("Global.zig");
 const Util = @import("Util.zig");
+const Observer = @import("Util/Observer.zig");
 
 const std = @import("std");
 const mem = std.mem;
