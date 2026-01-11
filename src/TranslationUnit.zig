@@ -12,16 +12,20 @@ pub fn deinitStatic(alloc: Allocator, bytes: []const u8) void {
     alloc.free(bytes);
 }
 
+var ID = std.atomic.Value(usize).init(0);
+
 tag: Type,
 global: *Global,
 scope: TypeCheck.Scope.Scope,
 rootIndex: Parser.NodeIndex = 0,
+id: usize,
 
 pub fn initRoot(alloc: Allocator, globa: *Global) Allocator.Error!Self {
     const tu = Self{
         .tag = .Root,
         .global = globa,
         .scope = (try TypeCheck.Scope.Global.initHeap(alloc, &globa.threadPool)).scope(),
+        .id = ID.fetchAdd(1, .acq_rel),
     };
 
     return tu;
@@ -34,6 +38,7 @@ pub fn initFunc(self: *const Self, alloc: Allocator) Allocator.Error!Self {
         .tag = .Function,
         .global = self.global,
         .scope = scope.scope(),
+        .id = self.id,
     };
 
     return tu;
@@ -48,6 +53,7 @@ pub fn reserve(self: Self, alloc: Allocator) Allocator.Error!Self {
         .tag = self.tag,
         .global = self.global,
         .scope = try self.scope.deepClone(alloc),
+        .id = self.id,
     };
 }
 
@@ -58,6 +64,7 @@ pub fn acquire(self: Self) Allocator.Error!Self {
         .tag = self.tag,
         .global = self.global,
         .scope = self.scope,
+        .id = self.id,
     };
 }
 
