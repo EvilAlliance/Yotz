@@ -10,9 +10,6 @@ files: ArrayListThreadSafe(FileInfo) = .{},
 tokens: Lexer.Tokens = .{},
 nodes: Parser.NodeList = .{},
 
-// Mutex to prevent interleaved log output from multiple threads
-logMutex: Thread.Mutex = .{},
-
 pub fn init(self: *Self, alloc: Allocator, threads: usize) !void {
     try self.threadPool.init(.{
         .allocator = alloc,
