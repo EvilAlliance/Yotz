@@ -1,6 +1,6 @@
 pub fn Multiple(Key: type, Args: type, ContextOpt: ?type) type {
     const Context = if (ContextOpt) |T| T else struct {
-        pub fn init(arg: Args) void {
+        pub fn init(arg: *Args) void {
             _ = arg;
         }
         pub fn deinit(arg: Args, runned: bool) void {
@@ -103,10 +103,12 @@ pub fn Multiple(Key: type, Args: type, ContextOpt: ?type) type {
 
 pub fn Simple(Args: type, ContextOpt: ?type) type {
     const Context = if (ContextOpt) |T| T else struct {
-        pub fn init(arg: Args) void {
+        pub fn init(self: @This(), arg: Args) void {
+            _ = self;
             _ = arg;
         }
-        pub fn deinit(arg: Args, runned: bool) void {
+        pub fn deinit(self: @This(), arg: Args, runned: bool) void {
+            _ = self;
             _ = arg;
             _ = runned;
         }
