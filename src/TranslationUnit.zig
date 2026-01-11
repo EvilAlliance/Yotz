@@ -164,7 +164,7 @@ pub fn startEntry(alloc: Allocator, arguments: *const ParseArgs.Arguments) std.m
 
     var reports = Report.Reports{};
 
-    try tu.startRoot(alloc, 0, index, &reports);
+    if (arguments.subCom != .Lexer) try tu.startRoot(alloc, 0, index, &reports);
 
     const ret = try waitForWork(alloc, &global);
 
