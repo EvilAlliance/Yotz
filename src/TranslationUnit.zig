@@ -97,7 +97,7 @@ fn _startFunction(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeH
 
     if (self.global.subCommand == .Parser) return;
 
-    try TypeCheck.TypeCheck.checkFunction(self, alloc, placeHolder, reports);
+    try TypeCheck.Func.check(self, alloc, placeHolder, reports);
     if (failed) return;
 
     if (self.global.subCommand == .TypeCheck) return;
@@ -136,7 +136,7 @@ fn _startRoot(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeHolde
 
     if (self.global.subCommand == .Parser) return;
 
-    try TypeCheck.TypeCheck.checkRoot(self, alloc, self.global.nodes.get(placeHolder).data[1].load(.acquire), reports);
+    try TypeCheck.Root.check(self, alloc, self.global.nodes.get(placeHolder).data[1].load(.acquire), reports);
 
     if (self.global.subCommand == .TypeCheck) return;
 
