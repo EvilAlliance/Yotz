@@ -65,7 +65,7 @@ fn reTry(self: TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeIndex, r
         }
     }
 
-    if (state == State.ToReport) @panic("TODO:");
+    if (state == State.ToReport) @panic("// TODO: this happens when there is a cycle dependency in the variables");
 }
 
 const Expression = @import("Expression.zig");

@@ -17,7 +17,6 @@ pub fn check(self: TranslationUnit, alloc: Allocator, funcIndex: Parser.NodeInde
     }
 }
 
-// TODO: Add scope to this
 fn checkScope(self: TranslationUnit, alloc: Allocator, scopeIndex: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
     const scope = self.global.nodes.get(scopeIndex);
     const retType = self.global.nodes.get(typeI);

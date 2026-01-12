@@ -5,9 +5,6 @@ pub const Type = enum {
     Function,
 };
 
-// TODO: Take this out
-pub var failed = false;
-
 pub fn deinitStatic(alloc: Allocator, bytes: []const u8) void {
     alloc.free(bytes);
 }
@@ -71,8 +68,7 @@ pub fn startFunction(self: Self, alloc: Allocator, start: Parser.TokenIndex, pla
     const callBack = struct {
         fn callBack(comptime func: anytype, args: anytype) void {
             @call(.auto, func, args) catch {
-                failed = true;
-                std.log.err("Run Out of Memory", .{});
+                std.debug.panic("Run Out of Memory", .{});
             };
         }
     }.callBack;
@@ -95,7 +91,6 @@ fn _startFunction(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeH
     if (self.global.subCommand == .Parser) return;
 
     try TypeCheck.Func.check(self, alloc, placeHolder, reports);
-    if (failed) return;
 
     if (self.global.subCommand == .TypeCheck) return;
 
@@ -185,8 +180,6 @@ pub fn waitForWork(alloc: Allocator, global: *Global) Allocator.Error!struct { [
     }
 
     const index = 0;
-
-    if (failed) return .{ "", 1 };
 
     if (global.subCommand == .Parser) return .{ try global.toStringAst(alloc, global.nodes.get(index).data[1].load(.acquire)), 0 };
 
