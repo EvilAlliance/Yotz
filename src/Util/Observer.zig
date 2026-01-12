@@ -14,7 +14,7 @@ pub fn Multiple(Key: type, Args: type, ContextOpt: ?type) type {
 
     return struct {
         const Self = @This();
-        const Handler = struct {
+        pub const Handler = struct {
             node: std.SinglyLinkedList.Node = .{},
             func: *const fn (Args) void,
             args: Args,
@@ -46,7 +46,7 @@ pub fn Multiple(Key: type, Args: type, ContextOpt: ?type) type {
         }
 
         pub fn pushUnlock(self: *Self, alloc: Allocator, wait: Key, func: *const fn (Args) void, args: Args) Allocator.Error!void {
-            const handler: *Handler = if (self.nodeList.getLastOrNull()) |handlerOld| @fieldParentPtr("node", handlerOld) else try alloc.create(Handler);
+            const handler: *Handler = if (self.nodeList.pop()) |handlerOld| @fieldParentPtr("node", handlerOld) else try alloc.create(Handler);
 
             handler.* = .{
                 .func = func,
@@ -80,6 +80,7 @@ pub fn Multiple(Key: type, Args: type, ContextOpt: ?type) type {
                 self.ctx.init(&handler.args);
                 try self.pool.spawn(executeHandler, .{ self, handler.func, handler.args });
 
+                node.next = null;
                 self.nodeList.appendBounded(node) catch {
                     alloc.destroy(handler);
                 };

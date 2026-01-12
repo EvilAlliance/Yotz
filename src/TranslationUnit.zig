@@ -17,14 +17,13 @@ var ID = std.atomic.Value(usize).init(0);
 tag: Type,
 global: *Global,
 scope: TypeCheck.Scope.Scope,
-rootIndex: Parser.NodeIndex = 0,
 id: usize,
 
 pub fn initRoot(alloc: Allocator, globa: *Global) Allocator.Error!Self {
     const tu = Self{
         .tag = .Root,
         .global = globa,
-        .scope = (try TypeCheck.Scope.Global.initHeap(alloc, &globa.threadPool)).scope(),
+        .scope = (try TypeCheck.Scope.Global.initHeap(alloc)).scope(),
         .id = ID.fetchAdd(1, .acq_rel),
     };
 
@@ -57,13 +56,11 @@ pub fn reserve(self: Self, alloc: Allocator) Allocator.Error!Self {
     };
 }
 
-pub fn acquire(self: Self) Allocator.Error!Self {
-    _ = self.scope.getGlobal().acquire();
-
+pub fn acquire(self: Self, alloc: Allocator) Allocator.Error!Self {
     return Self{
         .tag = self.tag,
         .global = self.global,
-        .scope = self.scope,
+        .scope = try self.scope.deepClone(alloc),
         .id = self.id,
     };
 }
@@ -158,13 +155,16 @@ pub fn startEntry(alloc: Allocator, arguments: *const ParseArgs.Arguments) std.m
 
     if (!try global.addFile(alloc, arguments.path)) return .{ "", 1 };
 
-    const tu = try initRoot(alloc, &global);
-
-    const index = try global.nodes.appendIndex(alloc, Parser.Node{ .tag = .init(.entry) });
-
     var reports = Report.Reports{};
+    defer reports.deinit(alloc);
 
-    if (arguments.subCom != .Lexer) try tu.startRoot(alloc, 0, index, &reports);
+    if (arguments.subCom != .Lexer) {
+        const tu = try initRoot(alloc, &global);
+
+        const index = try global.nodes.appendIndex(alloc, Parser.Node{ .tag = .init(.entry) });
+
+        try tu.startRoot(alloc, 0, index, &reports);
+    }
 
     const ret = try waitForWork(alloc, &global);
 
@@ -177,11 +177,12 @@ pub fn startEntry(alloc: Allocator, arguments: *const ParseArgs.Arguments) std.m
 }
 
 pub fn waitForWork(alloc: Allocator, global: *Global) Allocator.Error!struct { []const u8, u8 } {
+    global.threadPool.deinit();
+    global.observer.deinit(alloc);
+
     if (global.subCommand == .Lexer) {
         return .{ try global.toStringToken(alloc), 0 };
     }
-
-    global.threadPool.deinit();
 
     const index = 0;
 

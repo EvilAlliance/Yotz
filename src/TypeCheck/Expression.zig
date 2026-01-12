@@ -3,7 +3,46 @@ const Flatten = std.ArrayList(Parser.NodeIndex);
 pub const Error = error{
     TooBig,
     IncompatibleType,
+    UndefVar,
 };
+
+pub fn hasUndef(self: TranslationUnit, alloc: Allocator, exprI: Parser.NodeIndex) (Allocator.Error)!bool {
+    const expr = self.global.nodes.get(exprI);
+    const exprTag = expr.tag.load(.acquire);
+    assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, exprTag));
+
+    var flat = Flatten{};
+    defer flat.deinit(alloc);
+
+    try flatten(self, alloc, &flat, exprI);
+
+    while (flat.pop()) |unitI| {
+        const unit = self.global.nodes.get(unitI);
+        if (unit.tag.load(.acquire) != .load) continue;
+
+        _ = self.scope.get(unit.getText(self.global)) orelse return true;
+    }
+
+    return false;
+}
+
+pub fn reportUndef(self: TranslationUnit, alloc: Allocator, exprI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error)!void {
+    const expr = self.global.nodes.get(exprI);
+    const exprTag = expr.tag.load(.acquire);
+    assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, exprTag));
+
+    var flat = Flatten{};
+    defer flat.deinit(alloc);
+
+    try flatten(self, alloc, &flat, exprI);
+
+    while (flat.pop()) |unitI| {
+        const unit = self.global.nodes.get(unitI);
+        if (unit.tag.load(.acquire) != .load) continue;
+
+        _ = self.scope.get(unit.getText(self.global)) orelse try Report.undefinedVariable(alloc, reports, unitI);
+    }
+}
 
 pub fn inferType(self: TranslationUnit, alloc: Allocator, varI: Parser.NodeIndex, exprI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!bool {
     const expr = self.global.nodes.get(exprI);
@@ -30,17 +69,8 @@ pub fn inferType(self: TranslationUnit, alloc: Allocator, varI: Parser.NodeIndex
 
         if (first.tag.load(.acquire) != .load) continue;
 
-        const callBack = struct {
-            fn callBack(args: Scope.ObserverParams) void {
-                @call(.auto, toInferLater, .{ args[0].*, args[1], args[2], args[3], args[4] }) catch {
-                    TranslationUnit.failed = true;
-                    std.log.err("Run Out of Memory", .{});
-                };
-            }
-        }.callBack;
-
         const id = first.getText(self.global);
-        const variableI = try self.scope.getOrWait(alloc, id, callBack, .{ try Util.dupe(alloc, try self.reserve(alloc)), alloc, firstI, varI, reports }) orelse continue;
+        const variableI = self.scope.get(id) orelse return Error.UndefVar;
 
         const variable = self.global.nodes.get(variableI);
         const newTypeI = variable.data.@"0".load(.acquire);
@@ -62,37 +92,6 @@ pub fn inferType(self: TranslationUnit, alloc: Allocator, varI: Parser.NodeIndex
     try addInferType(self, alloc, .inferedFromExpression, firstSelected, varI, oldTypeIndex);
 
     return true;
-}
-
-pub fn toInferLater(self: TranslationUnit, alloc: Allocator, waitedI: Parser.NodeIndex, varI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
-    const waited = self.global.nodes.get(waitedI);
-    const waitedTag = waited.tag.load(.acquire);
-    std.debug.assert(waitedTag == .load);
-
-    const id = waited.getText(self.global);
-    const orgWaitedI = self.scope.get(id) orelse unreachable;
-
-    const orgWaited = self.global.nodes.get(orgWaitedI);
-    const orgWaitedTag = waited.tag.load(.acquire);
-    std.debug.assert(orgWaitedTag == .constant or orgWaitedTag == .variable);
-
-    const typeI = orgWaited.data.@"0".load(.acquire);
-
-    const variable = self.global.nodes.get(varI);
-
-    const typeIndex = variable.data.@"0".load(.acquire);
-
-    std.debug.assert(typeI != 0 or typeIndex != 0);
-
-    if (typeI == 0 and typeIndex != 0) {
-        try addInferType(self, alloc, .inferedFromUse, waitedI, orgWaitedI, typeIndex);
-    }
-
-    if (typeIndex == 0 or !Type.canTypeBeCoerced(self, typeI, typeIndex)) {
-        try addInferType(self, alloc, .inferedFromExpression, waitedI, varI, typeI);
-    } else {
-        try Report.incompatibleType(alloc, reports, typeI, typeIndex, waitedI, varI);
-    }
 }
 
 pub fn checkType(self: TranslationUnit, alloc: Allocator, exprI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
@@ -157,7 +156,6 @@ fn flatten(self: TranslationUnit, alloc: Allocator, stack: *Flatten, exprI: Pars
 }
 
 fn checkFlatten(self: TranslationUnit, alloc: Allocator, flat: *Flatten, expectedTypeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
-    var err: ?(Allocator.Error || Error) = null;
     const expectedType = self.global.nodes.get(expectedTypeI);
     assert(expectedType.tag.load(.acquire) == .type);
 
@@ -166,10 +164,7 @@ fn checkFlatten(self: TranslationUnit, alloc: Allocator, flat: *Flatten, expecte
         const first = self.global.nodes.get(firstI);
 
         if (first.tag.load(.acquire) != .neg) {
-            checkLeaf(self, alloc, firstI, expectedTypeI, reports) catch |e| switch (e) {
-                Error.IncompatibleType, Error.TooBig => err = e,
-                else => return @errorCast(e),
-            };
+            try checkLeaf(self, alloc, firstI, expectedTypeI, reports);
             _ = flat.pop();
         }
 
@@ -193,10 +188,7 @@ fn checkFlatten(self: TranslationUnit, alloc: Allocator, flat: *Flatten, expecte
 
                     if (x.tag.load(.acquire) == .neg) break;
 
-                    checkLeaf(self, alloc, xI, expectedTypeI, reports) catch |e| switch (e) {
-                        Error.IncompatibleType, Error.TooBig => err = e,
-                        else => return @errorCast(e),
-                    };
+                    try checkLeaf(self, alloc, xI, expectedTypeI, reports);
 
                     _ = flat.pop();
                 },
@@ -204,8 +196,6 @@ fn checkFlatten(self: TranslationUnit, alloc: Allocator, flat: *Flatten, expecte
             }
         }
     }
-
-    if (err) |e| return e;
 }
 
 fn checkLeaf(self: TranslationUnit, alloc: Allocator, leafI: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
@@ -226,22 +216,7 @@ fn checkVarType(self: TranslationUnit, alloc: Allocator, leafI: Parser.NodeIndex
     const leaf = self.global.nodes.get(leafI);
     const id = leaf.getText(self.global);
 
-    const callBack = struct {
-        fn callBack(args: Scope.ObserverParams) void {
-            @call(.auto, checkVarType, .{ args[0].*, args[1], args[2], args[3], args[4] }) catch {
-                TranslationUnit.failed = true;
-                std.log.err("Run Out of Memory", .{});
-            };
-        }
-    }.callBack;
-
-    const variableI =
-        try self.scope.getOrWait(
-            alloc,
-            id,
-            callBack,
-            .{ try Util.dupe(alloc, try self.reserve(alloc)), alloc, leafI, typeI, reports },
-        ) orelse return;
+    const variableI = self.scope.get(id) orelse return Error.UndefVar;
 
     const variable = self.global.nodes.get(variableI);
     const typeIndex = variable.data.@"0".load(.acquire);

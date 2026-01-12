@@ -215,7 +215,7 @@ const Error = struct {
         );
     }
 
-    pub inline fn unexpectedToken(self: @This(), actual: Lexer.Token.Type, expected: []Lexer.Token.Type, loc: Lexer.Location) void {
+    pub inline fn unexpectedToken(self: @This(), actual: Lexer.Token.Type, expected: []const Lexer.Token.Type, loc: Lexer.Location) void {
         var buff: [256]u8 = undefined;
         var arr = std.ArrayList(u8).initBuffer(&buff);
 

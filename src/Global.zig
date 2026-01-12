@@ -1,8 +1,26 @@
 const Self = @This();
 pub const FileInfo = struct { path: []const u8, source: [:0]const u8 };
+pub const Args = struct { *TranslationUnit, Allocator, Parser.NodeIndex, Parser.NodeIndex, ?*Report.Reports };
 
 threadPool: Thread.Pool = undefined,
-// observer: TypeCheck.Observer = .{},
+observer: Observer.Multiple(usize, Args, struct {
+    pub fn init(self: @This(), arg: *Args) void {
+        _ = self;
+        _ = arg;
+    }
+
+    pub fn deinit(self: @This(), arg: Args, runned: bool) void {
+        _ = self;
+        const tu, const alloc, const stmtI, _, const reports = arg;
+
+        if (!runned) {
+            TypeCheck.Expression.reportUndef(tu.*, alloc, tu.global.nodes.get(stmtI).data[1].load(.acquire), reports) catch std.debug.panic("Run Out of Memory", .{});
+        }
+
+        tu.deinit(alloc);
+        alloc.destroy(tu);
+    }
+}) = .{},
 
 subCommand: ParseArgs.SubCommand,
 
@@ -15,6 +33,7 @@ pub fn init(self: *Self, alloc: Allocator, threads: usize) !void {
         .allocator = alloc,
         .n_jobs = threads,
     });
+    self.observer.init(&self.threadPool);
 }
 
 pub fn addFile(self: *Self, alloc: Allocator, path: []const u8) Allocator.Error!bool {
@@ -249,12 +268,15 @@ fn toStringExpression(self: *@This(), alloc: std.mem.Allocator, cont: *std.Array
     }
 }
 
+const TranslationUnit = @import("TranslationUnit.zig");
 const Lexer = @import("Lexer/mod.zig");
 const ParseArgs = @import("ParseArgs.zig");
 const Parser = @import("Parser/mod.zig");
 const TypeCheck = @import("TypeCheck/mod.zig");
+const Report = @import("Report/mod.zig");
 const ArrayListThreadSafe = @import("Util/ArrayListThreadSafe.zig").ArrayListThreadSafe;
 const Util = @import("Util.zig");
+const Observer = @import("Util/Observer.zig");
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;

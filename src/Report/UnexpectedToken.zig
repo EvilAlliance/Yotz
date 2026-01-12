@@ -1,4 +1,4 @@
-expected: []Lexer.Token.Type,
+expected: []const Lexer.Token.Type,
 found: Lexer.Token.Type,
 loc: Lexer.Location,
 

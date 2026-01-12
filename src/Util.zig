@@ -97,31 +97,4 @@ pub fn getTupleFromParams(comptime func: anytype) type {
     return std.meta.Tuple(&typeArr);
 }
 
-pub fn makeCallback(comptime func: anytype, comptime ArgsType: type) fn (ArgsType) void {
-    return struct {
-        fn callback(args: ArgsType) void {
-            @call(.auto, func, args) catch {
-                @import("TranslationUnit.zig").failed = true;
-                std.log.err("Run Out of Memory", .{});
-            };
-        }
-    }.callback;
-}
-
-pub fn makeCallbackWithCleanup(
-    comptime func: anytype,
-    comptime ArgsType: type,
-    comptime cleanup: ?fn (ArgsType) void,
-) fn (ArgsType) void {
-    return struct {
-        fn callback(args: ArgsType) void {
-            defer if (cleanup) |c| c(args);
-            @call(.auto, func, args) catch {
-                @import("TranslationUnit.zig").failed = true;
-                std.log.err("Run Out of Memory", .{});
-            };
-        }
-    }.callback;
-}
-
 const std = @import("std");

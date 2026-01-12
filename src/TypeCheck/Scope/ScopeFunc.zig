@@ -26,30 +26,15 @@ pub fn put(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: Parser.Nod
 
 pub fn get(ctx: *anyopaque, key: []const u8) ?Parser.NodeIndex {
     const self: *Self = @ptrCast(@alignCast(ctx));
-    if (ScopeGlobal.get(self.global, key)) |n| return n;
 
     var i: usize = self.base.items.len;
     while (i > 0) {
         i -= 1;
 
-        var dic = self.base.items[i];
+        const dic = self.base.items[i];
         if (dic.get(key)) |n| return n;
     }
-
-    return null;
-}
-
-pub fn getOrWait(ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (ScopeGlobal.ObserverParams) void, args: ScopeGlobal.ObserverParams) Allocator.Error!?Parser.NodeIndex {
-    const self: *Self = @ptrCast(@alignCast(ctx));
-
-    self.global.observer.mutex.lock();
-    defer self.global.observer.mutex.unlock();
-
-    const result = get(ctx, key);
-
-    if (result) |r| return r;
-
-    try ScopeGlobal.waitingForUnlock(self.global, alloc, key, func, args);
+    if (ScopeGlobal.get(self.global, key)) |n| return n;
 
     return null;
 }
@@ -83,7 +68,7 @@ pub fn getFromGlobal(self: *Self, key: []const u8) ?Parser.NodeIndex {
 pub fn deepClone(ctx: *anyopaque, alloc: Allocator) Allocator.Error!Scope {
     const self: *Self = @ptrCast(@alignCast(ctx));
 
-    const x = try initHeap(alloc, self.global);
+    const x = try initHeap(alloc, self.global.acquire());
 
     for (self.base.items) |value| {
         try x.base.append(alloc, try value.clone(alloc));
@@ -112,8 +97,6 @@ pub fn scope(self: *Self) Scope {
         .vtable = &.{
             .put = put,
             .get = get,
-
-            .getOrWait = getOrWait,
 
             .push = push,
             .pop = pop,

@@ -13,10 +13,7 @@ pub fn check(self: TranslationUnit, alloc: Allocator, funcIndex: Parser.NodeInde
     if (stmtORscope.tag.load(.acquire) == .scope) {
         try checkScope(self, alloc, stmtORscopeIndex, tIndex, reports);
     } else {
-        checkStatements(self, alloc, stmtORscopeIndex, tIndex, reports) catch |err| switch (err) {
-            Expression.Error.TooBig, Expression.Error.IncompatibleType => return,
-            else => return @errorCast(err),
-        };
+        try _checkScope(self, alloc, stmtORscopeIndex, tIndex, reports);
     }
 }
 
@@ -27,16 +24,32 @@ fn checkScope(self: TranslationUnit, alloc: Allocator, scopeIndex: Parser.NodeIn
 
     std.debug.assert(scope.tag.load(.acquire) == .scope and retType.tag.load(.acquire) == .type);
 
-    var i = scope.data[0].load(.acquire);
+    const i = scope.data[0].load(.acquire);
+
+    try _checkScope(self, alloc, i, typeI, reports);
+}
+
+fn _checkScope(self: TranslationUnit, alloc: Allocator, stmtI: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error)!void {
+    var i = stmtI;
 
     while (i != 0) {
         const stmt = self.global.nodes.get(i);
-        defer i = stmt.next.load(.acquire);
 
         checkStatements(self, alloc, i, typeI, reports) catch |err| switch (err) {
-            Expression.Error.TooBig, Expression.Error.IncompatibleType => continue,
+            Expression.Error.TooBig, Expression.Error.IncompatibleType => {},
+            Expression.Error.UndefVar => {
+                self.global.observer.mutex.lock();
+                defer self.global.observer.mutex.unlock();
+
+                if (!try Expression.hasUndef(self, alloc, stmt.data[1].load(.acquire))) continue;
+
+                try self.global.observer.pushUnlock(alloc, self.id, resumeScopeCheck, .{ try Util.dupe(alloc, try self.acquire(alloc)), alloc, i, typeI, reports });
+                return;
+            },
             else => return @errorCast(err),
         };
+
+        i = stmt.next.load(.acquire);
     }
 }
 
@@ -51,6 +64,17 @@ fn checkStatements(self: TranslationUnit, alloc: Allocator, stmtI: Parser.NodeIn
     }
 }
 
+comptime {
+    if (@typeInfo(@TypeOf(resumeScopeCheck)).@"fn".return_type != void) @compileError("resumeScopeCheck must not return an error");
+}
+pub fn resumeScopeCheck(args: Global.Args) void {
+    const tu, const alloc, const stmtI, const retTypeI, const reports = args;
+
+    _checkScope(tu.*, alloc, stmtI, retTypeI, reports) catch {
+        std.debug.panic("Run Ouf of Memory", .{});
+    };
+}
+
 const Expression = @import("Expression.zig");
 const Type = @import("Type.zig");
 
@@ -58,6 +82,9 @@ const TranslationUnit = @import("../TranslationUnit.zig");
 const Parser = @import("../Parser/mod.zig");
 const Report = @import("../Report/mod.zig");
 const Statement = @import("Statements.zig");
+const Global = @import("../Global.zig");
+
+const Util = @import("../Util.zig");
 
 const std = @import("std");
 

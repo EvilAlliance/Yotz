@@ -24,7 +24,7 @@ pub fn expect(alloc: Allocator, reports: ?*mod.Reports, token: Lexer.Token, t: [
     const is = Util.listContains(Lexer.Token.Type, t, token.tag);
     if (is) return;
     if (reports) |rs| {
-        const ex = try alloc.dupe(Lexer.Token.Type, t);
+        const ex = t;
         try rs.append(alloc, .{
             .message = .{
                 .unexpectedToken = mod.UnexpectedToken{
