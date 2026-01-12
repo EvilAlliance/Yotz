@@ -56,6 +56,7 @@ fn reTry(self: TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeIndex, r
                 Expression.Error.TooBig, Expression.Error.IncompatibleType => continue,
                 Expression.Error.UndefVar => {
                     if (state == State.Unchanged) state = State.ToReport;
+                    continue;
                 },
                 else => return @errorCast(err),
             };
