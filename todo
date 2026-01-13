@@ -372,6 +372,12 @@
         "title": "In the observer multiple do not use a LinkedList",
         "desc": "",
         "time_created": "2026-01-08 19:22:31.961898194 -03:00:00"
+      },
+      {
+        "id": "p24esSDp",
+        "title": "stop using flatten",
+        "desc": "",
+        "time_created": "2026-01-12 18:47:33.470889566 -03:00:00"
       }
     ]
   }
