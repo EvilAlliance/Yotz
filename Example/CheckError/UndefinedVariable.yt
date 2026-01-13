@@ -1,0 +1,17 @@
+// Undefined variable in return statement
+main :: () u8 {
+    return x;  // Error: undefined variable 'x'
+}
+
+// Undefined variable in expression
+foo :: () u8 {
+    y : u8 = z + 5;  // Error: undefined variable 'z'
+    return y;
+}
+
+// Undefined variable in assignment
+bar :: () u8 {
+    a : u8 = 10;
+    b := a + undefinedVar;  // Error: undefined variable 'undefinedVar'
+    return b;
+}

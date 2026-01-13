@@ -1,0 +1,21 @@
+:i argc 0
+:b stdin 0
+
+:i returncode 0
+:b stdout 170
+main :: () u8 { 
+    x: u8 = 5;
+    x: u8 = 10;
+    return x;
+} 
+bar :: () u8 { 
+    return 0;
+} 
+bar :: () u8 { 
+    return 1;
+} 
+globalVar: u8 = 5;
+globalVar: u8 = 10;
+
+:b stderr 0
+

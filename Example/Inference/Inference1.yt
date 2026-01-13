@@ -1,0 +1,10 @@
+// This must fail
+main :: () u8 {
+    a :: 1000;
+    b ::  10;
+    c :: a + 10;
+
+    d :u16= b;
+
+    return b;
+}

@@ -1,0 +1,22 @@
+:i argc 0
+:b stdin 0
+
+:i returncode 0
+:b stdout 72
+main: () u8 : () u8 { 
+    a: u16 = 8;
+    b: u16 = a;
+    return a;
+} 
+
+:b stderr 295
+[INFO]: Example/Inference/Inference2.yt:2:5: a is declared in use 
+    a := 8;
+    ^
+[INFO]: Example/Inference/Inference2.yt:4:14: Infered Type u16 here: 
+    b :u16 = a;
+             ^
+[ERROR]: Example/Inference/Inference2.yt:6:12: Type u16, is incompatible with u8 
+    return a;
+           ^
+

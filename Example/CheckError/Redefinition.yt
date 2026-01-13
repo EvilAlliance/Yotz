@@ -1,0 +1,19 @@
+// Redefinition of local variable
+main :: () u8 {
+    x : u8 = 5;
+    x : u8 = 10;  // Error: identifier 'x' is already in use
+    return x;
+}
+
+// Redefinition of global function
+bar :: () u8 {
+    return 0;
+}
+
+bar :: () u8 {  // Error: identifier 'bar' is already in use
+    return 1;
+}
+
+// Redefinition of global variable
+globalVar : u8 = 5;
+globalVar : u8 = 10;  // Error: identifier 'globalVar' is already in use

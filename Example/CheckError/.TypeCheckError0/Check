@@ -1,0 +1,53 @@
+:i argc 0
+:b stdin 0
+
+:i returncode 0
+:b stdout 252
+main: () u8 : () u8 { 
+    x: s8 = 5;
+    y: u8 = x;
+    return y;
+} 
+foo: () u8 : () u8 { 
+    a: u8 = 5;
+    b: s8 = 10;
+    c := (a + b);
+    return c;
+} 
+bar: () u8 : () u8 { 
+    return x;
+} 
+baz: () u8 : () u8 { 
+    x: s8 = 42;
+    return x;
+} 
+
+:b stderr 1120
+[INFO]: Example/CheckError/TypeCheckError0.yt:3:5: x is declared in use 
+    x : s8 = 5;
+    ^
+[ERROR]: Example/CheckError/TypeCheckError0.yt:4:14: Type s8, is incompatible with u8 
+    y : u8 = x;  // Error: cannot assign s8 to u8
+             ^
+[ERROR]: Example/CheckError/TypeCheckError0.yt:5:12: Unknown identifier 'y' 
+    return y;
+           ^
+[INFO]: Example/CheckError/TypeCheckError0.yt:10:5: a is declared in use 
+    a : u8 = 5;
+    ^
+[ERROR]: Example/CheckError/TypeCheckError0.yt:12:10: Type u8, is incompatible with s8 
+    c := a + b;  // Error: cannot infer type from incompatible operands
+         ^
+[ERROR]: Example/CheckError/TypeCheckError0.yt:13:12: Unknown identifier 'c' 
+    return c;
+           ^
+[ERROR]: Example/CheckError/TypeCheckError0.yt:18:12: Unknown identifier 'x' 
+    return x;  // Error: undefined variable 'x'
+           ^
+[INFO]: Example/CheckError/TypeCheckError0.yt:23:5: x is declared in use 
+    x : s8 = 42;
+    ^
+[ERROR]: Example/CheckError/TypeCheckError0.yt:24:12: Type s8, is incompatible with u8 
+    return x;  // Error: cannot return s8 where u8 expected
+           ^
+

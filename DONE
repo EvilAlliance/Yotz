@@ -1,8 +1,0 @@
-DONE: Do not unse unreachable, only when telling that is not implemented
-DONE: Make peek and pop from the Lexer return Token and not Optional Token
-DONE: Change SSAIntrinsic, instead of an array,  make an arraylist
-DONE: Extract from SSAFunction transformBodyToSSA the creation of SSABlock into SSABlock struct
-DONE: Deal with all try or error in main so that main returns u8 instead of !u8
-DONE: When more fucntion are compile and run TB requires to create the function before calling it
-DONE: Rework TypeCheck because is horrible/ Now a little better
-DONE: Extract parseExpression to the respective struct when Expression is developed

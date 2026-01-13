@@ -1,0 +1,23 @@
+:i argc 0
+:b stdin 0
+
+:i returncode 0
+:b stdout 833
+Example/FunctionType/FunctionType0.yt:1:1 main (iden)
+Example/FunctionType/FunctionType0.yt:1:6 : (colon)
+Example/FunctionType/FunctionType0.yt:1:8 ( (openParen)
+Example/FunctionType/FunctionType0.yt:1:9 ) (closeParen)
+Example/FunctionType/FunctionType0.yt:1:11 u8 (iden)
+Example/FunctionType/FunctionType0.yt:1:14 : (colon)
+Example/FunctionType/FunctionType0.yt:1:16 ( (openParen)
+Example/FunctionType/FunctionType0.yt:1:17 ) (closeParen)
+Example/FunctionType/FunctionType0.yt:1:19 u8 (iden)
+Example/FunctionType/FunctionType0.yt:1:22 { (openBrace)
+Example/FunctionType/FunctionType0.yt:2:5 return (ret)
+Example/FunctionType/FunctionType0.yt:2:12 10 (numberLiteral)
+Example/FunctionType/FunctionType0.yt:2:14 ; (semicolon)
+Example/FunctionType/FunctionType0.yt:3:1 } (closeBrace)
+Example/FunctionType/FunctionType0.yt:4:1 EOF (EOF)
+
+:b stderr 0
+

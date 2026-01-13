@@ -1,0 +1,14 @@
+:i argc 0
+:b stdin 0
+
+:i returncode 0
+:b stdout 82
+main :: () u8 { 
+    a: u8 = 2;
+    b: s8 = 3;
+    c := (a + b);
+    return 1;
+} 
+
+:b stderr 0
+

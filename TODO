@@ -1,5 +1,0 @@
-TODO: Change unexpeceted change when new log is created
-TODO: Make my own log function, think it to print error with more information
-TODO: Unexpected should have multiple tokentypes
-TODO: Runtime check for overflow depending of release or safe
-TODO: TypeCheck does not check if main returns the correct type

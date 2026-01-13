@@ -1,111 +1,99 @@
-const std = @import("std");
-const Logger = @import("Logger.zig");
-const util = @import("Util.zig");
+pub const SubCommand = enum {
+    const Self = @This();
+
+    Run,
+    Build,
+    Interpret,
+    Lexer,
+    Parser,
+    TypeCheck,
+    IntermediateRepresentation,
+
+    pub fn getExt(self: Self) []const u8 {
+        return switch (self) {
+            .Run => "",
+            .Build => "",
+            .Interpret => @panic("Interprete should not generate a file"),
+            .Lexer => "lex",
+            .Parser => "parse",
+            .TypeCheck => "check",
+            .IntermediateRepresentation => "ir",
+        };
+    }
+};
+
+pub const Command = enum {
+    const Self = @This();
+
+    run,
+    build,
+    sim,
+    lex,
+    parse,
+    check,
+    ir,
+
+    pub fn toSubCommand(self: Self) SubCommand {
+        return switch (self) {
+            .run => SubCommand.Run,
+            .build => SubCommand.Build,
+            .sim => SubCommand.Interpret,
+            .lex => SubCommand.Lexer,
+            .parse => SubCommand.Parser,
+            .check => SubCommand.TypeCheck,
+            .ir => SubCommand.IntermediateRepresentation,
+        };
+    }
+};
 
 pub const Arguments = struct {
-    build: bool = false,
     stdout: bool = false,
-    run: bool = false,
-    simulation: bool = false,
-    lex: bool = false,
-    parse: bool = false,
-    ir: bool = false,
-    silence: bool = false,
-    bench: bool = false,
+
+    subCom: SubCommand = .Build,
     path: []const u8,
 };
 
-const ArgumentsError = error{
-    noSubcommandProvided,
-    noFilePathProvided,
-    unknownSubcommand,
-    unknownArgument,
+const parser = .{
+    .command = clap.parsers.enumeration(Command),
+    .filePath = clap.parsers.string,
 };
 
-const ArgError = util.ErrorPayLoad(ArgumentsError, ?[]const u8);
-const ArgumentResult = util.Result(Arguments, ArgError);
+const params = clap.parseParamsComptime(
+    \\-h, --help  Display this help and exit.
+    // \\-s, --silence  No output from the compiler except errors.
+    \\-p, --stdout  Insted of creating a file it prints the content.
+    \\ <command>  not optional [run|build|sim|lex|parse|check|ir]
+    \\ <filePath> not optional
+    \\
+);
 
-pub fn getArguments() ?Arguments {
-    var args = std.BoundedArray([]const u8, 1024).init(0) catch unreachable;
+pub fn getArguments(allocator: std.mem.Allocator) Arguments {
+    var diag = clap.Diagnostic{};
+    const res = clap.parse(clap.Help, &params, parser, .{
+        .diagnostic = &diag,
+        .allocator = allocator,
+    }) catch |err| {
+        clap.helpToFile(.stdout(), clap.Help, &params, .{}) catch {};
+        diag.reportToFile(.stderr(), err) catch {};
+        std.process.exit(1);
+    };
 
-    var argsIterator = std.process.args();
+    defer res.deinit();
 
-    _ = argsIterator.skip();
-
-    while (argsIterator.next()) |arg| {
-        args.append(arg) catch {
-            Logger.log.err("Out of space, too many args, max = 1024. Change soruce code", .{});
-            return null;
-        };
+    if (res.positionals[0] == null or res.positionals[1] == null or res.args.help != 0) {
+        clap.helpToFile(.stdout(), clap.Help, &params, .{}) catch {};
+        std.process.exit(0);
     }
 
-    const a: ArgumentResult = parseArguments(args.constSlice());
-    switch (a) {
-        .err => |err| {
-            switch (err.err) {
-                error.noSubcommandProvided => Logger.log.err("No subcommand provided\n", .{}),
-                error.noFilePathProvided => Logger.log.err("No file provided\n", .{}),
-                error.unknownSubcommand => Logger.log.err("Unknown subcommand {s}\n", .{err.payload.?}),
-                error.unknownArgument => Logger.log.err("unknown argument {s}\n", .{err.payload.?}),
-                else => unreachable,
-            }
-            return null;
-        },
-        .ok => {},
-    }
+    return Arguments{
+        .stdout = res.args.stdout != 0,
+        // .silence = res.args.silence != 0,
 
-    return a.ok;
+        .subCom = res.positionals[0].?.toSubCommand(),
+        .path = res.positionals[1].?,
+    };
 }
 
-fn parseArguments(args: []const []const u8) ArgumentResult {
-    if (args.len == 0) {
-        return ArgumentResult.Err(ArgError.init(error.noSubcommandProvided, null));
-    } else if (args.len == 1) {
-        return ArgumentResult.Err(ArgError.init(error.noFilePathProvided, null));
-    }
+const clap = @import("clap");
 
-    var a = Arguments{ .path = args[1] };
-
-    parseSubcommand(args[0], &a) catch |err|
-        return ArgumentResult.Err(ArgError.init(err, args[0]));
-
-    const arguments = args[2..];
-
-    for (arguments) |arg| {
-        parseArgument(arg, &a) catch |err|
-            return ArgumentResult.Err(ArgError.init(err, arg));
-    }
-
-    return ArgumentResult.Ok(a);
-}
-
-fn parseSubcommand(subcommand: []const u8, args: *Arguments) !void {
-    if (std.mem.eql(u8, subcommand, "build")) {
-        args.build = true;
-    } else if (std.mem.eql(u8, subcommand, "run")) {
-        args.run = true;
-    } else if (std.mem.eql(u8, subcommand, "sim")) {
-        args.simulation = true;
-    } else if (std.mem.eql(u8, subcommand, "lex")) {
-        args.lex = true;
-    } else if (std.mem.eql(u8, subcommand, "parse")) {
-        args.parse = true;
-    } else if (std.mem.eql(u8, subcommand, "ir")) {
-        args.ir = true;
-    } else {
-        args.build = true;
-        return error.unknownSubcommand;
-    }
-}
-
-fn parseArgument(arg: []const u8, args: *Arguments) !void {
-    if (std.mem.eql(u8, arg, "-b")) {
-        args.bench = true;
-    } else if (std.mem.eql(u8, arg, "-s")) {
-        args.silence = true;
-    } else if (std.mem.eql(u8, arg, "-stdout")) {
-        args.stdout = true;
-    } else {
-        return error.unknownArgument;
-    }
-}
+const std = @import("std");

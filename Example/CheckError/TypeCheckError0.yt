@@ -1,0 +1,25 @@
+// Type mismatch in assignment
+main :: () u8 {
+    x : s8 = 5;
+    y : u8 = x;  // Error: cannot assign s8 to u8
+    return y;
+}
+
+// Type inference with incompatible types (inference error)
+foo :: () u8 {
+    a : u8 = 5;
+    b : s8 = 10;
+    c := a + b;  // Error: cannot infer type from incompatible operands
+    return c;
+}
+
+// Undefined variable
+bar :: () u8 {
+    return x;  // Error: undefined variable 'x'
+}
+
+// Wrong return type
+baz :: () u8 {
+    x : s8 = 42;
+    return x;  // Error: cannot return s8 where u8 expected
+}

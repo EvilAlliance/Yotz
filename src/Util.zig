@@ -1,5 +1,3 @@
-const std = @import("std");
-
 pub fn Result(comptime Success: type, comptime Error: type) type {
     return union(enum) {
         err: Error,
@@ -40,3 +38,63 @@ pub fn ErrorPayLoad(comptime Error: type, comptime PayLoad: type) type {
         }
     };
 }
+
+pub const ReadingFileError = error{
+    couldNotOpenFile,
+    couldNotGetFileSize,
+    couldNotReadFile,
+    couldNotResolvePath,
+};
+
+// First relativePath, second data of file
+pub fn readEntireFile(alloc: std.mem.Allocator, path: []const u8) ReadingFileError!struct { []const u8, [:0]const u8 } {
+    const resolvedPath = std.fs.path.resolve(alloc, &.{path}) catch return error.couldNotResolvePath;
+    errdefer alloc.free(resolvedPath);
+
+    const f = std.fs.cwd().openFile(resolvedPath, .{ .mode = .read_only }) catch return error.couldNotOpenFile;
+    defer f.close();
+
+    const file_size = f.getEndPos() catch return error.couldNotGetFileSize;
+    const max_bytes: usize = @intCast(file_size + 1);
+    const c = f.readToEndAllocOptions(alloc, max_bytes, max_bytes, .@"1", 0) catch return error.couldNotReadFile;
+
+    return .{ resolvedPath, c };
+}
+
+pub fn getTupleFromParams(comptime func: anytype) type {
+    const typeFunc = @TypeOf(func);
+    const typeInfo = @typeInfo(typeFunc);
+
+    const params = typeInfo.@"fn".params;
+    // var fieldArr: [params.len]std.builtin.Type.StructField = undefined;
+    // for (params, 0..) |param, i| {
+    //     const name = std.fmt.comptimePrint("f{}", .{i});
+    //
+    //     fieldArr[i] = .{
+    //         .name = name,
+    //         .type = param.type.?,
+    //         .default_value_ptr = null,
+    //         .is_comptime = false,
+    //         .alignment = @alignOf(param.type.?),
+    //     };
+    // }
+    //
+    // return @Type(.{
+    //     .@"struct" = .{
+    //         .fields = &fieldArr,
+    //         .layout = .auto,
+    //         .decls = &.{},
+    //         .is_tuple = false,
+    //         .backing_integer = null,
+    //     },
+    // });
+
+    var typeArr: [params.len]type = undefined;
+
+    for (params, 0..) |param, i|
+        typeArr[i] = param.type.?;
+
+    return std.meta.Tuple(&typeArr);
+}
+
+const std = @import("std");

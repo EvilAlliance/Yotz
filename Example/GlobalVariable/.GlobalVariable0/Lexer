@@ -1,0 +1,25 @@
+:i argc 0
+:b stdin 0
+
+:i returncode 0
+:b stdout 995
+Example/GlobalVariable/GlobalVariable0.yt:1:1 a (iden)
+Example/GlobalVariable/GlobalVariable0.yt:1:3 : (colon)
+Example/GlobalVariable/GlobalVariable0.yt:1:4 : (colon)
+Example/GlobalVariable/GlobalVariable0.yt:1:6 10 (numberLiteral)
+Example/GlobalVariable/GlobalVariable0.yt:1:8 ; (semicolon)
+Example/GlobalVariable/GlobalVariable0.yt:3:1 main (iden)
+Example/GlobalVariable/GlobalVariable0.yt:3:6 : (colon)
+Example/GlobalVariable/GlobalVariable0.yt:3:7 : (colon)
+Example/GlobalVariable/GlobalVariable0.yt:3:9 ( (openParen)
+Example/GlobalVariable/GlobalVariable0.yt:3:10 ) (closeParen)
+Example/GlobalVariable/GlobalVariable0.yt:3:12 u8 (iden)
+Example/GlobalVariable/GlobalVariable0.yt:3:15 { (openBrace)
+Example/GlobalVariable/GlobalVariable0.yt:4:5 return (ret)
+Example/GlobalVariable/GlobalVariable0.yt:4:12 a (iden)
+Example/GlobalVariable/GlobalVariable0.yt:4:13 ; (semicolon)
+Example/GlobalVariable/GlobalVariable0.yt:5:1 } (closeBrace)
+Example/GlobalVariable/GlobalVariable0.yt:6:1 EOF (EOF)
+
+:b stderr 0
+

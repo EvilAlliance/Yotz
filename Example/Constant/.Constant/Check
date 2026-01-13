@@ -1,0 +1,13 @@
+:i argc 0
+:b stdin 0
+
+:i returncode 0
+:b stdout 76
+main: () u8 : () u8 { 
+    a: u8, u16 : 2;
+    b: u16 = a;
+    return a;
+} 
+
+:b stderr 0
+

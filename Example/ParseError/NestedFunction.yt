@@ -1,0 +1,33 @@
+// Nested function with missing closing parenthesis
+main :: () u8 {
+    nested :: ( u8 {
+        return 5;
+    }
+    
+    return 10;
+}
+
+// Nested function with incomplete expression
+foo :: () u8 {
+    bar :: () u8 {
+        return 3 +;
+    }
+    
+    return 20;
+}
+
+// Multiple nested levels with errors
+outer :: () u8 {
+    middle :: ) u8 {
+        inner :: () u8 {
+            return 1 * ;
+        }
+        return 2;
+    }
+    return 30;
+}
+
+
+
+
+
