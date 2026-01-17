@@ -34,7 +34,7 @@ fn checkFunctionOuter(self: TranslationUnit, alloc: Allocator, variableIndex: Pa
     }
 
     self.scope.put(alloc, variable.getText(self.global), variableIndex) catch |err| switch (err) {
-        Scope.Error.KeyAlreadyExists => try Report.redefinition(alloc, reports, variableIndex, self.scope.get(variable.getText(self.global)).?),
+        Scope.Error.KeyAlreadyExists => try Report.redefinition(alloc, reports, variableIndex, self.scope.get(variable.getText(self.global)).?.varIndex),
         else => return @errorCast(err),
     };
 }
@@ -91,7 +91,7 @@ fn checkPureVariable(self: TranslationUnit, alloc: Allocator, varIndex: Parser.N
     if (typeIndex == 0) {
         if (!try Expression.inferType(self, alloc, varIndex, variable.data.@"1".load(.acquire), reports)) {
             self.scope.put(alloc, variable.getText(self.global), varIndex) catch |err| switch (err) {
-                Scope.Error.KeyAlreadyExists => try Report.redefinition(alloc, reports, varIndex, self.scope.get(variable.getText(self.global)).?),
+                Scope.Error.KeyAlreadyExists => try Report.redefinition(alloc, reports, varIndex, self.scope.get(variable.getText(self.global)).?.varIndex),
                 else => return @errorCast(err),
             };
             return;
@@ -108,7 +108,7 @@ fn checkPureVariable(self: TranslationUnit, alloc: Allocator, varIndex: Parser.N
     try Expression.checkType(self, alloc, exprI, typeIndex2, reports);
 
     self.scope.put(alloc, variable.getText(self.global), varIndex) catch |err| switch (err) {
-        Scope.Error.KeyAlreadyExists => try Report.redefinition(alloc, reports, varIndex, self.scope.get(variable.getText(self.global)).?),
+        Scope.Error.KeyAlreadyExists => try Report.redefinition(alloc, reports, varIndex, self.scope.get(variable.getText(self.global)).?.varIndex),
         else => return @errorCast(err),
     };
 }

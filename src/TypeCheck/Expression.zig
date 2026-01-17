@@ -70,9 +70,9 @@ pub fn inferType(self: TranslationUnit, alloc: Allocator, varI: Parser.NodeIndex
         if (first.tag.load(.acquire) != .load) continue;
 
         const id = first.getText(self.global);
-        const variableI = self.scope.get(id) orelse return Error.UndefVar;
+        const varia = self.scope.get(id) orelse return Error.UndefVar;
 
-        const variable = self.global.nodes.get(variableI);
+        const variable = self.global.nodes.get(varia.varIndex);
         const newTypeI = variable.data.@"0".load(.acquire);
         if (newTypeI == 0) continue;
 
@@ -82,7 +82,7 @@ pub fn inferType(self: TranslationUnit, alloc: Allocator, varI: Parser.NodeIndex
             oldTypeIndex = newTypeI;
             type_ = newType;
         } else {
-            try Report.incompatibleType(alloc, reports, newTypeI, oldTypeIndex, firstI, variableI);
+            try Report.incompatibleType(alloc, reports, newTypeI, oldTypeIndex, firstI, varia.varIndex);
             return false;
         }
     }
@@ -216,21 +216,21 @@ fn checkVarType(self: TranslationUnit, alloc: Allocator, leafI: Parser.NodeIndex
     const leaf = self.global.nodes.get(leafI);
     const id = leaf.getText(self.global);
 
-    const variableI = self.scope.get(id) orelse return Error.UndefVar;
+    const varia = self.scope.get(id) orelse return Error.UndefVar;
 
-    const variable = self.global.nodes.get(variableI);
+    const variable = self.global.nodes.get(varia.varIndex);
     const typeIndex = variable.data.@"0".load(.acquire);
 
     if (typeIndex == 0) {
-        try addInferType(self, alloc, .inferedFromUse, leafI, variableI, typeI);
+        try addInferType(self, alloc, .inferedFromUse, leafI, varia.varIndex, typeI);
     } else {
         if (!Type.typeEqual(self, typeIndex, typeI)) {
             const tag = variable.tag.load(.acquire);
             if (tag == .variable) {
-                try Report.incompatibleType(alloc, reports, typeIndex, typeI, leafI, variableI);
+                try Report.incompatibleType(alloc, reports, typeIndex, typeI, leafI, varia.varIndex);
             } else {
                 assert(tag == .constant);
-                try addInferType(self, alloc, .inferedFromUse, leafI, variableI, typeI);
+                try addInferType(self, alloc, .inferedFromUse, leafI, varia.varIndex, typeI);
             }
         }
     }

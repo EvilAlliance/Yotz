@@ -1,7 +1,9 @@
 const Self = @This();
 
 global: *ScopeGlobal,
-base: ArrayList(StringHashMapUnmanaged(Parser.NodeIndex)) = .{},
+base: ArrayList(StringHashMapUnmanaged(Scope.Variable)) = .{},
+// NOTE: This is not manipulated multithreaded, this is for a specific TranslationUnit
+order: usize = 0,
 
 // NOTE: Always initializes on heap
 pub fn initHeap(alloc: Allocator, globaScope: *ScopeGlobal) Allocator.Error!*Self {
@@ -21,10 +23,11 @@ pub fn put(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: Parser.Nod
     assert(count > 0);
 
     const lastScope = &self.base.items[count - 1];
-    try lastScope.put(alloc, key, value);
+    try lastScope.put(alloc, key, .{ .varIndex = value, .order = self.order });
+    self.order += 1;
 }
 
-pub fn get(ctx: *anyopaque, key: []const u8) ?Parser.NodeIndex {
+pub fn get(ctx: *anyopaque, key: []const u8) ?Scope.Variable {
     const self: *Self = @ptrCast(@alignCast(ctx));
 
     var i: usize = self.base.items.len;
@@ -41,7 +44,7 @@ pub fn get(ctx: *anyopaque, key: []const u8) ?Parser.NodeIndex {
 
 pub fn push(ctx: *anyopaque, alloc: Allocator) Allocator.Error!void {
     const self: *Self = @ptrCast(@alignCast(ctx));
-    try self.base.append(alloc, StringHashMapUnmanaged(Parser.NodeIndex){});
+    try self.base.append(alloc, .{});
 }
 
 pub fn pop(ctx: *anyopaque, alloc: Allocator) void {
