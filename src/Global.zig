@@ -21,6 +21,7 @@ observer: Observer.Multiple(usize, Args, struct {
         alloc.destroy(tu);
     }
 }) = .{},
+readyTu: ArrayListThreadSafe(Atomic(bool)) = .{},
 
 subCommand: ParseArgs.SubCommand,
 
@@ -56,7 +57,12 @@ pub fn addFile(self: *Self, alloc: Allocator, path: []const u8) Allocator.Error!
     return true;
 }
 
-pub fn deinit(self: *Self, alloc: Allocator) void {
+pub fn deinitStage1(self: *Self, alloc: Allocator) void {
+    self.threadPool.deinit();
+    self.observer.deinit(alloc);
+}
+
+pub fn deinitStage2(self: *Self, alloc: Allocator) void {
     for (self.files.slice()) |f| {
         alloc.free(f.path);
         alloc.free(f.source);
@@ -65,6 +71,7 @@ pub fn deinit(self: *Self, alloc: Allocator) void {
     self.files.deinit(alloc);
     self.tokens.deinit(alloc);
     self.nodes.deinit(alloc);
+    self.readyTu.deinit(alloc);
 }
 
 pub fn toStringToken(self: *Self, alloc: std.mem.Allocator) Allocator.Error![]const u8 {
@@ -279,5 +286,8 @@ const Util = @import("Util.zig");
 const Observer = @import("Util/Observer.zig");
 
 const std = @import("std");
+
 const Allocator = std.mem.Allocator;
+
 const Thread = std.Thread;
+const Atomic = std.atomic.Value;

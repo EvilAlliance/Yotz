@@ -16,13 +16,16 @@ global: *Global,
 scope: TypeCheck.Scope.Scope,
 id: usize,
 
-pub fn initRoot(alloc: Allocator, globa: *Global) Allocator.Error!Self {
+pub fn initRoot(alloc: Allocator, global: *Global) Allocator.Error!Self {
     const tu = Self{
         .tag = .Root,
-        .global = globa,
+        .global = global,
         .scope = (try TypeCheck.Scope.Global.initHeap(alloc)).scope(),
         .id = ID.fetchAdd(1, .acq_rel),
     };
+
+    try global.readyTu.resize(alloc, tu.id + 1);
+    assert(!global.readyTu.get(tu.id).load(.acquire));
 
     return tu;
 }
@@ -137,7 +140,7 @@ fn _startRoot(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeHolde
 pub fn startEntry(alloc: Allocator, arguments: *const ParseArgs.Arguments) std.mem.Allocator.Error!struct { []const u8, u8 } {
     var global: Global = .{ .subCommand = arguments.subCom };
     global.init(alloc, 20) catch std.debug.panic("Could not create threads", .{});
-    defer global.deinit(alloc);
+    defer global.deinitStage2(alloc);
 
     if (!try global.addFile(alloc, arguments.path)) return .{ "", 1 };
 
@@ -163,8 +166,7 @@ pub fn startEntry(alloc: Allocator, arguments: *const ParseArgs.Arguments) std.m
 }
 
 pub fn waitForWork(alloc: Allocator, global: *Global) Allocator.Error!struct { []const u8, u8 } {
-    global.threadPool.deinit();
-    global.observer.deinit(alloc);
+    global.deinitStage1(alloc);
 
     if (global.subCommand == .Lexer) {
         return .{ try global.toStringToken(alloc), 0 };
@@ -189,6 +191,10 @@ const Util = @import("Util.zig");
 const Observer = @import("Util/Observer.zig");
 
 const std = @import("std");
+
+const assert = std.debug.assert;
+
 const mem = std.mem;
 const Allocator = mem.Allocator;
+
 const Thread = std.Thread;

@@ -70,6 +70,13 @@ pub fn ArrayListThreadSafe(comptime T: type) type {
         pub fn unlock(self: *Self) void {
             self.mutex.unlock();
         }
+
+        pub fn resize(self: *Self, alloc: Allocator, newLength: usize) Allocator.Error!void {
+            self.mutex.lock();
+            defer self.mutex.unlock();
+
+            try self.items.resize(alloc, newLength);
+        }
     };
 }
 
