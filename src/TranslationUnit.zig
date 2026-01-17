@@ -44,15 +44,6 @@ pub fn deinit(self: Self, alloc: Allocator) void {
     self.scope.deinit(alloc);
 }
 
-pub fn reserve(self: Self, alloc: Allocator) Allocator.Error!Self {
-    return Self{
-        .tag = self.tag,
-        .global = self.global,
-        .scope = try self.scope.deepClone(alloc),
-        .id = self.id,
-    };
-}
-
 pub fn acquire(self: Self, alloc: Allocator) Allocator.Error!Self {
     return Self{
         .tag = self.tag,
