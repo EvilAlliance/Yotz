@@ -6,44 +6,6 @@ pub const Error = error{
     UndefVar,
 };
 
-pub fn hasUndef(self: TranslationUnit, alloc: Allocator, exprI: Parser.NodeIndex) (Allocator.Error)!bool {
-    const expr = self.global.nodes.get(exprI);
-    const exprTag = expr.tag.load(.acquire);
-    assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, exprTag));
-
-    var flat = Flatten{};
-    defer flat.deinit(alloc);
-
-    try flatten(self, alloc, &flat, exprI);
-
-    while (flat.pop()) |unitI| {
-        const unit = self.global.nodes.get(unitI);
-        if (unit.tag.load(.acquire) != .load) continue;
-
-        _ = self.scope.get(unit.getText(self.global)) orelse return true;
-    }
-
-    return false;
-}
-
-pub fn reportUndef(self: TranslationUnit, alloc: Allocator, exprI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error)!void {
-    const expr = self.global.nodes.get(exprI);
-    const exprTag = expr.tag.load(.acquire);
-    assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, exprTag));
-
-    var flat = Flatten{};
-    defer flat.deinit(alloc);
-
-    try flatten(self, alloc, &flat, exprI);
-
-    while (flat.pop()) |unitI| {
-        const unit = self.global.nodes.get(unitI);
-        if (unit.tag.load(.acquire) != .load) continue;
-
-        _ = self.scope.get(unit.getText(self.global)) orelse try Report.undefinedVariable(alloc, reports, unitI);
-    }
-}
-
 pub fn inferType(self: TranslationUnit, alloc: Allocator, varI: Parser.NodeIndex, exprI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!bool {
     const expr = self.global.nodes.get(exprI);
     const variableToInfer = self.global.nodes.get(varI);
@@ -70,7 +32,7 @@ pub fn inferType(self: TranslationUnit, alloc: Allocator, varI: Parser.NodeIndex
         if (first.tag.load(.acquire) != .load) continue;
 
         const id = first.getText(self.global);
-        const varia = self.scope.get(id) orelse return Error.UndefVar;
+        const varia = self.scope.get(id) orelse return Report.undefinedVariable(alloc, reports, firstI);
 
         const variable = self.global.nodes.get(varia.varIndex);
         const newTypeI = variable.data.@"0".load(.acquire);
@@ -82,8 +44,7 @@ pub fn inferType(self: TranslationUnit, alloc: Allocator, varI: Parser.NodeIndex
             oldTypeIndex = newTypeI;
             type_ = newType;
         } else {
-            try Report.incompatibleType(alloc, reports, newTypeI, oldTypeIndex, firstI, varia.varIndex);
-            return false;
+            return Report.incompatibleType(alloc, reports, newTypeI, oldTypeIndex, firstI, varia.varIndex);
         }
     }
 
@@ -216,7 +177,7 @@ fn checkVarType(self: TranslationUnit, alloc: Allocator, leafI: Parser.NodeIndex
     const leaf = self.global.nodes.get(leafI);
     const id = leaf.getText(self.global);
 
-    const varia = self.scope.get(id) orelse return Error.UndefVar;
+    const varia = self.scope.get(id) orelse return Report.undefinedVariable(alloc, reports, leafI);
 
     const variable = self.global.nodes.get(varia.varIndex);
     const typeIndex = variable.data.@"0".load(.acquire);
@@ -227,10 +188,10 @@ fn checkVarType(self: TranslationUnit, alloc: Allocator, leafI: Parser.NodeIndex
         if (!Type.typeEqual(self, typeIndex, typeI)) {
             const tag = variable.tag.load(.acquire);
             if (tag == .variable) {
-                try Report.incompatibleType(alloc, reports, typeIndex, typeI, leafI, varia.varIndex);
+                return Report.incompatibleType(alloc, reports, typeIndex, typeI, leafI, varia.varIndex);
             } else {
                 assert(tag == .constant);
-                try addInferType(self, alloc, .inferedFromUse, leafI, varia.varIndex, typeI);
+                return addInferType(self, alloc, .inferedFromUse, leafI, varia.varIndex, typeI);
             }
         }
     }
@@ -273,18 +234,18 @@ fn checkLitType(self: TranslationUnit, alloc: Allocator, litI: Parser.NodeIndex,
     switch (@as(Parser.Node.Primitive, @enumFromInt(primitive))) {
         Parser.Node.Primitive.uint => {
             const max = std.math.pow(u64, 2, size) - 1;
-            const number = std.fmt.parseInt(u64, text, 10) catch return try Report.incompatibleLiteral(alloc, reports, litI, typeI);
+            const number = std.fmt.parseInt(u64, text, 10) catch return Report.incompatibleLiteral(alloc, reports, litI, typeI);
 
             if (number < max) return;
-            try Report.incompatibleLiteral(alloc, reports, litI, typeI);
+            return Report.incompatibleLiteral(alloc, reports, litI, typeI);
         },
         Parser.Node.Primitive.sint => {
             const max = std.math.pow(i64, 2, (size - 1)) - 1;
             const number = std.fmt.parseInt(i64, text, 10) catch
-                return try Report.incompatibleLiteral(alloc, reports, litI, typeI);
+                return Report.incompatibleLiteral(alloc, reports, litI, typeI);
 
             if (number < max) return;
-            try Report.incompatibleLiteral(alloc, reports, litI, typeI);
+            return Report.incompatibleLiteral(alloc, reports, litI, typeI);
         },
         Parser.Node.Primitive.float => unreachable,
     }

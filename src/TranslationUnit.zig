@@ -25,6 +25,8 @@ pub fn initRoot(alloc: Allocator, global: *Global) Allocator.Error!Self {
     };
 
     try global.readyTu.resize(alloc, tu.id + 1);
+    global.readyTu.getPtr(tu.id).store(false, .release);
+    global.readyTu.unlock();
     assert(!global.readyTu.get(tu.id).load(.acquire));
 
     return tu;
@@ -84,7 +86,7 @@ fn _startFunction(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeH
 
     if (self.global.subCommand == .Parser) return;
 
-    try TypeCheck.Func.check(self, alloc, placeHolder, reports);
+    try TypeCheck.Func.typing(self, alloc, placeHolder, reports);
 
     if (self.global.subCommand == .TypeCheck) return;
 
@@ -122,7 +124,7 @@ fn _startRoot(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeHolde
 
     if (self.global.subCommand == .Parser) return;
 
-    try TypeCheck.Root.check(self, alloc, self.global.nodes.get(placeHolder).data[1].load(.acquire), reports);
+    try TypeCheck.Root.typing(self, alloc, self.global.nodes.get(placeHolder).data[1].load(.acquire), reports);
 
     if (self.global.subCommand == .TypeCheck) return;
 

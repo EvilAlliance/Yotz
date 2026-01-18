@@ -11,10 +11,10 @@ observer: Observer.Multiple(usize, Args, struct {
 
     pub fn deinit(self: @This(), arg: Args, runned: bool) void {
         _ = self;
-        const tu, const alloc, const stmtI, _, const reports = arg;
+        const tu, const alloc, _, _, _ = arg;
 
         if (!runned) {
-            TypeCheck.Expression.reportUndef(tu.*, alloc, tu.global.nodes.get(stmtI).data[1].load(.acquire), reports) catch std.debug.panic("Run Out of Memory", .{});
+            @panic("What to do");
         }
 
         tu.deinit(alloc);

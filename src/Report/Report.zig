@@ -39,7 +39,7 @@ pub fn expect(alloc: Allocator, reports: ?*mod.Reports, token: Lexer.Token, t: [
     return Parser.Parser.Error.UnexpectedToken;
 }
 
-pub fn incompatibleLiteral(alloc: Allocator, reports: ?*mod.Reports, literal: Parser.NodeIndex, expectedType: Parser.NodeIndex) (Allocator.Error || TypeCheck.Expression.Error)!void {
+pub fn incompatibleLiteral(alloc: Allocator, reports: ?*mod.Reports, literal: Parser.NodeIndex, expectedType: Parser.NodeIndex) (Allocator.Error || TypeCheck.Expression.Error) {
     if (reports) |rs| try rs.append(alloc, .{
         .message = .{
             .incompatibleLiteral = .{
@@ -52,7 +52,7 @@ pub fn incompatibleLiteral(alloc: Allocator, reports: ?*mod.Reports, literal: Pa
     return TypeCheck.Expression.Error.TooBig;
 }
 
-pub fn incompatibleType(alloc: Allocator, reports: ?*mod.Reports, actualType: Parser.NodeIndex, expectedType: Parser.NodeIndex, place: Parser.NodeIndex, declared: Parser.NodeIndex) (Allocator.Error || TypeCheck.Expression.Error)!void {
+pub fn incompatibleType(alloc: Allocator, reports: ?*mod.Reports, actualType: Parser.NodeIndex, expectedType: Parser.NodeIndex, place: Parser.NodeIndex, declared: Parser.NodeIndex) (Allocator.Error || TypeCheck.Expression.Error) {
     if (reports) |rs| try rs.append(alloc, .{
         .message = .{
             .incompatibleType = .{
@@ -76,7 +76,7 @@ pub fn missingMain(alloc: Allocator, reports: ?*mod.Reports) Allocator.Error!voi
     });
 }
 
-pub fn undefinedVariable(alloc: Allocator, reports: ?*mod.Reports, name: Parser.NodeIndex) (Allocator.Error)!void {
+pub fn undefinedVariable(alloc: Allocator, reports: ?*mod.Reports, name: Parser.NodeIndex) (Allocator.Error || TypeCheck.Expression.Error) {
     if (reports) |rs| {
         try rs.append(alloc, .{
             .message = .{
@@ -86,6 +86,8 @@ pub fn undefinedVariable(alloc: Allocator, reports: ?*mod.Reports, name: Parser.
             },
         });
     }
+
+    return TypeCheck.Expression.Error.UndefVar;
 }
 
 pub fn redefinition(alloc: Allocator, reports: ?*mod.Reports, name: Parser.NodeIndex, original: Parser.NodeIndex) (Allocator.Error)!void {
