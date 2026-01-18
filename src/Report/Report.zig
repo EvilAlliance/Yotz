@@ -7,6 +7,7 @@ message: union(enum) {
     missingMain: mod.MissingMain,
     undefinedVariable: mod.UndefinedVariable,
     redefinition: mod.Redefinition,
+    definedLater: mod.DefinedLater,
 },
 
 pub fn display(self: *const Self, message: mod.Message) void {
@@ -17,6 +18,7 @@ pub fn display(self: *const Self, message: mod.Message) void {
         .missingMain => |mm| mm.display(message),
         .undefinedVariable => |uv| uv.display(message),
         .redefinition => |rd| rd.display(message),
+        .definedLater => |dl| dl.display(message),
     }
 }
 
@@ -101,6 +103,21 @@ pub fn redefinition(alloc: Allocator, reports: ?*mod.Reports, name: Parser.NodeI
             },
         });
     }
+}
+
+pub fn definedLater(alloc: Allocator, reports: ?*mod.Reports, name: Parser.NodeIndex, definition: Parser.NodeIndex) (Allocator.Error || TypeCheck.Expression.Error) {
+    if (reports) |rs| {
+        try rs.append(alloc, .{
+            .message = .{
+                .definedLater = .{
+                    .name = name,
+                    .definition = definition,
+                },
+            },
+        });
+    }
+
+    return TypeCheck.Expression.Error.UndefVar;
 }
 
 const mod = @import("mod.zig");

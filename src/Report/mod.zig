@@ -9,6 +9,7 @@ pub const incompatibleType = Report.incompatibleType;
 pub const missingMain = Report.missingMain;
 pub const undefinedVariable = Report.undefinedVariable;
 pub const redefinition = Report.redefinition;
+pub const definedLater = Report.definedLater;
 
 pub const Reports = Bucketarray(Report, usize, ReportBucketSize);
 
@@ -18,6 +19,7 @@ pub const IncompatibleLiteral = @import("IncompatibleLiteral.zig");
 pub const MissingMain = @import("MissingMain.zig");
 pub const UndefinedVariable = @import("UndefinedVariable.zig");
 pub const Redefinition = @import("Redefinition.zig");
+pub const DefinedLater = @import("DefinedLater.zig");
 
 const Bucketarray = @import("../Util/BucketArray.zig").BucketArray;
 

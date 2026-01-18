@@ -112,6 +112,25 @@ const Error = struct {
         );
     }
 
+    pub inline fn usedBeforeDefined(self: @This(), nameNode: Parser.NodeIndex) void {
+        const stmt = self.global.nodes.get(nameNode);
+        const loc = stmt.getLocation(self.global);
+        const fileInfo = self.global.files.get(loc.source);
+        const where = placeSlice(loc, fileInfo.source);
+        std.log.err(
+            "{s}:{}:{}: Identifier '{s}' is used before it is defined \n{s}\n{[5]c: >[6]}",
+            .{
+                fileInfo.path,
+                loc.row,
+                loc.col,
+                stmt.getText(self.global),
+                fileInfo.source[where.beg..where.end],
+                '^',
+                where.pad,
+            },
+        );
+    }
+
     pub inline fn identifierNotAvailable(self: @This(), iden: []const u8, loc: Lexer.Location) void {
         const where = placeSlice(loc, self.global.cont.source);
         std.log.err(
@@ -260,7 +279,7 @@ const Info = struct {
         const fileInfo = self.global.files.get(locVar.source);
         const where = placeSlice(locVar, fileInfo.source);
         std.log.info(
-            "{s}:{}:{}: {s} is declared in use \n{s}\n{[5]c: >[6]}",
+            "{s}:{}:{}: {s} is declared here \n{s}\n{[5]c: >[6]}",
             .{
                 fileInfo.path,
                 locVar.row,
