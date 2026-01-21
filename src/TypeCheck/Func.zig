@@ -10,10 +10,6 @@ pub fn typing(self: TranslationUnit, alloc: Allocator, funcIndex: Parser.NodeInd
 
     try self.scope.push(alloc);
     defer self.scope.pop(alloc);
-    if (stmtORscope.tag.load(.acquire) == .scope)
-        try recordScope(self, alloc, stmtORscopeIndex, tIndex, reports)
-    else
-        try _recordScope(self, alloc, stmtORscopeIndex, tIndex, reports);
 
     {
         self.global.observer.mutex.lock();
@@ -29,29 +25,6 @@ pub fn typing(self: TranslationUnit, alloc: Allocator, funcIndex: Parser.NodeInd
         try checkScope(self, alloc, stmtORscopeIndex, tIndex, reports)
     else
         try _checkScope(self, alloc, stmtORscopeIndex, tIndex, reports);
-}
-
-fn recordScope(self: TranslationUnit, alloc: Allocator, scopeIndex: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
-    const scope = self.global.nodes.get(scopeIndex);
-    const retType = self.global.nodes.get(typeI);
-
-    std.debug.assert(scope.tag.load(.acquire) == .scope and retType.tag.load(.acquire) == .type);
-
-    const i = scope.data[0].load(.acquire);
-
-    try _recordScope(self, alloc, i, typeI, reports);
-}
-
-fn _recordScope(self: TranslationUnit, alloc: Allocator, stmtI: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error)!void {
-    var i = stmtI;
-
-    while (i != 0) {
-        const stmt = self.global.nodes.get(i);
-
-        try recordStatements(self, alloc, i, typeI, reports);
-
-        i = stmt.next.load(.acquire);
-    }
 }
 
 fn checkScope(self: TranslationUnit, alloc: Allocator, scopeIndex: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
@@ -73,6 +46,7 @@ fn _checkScope(self: TranslationUnit, alloc: Allocator, stmtI: Parser.NodeIndex,
 
         checkStatements(self, alloc, i, typeI, reports) catch |err| switch (err) {
             Expression.Error.TooBig, Expression.Error.IncompatibleType, Expression.Error.UndefVar => {},
+            Scope.Error.KeyAlreadyExists => {},
             else => return @errorCast(err),
         };
 
@@ -80,27 +54,19 @@ fn _checkScope(self: TranslationUnit, alloc: Allocator, stmtI: Parser.NodeIndex,
     }
 }
 
-fn recordStatements(self: TranslationUnit, alloc: Allocator, stmtI: Parser.NodeIndex, retTypeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error)!void {
-    _ = .{ alloc, retTypeI };
-    const stmt = self.global.nodes.get(stmtI);
-
-    switch (stmt.tag.load(.acquire)) {
-        .ret => return,
-        .variable, .constant => Statement.recordVariable(self, alloc, stmtI, reports) catch |err| switch (err) {
-            Scope.Error.KeyAlreadyExists => try Report.redefinition(alloc, reports, stmtI, self.scope.get(stmt.getText(self.global)).?.varIndex),
-            else => return @errorCast(err),
-        },
-        else => unreachable,
-    }
-}
-
-fn checkStatements(self: TranslationUnit, alloc: Allocator, stmtI: Parser.NodeIndex, retTypeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
+fn checkStatements(self: TranslationUnit, alloc: Allocator, stmtI: Parser.NodeIndex, retTypeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error || Scope.Error)!void {
     _ = .{ alloc, retTypeI };
     const stmt = self.global.nodes.get(stmtI);
 
     switch (stmt.tag.load(.acquire)) {
         .ret => try Statement.checkReturn(self, alloc, stmtI, retTypeI, reports),
-        .variable, .constant => try Statement.checkVariable(self, alloc, stmtI, reports),
+        .variable, .constant => {
+            Statement.checkVariable(self, alloc, stmtI, reports) catch |err| {
+                try Statement.recordVariable(self, alloc, stmtI, reports);
+                return err;
+            };
+            try Statement.recordVariable(self, alloc, stmtI, reports);
+        },
         else => unreachable,
     }
 }

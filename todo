@@ -384,6 +384,12 @@
         "title": "Use *const Translation Unit Now",
         "desc": "",
         "time_created": "2026-01-17 12:36:31.061052685 -03:00:00"
+      },
+      {
+        "id": "DHSacEE3",
+        "title": "Make optionals the semicolons at the end of a statement",
+        "desc": "",
+        "time_created": "2026-01-20 11:52:05.075938945 -03:00:00"
       }
     ]
   }

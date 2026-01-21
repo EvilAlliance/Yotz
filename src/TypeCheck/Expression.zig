@@ -10,9 +10,6 @@ pub fn inferType(self: TranslationUnit, alloc: Allocator, varI: Parser.NodeIndex
     const expr = self.global.nodes.get(exprI);
     const variableToInfer = self.global.nodes.get(varI);
 
-    const idToInfer = variableToInfer.getText(self.global);
-    const toInferVariable = self.scope.get(idToInfer) orelse std.debug.panic("This variable should be defined in the scope, this may happen with some kind of Redefinition, {s} was not found", .{idToInfer});
-
     const exprTag = expr.tag.load(.acquire);
     assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, exprTag));
 
@@ -36,8 +33,6 @@ pub fn inferType(self: TranslationUnit, alloc: Allocator, varI: Parser.NodeIndex
 
         const id = first.getText(self.global);
         const varia = self.scope.get(id) orelse return Report.undefinedVariable(alloc, reports, firstI);
-
-        if (toInferVariable.order <= varia.order) return Report.definedLater(alloc, reports, firstI, varia.varIndex);
 
         const variable = self.global.nodes.get(varia.varIndex);
         const newTypeI = variable.data.@"0".load(.acquire);
