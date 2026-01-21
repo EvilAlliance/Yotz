@@ -1,7 +1,7 @@
 const Self = @This();
 
 global: *ScopeGlobal,
-base: ArrayList(StringHashMapUnmanaged(Scope.Variable)) = .{},
+base: ArrayList(StringHashMapUnmanaged(Parser.NodeIndex)) = .{},
 // NOTE: This is not manipulated multithreaded, this is for a specific TranslationUnit
 order: usize = 0,
 
@@ -23,11 +23,11 @@ pub fn put(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: Parser.Nod
     assert(count > 0);
 
     const lastScope = &self.base.items[count - 1];
-    try lastScope.put(alloc, key, .{ .varIndex = value, .order = self.order });
+    try lastScope.put(alloc, key, value);
     self.order += 1;
 }
 
-pub fn get(ctx: *anyopaque, key: []const u8) ?Scope.Variable {
+pub fn get(ctx: *anyopaque, key: []const u8) ?Parser.NodeIndex {
     const self: *Self = @ptrCast(@alignCast(ctx));
 
     var i: usize = self.base.items.len;

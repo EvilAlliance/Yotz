@@ -1,14 +1,11 @@
 const Self = @This();
 
-// NOTE: Higher means it was stablished later
-pub const Variable = struct { varIndex: Parser.NodeIndex, order: usize };
-
 ptr: *anyopaque,
 vtable: *const VTable,
 
 const VTable = struct {
     put: *const fn (*anyopaque, alloc: Allocator, key: []const u8, varI: Parser.NodeIndex) (Allocator.Error || mod.Error)!void,
-    get: *const fn (*anyopaque, key: []const u8) ?Variable,
+    get: *const fn (*anyopaque, key: []const u8) ?Parser.NodeIndex,
 
     push: *const fn (*anyopaque, alloc: Allocator) Allocator.Error!void,
     pop: *const fn (*anyopaque, alloc: Allocator) void,
@@ -23,7 +20,7 @@ pub fn put(self: Self, alloc: Allocator, key: []const u8, value: Parser.NodeInde
     try self.vtable.put(self.ptr, alloc, key, value);
 }
 
-pub fn get(self: Self, key: []const u8) ?Variable {
+pub fn get(self: Self, key: []const u8) ?Parser.NodeIndex {
     return self.vtable.get(self.ptr, key);
 }
 

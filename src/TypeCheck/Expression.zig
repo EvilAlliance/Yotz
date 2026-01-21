@@ -34,7 +34,7 @@ pub fn inferType(self: TranslationUnit, alloc: Allocator, varI: Parser.NodeIndex
         const id = first.getText(self.global);
         const varia = self.scope.get(id) orelse return Report.undefinedVariable(alloc, reports, firstI);
 
-        const variable = self.global.nodes.get(varia.varIndex);
+        const variable = self.global.nodes.get(varia);
         const newTypeI = variable.data.@"0".load(.acquire);
         if (newTypeI == 0) continue;
 
@@ -44,7 +44,7 @@ pub fn inferType(self: TranslationUnit, alloc: Allocator, varI: Parser.NodeIndex
             oldTypeIndex = newTypeI;
             type_ = newType;
         } else {
-            return Report.incompatibleType(alloc, reports, newTypeI, oldTypeIndex, firstI, varia.varIndex);
+            return Report.incompatibleType(alloc, reports, newTypeI, oldTypeIndex, firstI, varia);
         }
     }
 
@@ -179,19 +179,19 @@ fn checkVarType(self: TranslationUnit, alloc: Allocator, leafI: Parser.NodeIndex
 
     const varia = self.scope.get(id) orelse return Report.undefinedVariable(alloc, reports, leafI);
 
-    const variable = self.global.nodes.get(varia.varIndex);
+    const variable = self.global.nodes.get(varia);
     const typeIndex = variable.data.@"0".load(.acquire);
 
     if (typeIndex == 0) {
-        try addInferType(self, alloc, .inferedFromUse, leafI, varia.varIndex, typeI);
+        try addInferType(self, alloc, .inferedFromUse, leafI, varia, typeI);
     } else {
         if (!Type.typeEqual(self, typeIndex, typeI)) {
             const tag = variable.tag.load(.acquire);
             if (tag == .variable) {
-                return Report.incompatibleType(alloc, reports, typeIndex, typeI, leafI, varia.varIndex);
+                return Report.incompatibleType(alloc, reports, typeIndex, typeI, leafI, varia);
             } else {
                 assert(tag == .constant);
-                return addInferType(self, alloc, .inferedFromUse, leafI, varia.varIndex, typeI);
+                return addInferType(self, alloc, .inferedFromUse, leafI, varia, typeI);
             }
         }
     }
@@ -218,6 +218,7 @@ fn addInferType(self: TranslationUnit, alloc: Allocator, comptime flag: std.meta
     // Add to list
     const x = try self.global.nodes.appendIndex(alloc, nodeType);
     // Make the variable be that type
+    // TODO: Do a compare and exchange, this may be a race condition with other funcion
     self.global.nodes.getPtr(varI).data.@"0".store(x, .release);
 }
 

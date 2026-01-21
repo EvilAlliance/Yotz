@@ -23,12 +23,12 @@ pub fn put(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: Parser.Nod
     }
 }
 
-pub fn get(ctx: *anyopaque, key: []const u8) ?Scope.Variable {
+pub fn get(ctx: *anyopaque, key: []const u8) ?Parser.NodeIndex {
     const self: *Self = @ptrCast(@alignCast(ctx));
     self.rwLock.lockShared();
     defer self.rwLock.unlockShared();
 
-    return .{ .varIndex = self.base.get(key) orelse return null, .order = 0 };
+    return self.base.get(key);
 }
 
 pub fn waitingForUnlock(ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (ObserverParams) void, args: ObserverParams) Allocator.Error!void {

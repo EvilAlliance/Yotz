@@ -2,7 +2,7 @@ pub fn recordVariable(self: TranslationUnit, alloc: Allocator, varIndex: Parser.
     const variable = self.global.nodes.get(varIndex);
 
     self.scope.put(alloc, variable.getText(self.global), varIndex) catch |err| switch (err) {
-        Scope.Error.KeyAlreadyExists => try Report.redefinition(alloc, reports, varIndex, self.scope.get(variable.getText(self.global)).?.varIndex),
+        Scope.Error.KeyAlreadyExists => try Report.redefinition(alloc, reports, varIndex, self.scope.get(variable.getText(self.global)).?),
         else => return @errorCast(err),
     };
 }

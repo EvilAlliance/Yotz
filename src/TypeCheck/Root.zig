@@ -22,7 +22,7 @@ fn record(self: TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeIndex, 
 
         assert(tag == .variable or tag == .constant);
         Statement.recordVariable(self, alloc, stmtI, reports) catch |err| switch (err) {
-            Scope.Error.KeyAlreadyExists => try Report.redefinition(alloc, reports, stmtI, self.scope.get(stmt.getText(self.global)).?.varIndex),
+            Scope.Error.KeyAlreadyExists => try Report.redefinition(alloc, reports, stmtI, self.scope.get(stmt.getText(self.global)).?),
             else => return @errorCast(err),
         };
     }
