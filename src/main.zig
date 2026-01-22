@@ -110,7 +110,7 @@ const getArguments = ParseArguments.getArguments;
 const Arguments = ParseArguments.Arguments;
 const TranslationUnit = @import("TranslationUnit.zig");
 const Global = @import("Global.zig");
-const TypeCheck = @import("TypeCheck/mod.zig");
+const Typing = @import("Typing/mod.zig");
 const Report = @import("Report/mod.zig");
 const Logger = @import("Logger.zig");
 

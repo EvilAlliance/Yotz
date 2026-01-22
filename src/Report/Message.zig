@@ -265,22 +265,34 @@ const Error = struct {
         );
     }
 
-    pub inline fn dependencyCycle(self: @This(), cycle: []const Parser.NodeIndex) void {
-        std.log.err("Dependency cycle detected with length {}:", .{cycle.len});
+    pub inline fn dependencyCycle(self: @This(), cycle: []const Typing.Expression.CycleUnit) void {
+        const nodeI_ = cycle[0].index;
+        var node = self.global.nodes.get(nodeI_);
+        var loc = node.getLocation(self.global);
+        var fileInfo = self.global.files.get(loc.source);
+        var where = placeSlice(loc, fileInfo.source);
 
-        for (cycle, 0..) |nodeI, i| {
-            const node = self.global.nodes.get(nodeI);
-            const loc = node.getLocation(self.global);
-            const fileInfo = self.global.files.get(loc.source);
-            const where = placeSlice(loc, fileInfo.source);
+        std.log.err("{s}:{}:{}: Dependency cycle detected with length {}:", .{
+            fileInfo.path,
+            loc.row,
+            loc.col,
+            cycle.len,
+        });
+
+        for (cycle, 0..) |unit, i| {
+            node = self.global.nodes.get(unit.index);
+            loc = node.getLocation(self.global);
+            fileInfo = self.global.files.get(loc.source);
+            where = placeSlice(loc, fileInfo.source);
 
             std.log.info(
-                "{}. {s}:{}:{}: \n     {s}\n     {[5]c: >[6]}",
+                "{}. {s}:{}:{}: {s}\n     {s}\n     {[6]c: >[7]}",
                 .{
                     i + 1,
                     fileInfo.path,
                     loc.row,
                     loc.col,
+                    unit.reason.toString(),
                     fileInfo.source[where.beg..where.end],
                     '^',
                     where.pad,
@@ -352,5 +364,7 @@ pub fn init(global: *Global) Self {
 const Lexer = @import("../Lexer/mod.zig");
 const Parser = @import("../Parser/mod.zig");
 const Global = @import("../Global.zig");
+
+const Typing = @import("../Typing/mod.zig");
 
 const std = @import("std");

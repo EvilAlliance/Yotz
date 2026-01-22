@@ -43,7 +43,7 @@ pub fn expect(alloc: Allocator, reports: ?*mod.Reports, token: Lexer.Token, t: [
     return Parser.Parser.Error.UnexpectedToken;
 }
 
-pub fn incompatibleLiteral(alloc: Allocator, reports: ?*mod.Reports, literal: Parser.NodeIndex, expectedType: Parser.NodeIndex) (Allocator.Error || TypeCheck.Expression.Error) {
+pub fn incompatibleLiteral(alloc: Allocator, reports: ?*mod.Reports, literal: Parser.NodeIndex, expectedType: Parser.NodeIndex) (Allocator.Error || Typing.Expression.Error) {
     if (reports) |rs| try rs.append(alloc, .{
         .message = .{
             .incompatibleLiteral = .{
@@ -53,10 +53,10 @@ pub fn incompatibleLiteral(alloc: Allocator, reports: ?*mod.Reports, literal: Pa
         },
     });
 
-    return TypeCheck.Expression.Error.TooBig;
+    return Typing.Expression.Error.TooBig;
 }
 
-pub fn incompatibleType(alloc: Allocator, reports: ?*mod.Reports, actualType: Parser.NodeIndex, expectedType: Parser.NodeIndex, place: Parser.NodeIndex, declared: Parser.NodeIndex) (Allocator.Error || TypeCheck.Expression.Error) {
+pub fn incompatibleType(alloc: Allocator, reports: ?*mod.Reports, actualType: Parser.NodeIndex, expectedType: Parser.NodeIndex, place: Parser.NodeIndex, declared: Parser.NodeIndex) (Allocator.Error || Typing.Expression.Error) {
     if (reports) |rs| try rs.append(alloc, .{
         .message = .{
             .incompatibleType = .{
@@ -69,7 +69,7 @@ pub fn incompatibleType(alloc: Allocator, reports: ?*mod.Reports, actualType: Pa
         },
     });
 
-    return TypeCheck.Expression.Error.IncompatibleType;
+    return Typing.Expression.Error.IncompatibleType;
 }
 
 pub fn missingMain(alloc: Allocator, reports: ?*mod.Reports) Allocator.Error!void {
@@ -80,7 +80,7 @@ pub fn missingMain(alloc: Allocator, reports: ?*mod.Reports) Allocator.Error!voi
     });
 }
 
-pub fn undefinedVariable(alloc: Allocator, reports: ?*mod.Reports, name: Parser.NodeIndex) (Allocator.Error || TypeCheck.Expression.Error) {
+pub fn undefinedVariable(alloc: Allocator, reports: ?*mod.Reports, name: Parser.NodeIndex) (Allocator.Error || Typing.Expression.Error) {
     if (reports) |rs| {
         try rs.append(alloc, .{
             .message = .{
@@ -91,7 +91,7 @@ pub fn undefinedVariable(alloc: Allocator, reports: ?*mod.Reports, name: Parser.
         });
     }
 
-    return TypeCheck.Expression.Error.UndefVar;
+    return Typing.Expression.Error.UndefVar;
 }
 
 pub fn redefinition(alloc: Allocator, reports: ?*mod.Reports, name: Parser.NodeIndex, original: Parser.NodeIndex) (Allocator.Error)!void {
@@ -107,7 +107,7 @@ pub fn redefinition(alloc: Allocator, reports: ?*mod.Reports, name: Parser.NodeI
     }
 }
 
-pub fn definedLater(alloc: Allocator, reports: ?*mod.Reports, name: Parser.NodeIndex, definition: Parser.NodeIndex) (Allocator.Error || TypeCheck.Expression.Error) {
+pub fn definedLater(alloc: Allocator, reports: ?*mod.Reports, name: Parser.NodeIndex, definition: Parser.NodeIndex) (Allocator.Error || Typing.Expression.Error) {
     if (reports) |rs| {
         try rs.append(alloc, .{
             .message = .{
@@ -119,11 +119,11 @@ pub fn definedLater(alloc: Allocator, reports: ?*mod.Reports, name: Parser.NodeI
         });
     }
 
-    return TypeCheck.Expression.Error.UndefVar;
+    return Typing.Expression.Error.UndefVar;
 }
 
-pub fn dependencyCycle(alloc: Allocator, cycle: []const Parser.NodeIndex) Allocator.Error!Self {
-    const cycleCopy = try alloc.dupe(Parser.NodeIndex, cycle);
+pub fn dependencyCycle(alloc: Allocator, cycle: []const Typing.Expression.CycleUnit) Allocator.Error!Self {
+    const cycleCopy = try alloc.dupe(Typing.Expression.CycleUnit, cycle);
     return .{
         .message = .{
             .dependencyCycle = .{
@@ -138,7 +138,7 @@ const mod = @import("mod.zig");
 const Util = @import("../Util.zig");
 const Lexer = @import("../Lexer/mod.zig");
 const Parser = @import("../Parser/mod.zig");
-const TypeCheck = @import("../TypeCheck/mod.zig");
+const Typing = @import("../Typing/mod.zig");
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;

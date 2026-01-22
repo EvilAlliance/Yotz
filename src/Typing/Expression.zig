@@ -8,8 +8,31 @@ pub const Error = error{
     UndefVar,
 };
 
-var buf: [std.math.pow(usize, 2, 9)]std.ArrayList(Parser.NodeIndex) = undefined;
-var reuse = ArrayListThreadSafe(std.ArrayList(Parser.NodeIndex)){
+const Reason = enum {
+    addInference,
+    inference,
+    check,
+
+    pub fn toString(self: Reason) []const u8 {
+        return switch (self) {
+            .addInference => "Adding Inference",
+            .inference => "Inferring Type",
+            .check => "Checking Type",
+        };
+    }
+};
+
+pub const CycleUnit = struct {
+    index: Parser.NodeIndex,
+    reason: Reason,
+
+    pub fn eql(a: CycleUnit, b: CycleUnit) bool {
+        return a.index == b.index and a.reason == b.reason;
+    }
+};
+
+var buf: [std.math.pow(usize, 2, 9)]std.ArrayList(CycleUnit) = undefined;
+var reuse = ArrayListThreadSafe(std.ArrayList(CycleUnit)){
     .items = .{
         .items = buf[0..0],
         .capacity = buf.len,
@@ -17,13 +40,15 @@ var reuse = ArrayListThreadSafe(std.ArrayList(Parser.NodeIndex)){
 };
 
 tu: *const TranslationUnit,
-hasCycle: std.ArrayList(Parser.NodeIndex),
+hasCycle: std.ArrayList(CycleUnit),
 
 pub fn init(tu: *const TranslationUnit) Self {
-    return .{
+    const self: Self = .{
         .tu = tu,
         .hasCycle = reuse.pop() orelse .{},
     };
+
+    return self;
 }
 
 pub fn reset(self: *Self) void {
@@ -35,9 +60,10 @@ pub fn deinit(self: *Self, alloc: Allocator) void {
     reuse.appendBounded(self.hasCycle) catch self.hasCycle.deinit(alloc);
 }
 
-fn push(self: *Self, alloc: Allocator, varIndex: Parser.NodeIndex) (Allocator.Error)!void {
-    if (Util.listContains(Parser.NodeIndex, self.hasCycle.items, varIndex)) {
-        try self.hasCycle.append(alloc, varIndex);
+fn push(self: *Self, alloc: Allocator, varIndex: Parser.NodeIndex, reason: Reason) (Allocator.Error)!void {
+    const unit: CycleUnit = .{ .index = varIndex, .reason = reason };
+    if (Util.listContainsCtx(CycleUnit, self.hasCycle.items, unit)) {
+        try self.hasCycle.append(alloc, unit);
 
         const r = try Report.dependencyCycle(alloc, self.hasCycle.items);
 
@@ -46,7 +72,7 @@ fn push(self: *Self, alloc: Allocator, varIndex: Parser.NodeIndex) (Allocator.Er
         std.process.exit(1);
     }
 
-    try self.hasCycle.append(alloc, varIndex);
+    try self.hasCycle.append(alloc, unit);
 }
 
 fn pop(self: *Self) void {
@@ -54,7 +80,7 @@ fn pop(self: *Self) void {
 }
 
 pub fn inferType(self: *Self, alloc: Allocator, varI: Parser.NodeIndex, exprI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!bool {
-    try self.push(alloc, exprI);
+    try self.push(alloc, exprI, .inference);
     defer self.pop();
 
     const expr = self.tu.global.nodes.get(exprI);
@@ -106,7 +132,7 @@ pub fn inferType(self: *Self, alloc: Allocator, varI: Parser.NodeIndex, exprI: P
 }
 
 pub fn checkType(self: *Self, alloc: Allocator, exprI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
-    try self.push(alloc, exprI);
+    try self.push(alloc, exprI, .check);
     defer self.pop();
 
     const expr = self.tu.global.nodes.get(exprI);
@@ -252,7 +278,7 @@ fn checkVarType(self: *Self, alloc: Allocator, leafI: Parser.NodeIndex, typeI: P
 
 fn addInferType(self: *Self, alloc: Allocator, comptime flag: std.meta.FieldEnum(Parser.Node.Flags), leafI: Parser.NodeIndex, varI: Parser.NodeIndex, typeI: Parser.NodeIndex) (Allocator.Error || Error)!void {
     assert(flag == .inferedFromUse or flag == .inferedFromExpression);
-    try self.push(alloc, varI);
+    try self.push(alloc, varI, .addInference);
     defer self.pop();
 
     const leaf = self.tu.global.nodes.get(leafI);

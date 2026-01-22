@@ -1,6 +1,6 @@
 const Self = @This();
 
-cycle: []const Parser.NodeIndex,
+cycle: []const Typing.Expression.CycleUnit,
 
 pub fn display(self: *const Self, message: Message) void {
     message.err.dependencyCycle(self.cycle);
@@ -9,3 +9,4 @@ pub fn display(self: *const Self, message: Message) void {
 const Message = @import("Message.zig");
 
 const Parser = @import("../Parser/mod.zig");
+const Typing = @import("../Typing/mod.zig");

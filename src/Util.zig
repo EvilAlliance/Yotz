@@ -22,6 +22,15 @@ pub fn listContains(t: type, l: []const t, e: t) bool {
     return false;
 }
 
+pub fn listContainsCtx(t: type, l: []const t, e: t) bool {
+    for (l) |s| {
+        if (t.eql(e, s)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 pub fn dupe(allocator: std.mem.Allocator, value: anytype) std.mem.Allocator.Error!*@TypeOf(value) {
     const new_pointer = try allocator.create(@TypeOf(value));
     new_pointer.* = value;

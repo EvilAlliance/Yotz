@@ -13,14 +13,14 @@ var ID = std.atomic.Value(usize).init(0);
 
 tag: Type,
 global: *Global,
-scope: TypeCheck.Scope.Scope,
+scope: Typing.Scope.Scope,
 id: usize,
 
 pub fn initRoot(alloc: Allocator, global: *Global) Allocator.Error!Self {
     const tu = Self{
         .tag = .Root,
         .global = global,
-        .scope = (try TypeCheck.Scope.Global.initHeap(alloc)).scope(),
+        .scope = (try Typing.Scope.Global.initHeap(alloc)).scope(),
         .id = ID.fetchAdd(1, .acq_rel),
     };
 
@@ -33,7 +33,7 @@ pub fn initRoot(alloc: Allocator, global: *Global) Allocator.Error!Self {
 }
 
 pub fn initFunc(self: *const Self, alloc: Allocator) Allocator.Error!Self {
-    const scope = try TypeCheck.Scope.Func.initHeap(alloc, self.scope.getGlobal().acquire());
+    const scope = try Typing.Scope.Func.initHeap(alloc, self.scope.getGlobal().acquire());
 
     const tu = Self{
         .tag = .Function,
@@ -86,14 +86,14 @@ fn _startFunction(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeH
 
     if (self.global.subCommand == .Parser) return;
 
-    try TypeCheck.Func.typing(self, alloc, placeHolder, reports);
+    try Typing.Func.typing(self, alloc, placeHolder, reports);
 
-    if (self.global.subCommand == .TypeCheck) return;
+    if (self.global.subCommand == .Typing) return;
 
     unreachable;
-    // const err = try typeCheck(alloc, &ast);
+    // const err = try Typing(alloc, &ast);
     //
-    // if (self.cont.subCom == .TypeCheck)
+    // if (self.cont.subCom == .Typing)
     //     return .{ try ast.toString(alloc), if (err or (parser.errors.items.len > 1)) 1 else 0 };
     //
     // if (err) return .{ "", 1 };
@@ -124,15 +124,15 @@ fn _startRoot(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeHolde
 
     if (self.global.subCommand == .Parser) return;
 
-    try TypeCheck.Root.typing(self, alloc, self.global.nodes.get(placeHolder).data[1].load(.acquire), reports);
+    try Typing.Root.typing(self, alloc, self.global.nodes.get(placeHolder).data[1].load(.acquire), reports);
 
-    if (self.global.subCommand == .TypeCheck) return;
+    if (self.global.subCommand == .Typing) return;
 
     unreachable;
     //
-    // const err = try typeCheck(alloc, &ast);
+    // const err = try Typing(alloc, &ast);
     //
-    // if (self.cont.subCom == .TypeCheck)
+    // if (self.cont.subCom == .Typing)
     //     return .{ try ast.toString(alloc), if (err or (parser.errors.items.len > 1)) 1 else 0 };
     //
     // if (err) return .{ "", 1 };
@@ -178,7 +178,7 @@ pub fn waitForWork(alloc: Allocator, global: *Global) Allocator.Error!struct { [
 
     if (global.subCommand == .Parser) return .{ try global.toStringAst(alloc, global.nodes.get(index).data[1].load(.acquire)), 0 };
 
-    if (global.subCommand == .TypeCheck) return .{ try global.toStringAst(alloc, global.nodes.get(index).data[1].load(.acquire)), 0 };
+    if (global.subCommand == .Typing) return .{ try global.toStringAst(alloc, global.nodes.get(index).data[1].load(.acquire)), 0 };
 
     return .{ "", 1 };
 }
@@ -186,7 +186,7 @@ pub fn waitForWork(alloc: Allocator, global: *Global) Allocator.Error!struct { [
 const ParseArgs = @import("ParseArgs.zig");
 const Lexer = @import("Lexer/mod.zig");
 const Parser = @import("Parser/mod.zig");
-const TypeCheck = @import("TypeCheck/mod.zig");
+const Typing = @import("Typing/mod.zig");
 const Report = @import("Report/mod.zig");
 const Global = @import("Global.zig");
 const Util = @import("Util.zig");
