@@ -10,11 +10,13 @@ main: () u8 : () u8 {
     return 1;
 } 
 
-:b stderr 222
-[INFO]: Example/CheckError/InferIncompatibleType.yt:2:5: a is declared in use 
+:b stderr 220
+[INFO]: Example/CheckError/InferIncompatibleType.yt:2:5: a is declared here 
     a : u8 = 2; 
     ^
 [ERROR]: Example/CheckError/InferIncompatibleType.yt:6:10: Type u8, is incompatible with s8 
     c := a + b;
          ^
+
+
 

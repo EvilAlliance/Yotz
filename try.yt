@@ -1,8 +1,5 @@
-a :: 8 + b;
-b :: a + 5;
-
-c :: x;
-
 main :: () u8 {
+    a : u8 : b;
+    b :: 1;
     return a;
 }

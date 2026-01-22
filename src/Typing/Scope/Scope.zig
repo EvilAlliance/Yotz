@@ -3,7 +3,7 @@ const Self = @This();
 ptr: *anyopaque,
 vtable: *const VTable,
 
-pub const VTable = struct {
+const VTable = struct {
     put: *const fn (*anyopaque, alloc: Allocator, key: []const u8, varI: Parser.NodeIndex) (Allocator.Error || mod.Error)!void,
     get: *const fn (*anyopaque, key: []const u8) ?Parser.NodeIndex,
 

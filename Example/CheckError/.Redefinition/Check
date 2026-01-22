@@ -17,23 +17,26 @@ bar: () u8 : () u8 {
 globalVar: u8 = 5;
 globalVar: u8 = 10;
 
-:b stderr 742
-[INFO]: Example/CheckError/Redefinition.yt:3:5: x is declared in use 
+:b stderr 736
+[INFO]: Example/CheckError/Redefinition.yt:3:5: x is declared here 
     x : u8 = 5;
     ^
 [ERROR]: Example/CheckError/Redefinition.yt:4:5: Identifier x is already in use 
     x : u8 = 10;  // Error: identifier 'x' is already in use
     ^
-[INFO]: Example/CheckError/Redefinition.yt:8:1: bar is declared in use 
+[INFO]: Example/CheckError/Redefinition.yt:8:1: bar is declared here 
 bar :: () u8 {
 ^
 [ERROR]: Example/CheckError/Redefinition.yt:13:1: Identifier bar is already in use 
 bar :: () u8 {  // Error: identifier 'bar' is already in use
 ^
-[INFO]: Example/CheckError/Redefinition.yt:17:1: globalVar is declared in use 
+[INFO]: Example/CheckError/Redefinition.yt:17:1: globalVar is declared here 
 globalVar : u8 = 5;
 ^
 [ERROR]: Example/CheckError/Redefinition.yt:19:1: Identifier globalVar is already in use 
 globalVar : u8 = 10;  // Error: identifier 'globalVar' is already in use
+^
+
+se
 ^
 

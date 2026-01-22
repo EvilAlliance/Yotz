@@ -370,7 +370,7 @@
       {
         "id": "GCrkBbRc",
         "title": "In the observer multiple do not use a LinkedList",
-        "desc": "",
+        "desc": "It is possible to use an array list of the handler and have a node in the struct which can point to the next unsed, there is not null if there is a free and point to some places into the arraylist",
         "time_created": "2026-01-08 19:22:31.961898194 -03:00:00"
       },
       {
@@ -378,6 +378,18 @@
         "title": "stop using flatten",
         "desc": "",
         "time_created": "2026-01-12 18:47:33.470889566 -03:00:00"
+      },
+      {
+        "id": "jBF4uPJw",
+        "title": "Use *const Translation Unit Now",
+        "desc": "",
+        "time_created": "2026-01-17 12:36:31.061052685 -03:00:00"
+      },
+      {
+        "id": "DHSacEE3",
+        "title": "Make optionals the semicolons at the end of a statement",
+        "desc": "",
+        "time_created": "2026-01-20 11:52:05.075938945 -03:00:00"
       }
     ]
   }

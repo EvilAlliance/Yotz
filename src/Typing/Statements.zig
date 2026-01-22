@@ -1,3 +1,29 @@
+pub fn recordVariable(self: TranslationUnit, alloc: Allocator, varIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Scope.Error)!void {
+    const variable = self.global.nodes.get(varIndex);
+
+    self.scope.put(alloc, variable.getText(self.global), varIndex) catch |err| switch (err) {
+        Scope.Error.KeyAlreadyExists => try Report.redefinition(alloc, reports, varIndex, self.scope.get(variable.getText(self.global)).?),
+        else => return @errorCast(err),
+    };
+}
+
+pub fn traceVariable(self: TranslationUnit, alloc: Allocator, varI: Parser.NodeIndex) Allocator.Error!void {
+    const node = self.global.nodes.get(varI);
+
+    const expressionIndex = node.data.@"1".load(.acquire);
+    const expressionNode = self.global.nodes.get(expressionIndex);
+    const expressionTag = expressionNode.tag.load(.acquire);
+
+    if (expressionIndex == 0 or expressionTag == .funcProto) {
+        return;
+    } else {
+        var expr = Expression.init(&self);
+        defer expr.deinit(alloc);
+
+        try expr.traceVariable(alloc, varI);
+    }
+}
+
 pub fn checkVariable(self: TranslationUnit, alloc: Allocator, nodeIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
     const node = self.global.nodes.get(nodeIndex);
     // NOTE: At the time being this is not changed so it should be fine;
@@ -32,11 +58,6 @@ fn checkFunctionOuter(self: TranslationUnit, alloc: Allocator, variableIndex: Pa
                 break;
         }
     }
-
-    self.scope.put(alloc, variable.getText(self.global), variableIndex) catch |err| switch (err) {
-        Scope.Error.KeyAlreadyExists => try Report.redefinition(alloc, reports, variableIndex, self.scope.get(variable.getText(self.global)).?),
-        else => return @errorCast(err),
-    };
 }
 
 fn inferTypeFunction(self: TranslationUnit, alloc: Allocator, variableIndex: Parser.NodeIndex, funcIndex: Parser.NodeIndex) Allocator.Error!bool {
@@ -74,13 +95,15 @@ fn checkTypeFunction(self: TranslationUnit, alloc: Allocator, funcTypeIndex: Par
     const retTypeIndex = funcType.data[1].load(.acquire);
 
     if (!Type.typeEqual(self, funcRetTypeIndex, retTypeIndex)) {
-        try Report.incompatibleType(alloc, reports, retTypeIndex, funcRetTypeIndex, funcRetTypeIndex, 0);
+        return Report.incompatibleType(alloc, reports, retTypeIndex, funcRetTypeIndex, funcRetTypeIndex, 0);
     }
 }
 
 pub fn checkReturn(self: TranslationUnit, alloc: Allocator, nodeI: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
     const stmt = self.global.nodes.get(nodeI);
-    try Expression.checkType(self, alloc, stmt.data[1].load(.acquire), typeI, reports);
+    var expr = Expression.init(&self);
+    defer expr.deinit(alloc);
+    try expr.checkType(alloc, stmt.data[1].load(.acquire), typeI, reports);
 }
 
 fn checkPureVariable(self: TranslationUnit, alloc: Allocator, varIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
@@ -88,14 +111,12 @@ fn checkPureVariable(self: TranslationUnit, alloc: Allocator, varIndex: Parser.N
 
     const typeIndex = variable.data[0].load(.acquire);
 
+    var expr = Expression.init(&self);
+    defer expr.deinit(alloc);
+
     if (typeIndex == 0) {
-        if (!try Expression.inferType(self, alloc, varIndex, variable.data.@"1".load(.acquire), reports)) {
-            self.scope.put(alloc, variable.getText(self.global), varIndex) catch |err| switch (err) {
-                Scope.Error.KeyAlreadyExists => try Report.redefinition(alloc, reports, varIndex, self.scope.get(variable.getText(self.global)).?),
-                else => return @errorCast(err),
-            };
-            return;
-        }
+        if (!try expr.inferType(alloc, varIndex, variable.data.@"1".load(.acquire), reports)) return;
+        expr.reset();
     } else {
         Type.transformType(self, typeIndex);
     }
@@ -105,12 +126,7 @@ fn checkPureVariable(self: TranslationUnit, alloc: Allocator, varIndex: Parser.N
     std.debug.assert(typeIndex2 != 0);
     const exprI = variable.data.@"1".load(.acquire);
 
-    try Expression.checkType(self, alloc, exprI, typeIndex2, reports);
-
-    self.scope.put(alloc, variable.getText(self.global), varIndex) catch |err| switch (err) {
-        Scope.Error.KeyAlreadyExists => try Report.redefinition(alloc, reports, varIndex, self.scope.get(variable.getText(self.global)).?),
-        else => return @errorCast(err),
-    };
+    try expr.checkType(alloc, exprI, typeIndex2, reports);
 }
 
 const Expression = @import("Expression.zig");

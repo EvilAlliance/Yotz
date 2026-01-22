@@ -6,7 +6,7 @@ pub const SubCommand = enum {
     Interpret,
     Lexer,
     Parser,
-    TypeCheck,
+    Typing,
     IntermediateRepresentation,
 
     pub fn getExt(self: Self) []const u8 {
@@ -16,7 +16,7 @@ pub const SubCommand = enum {
             .Interpret => @panic("Interprete should not generate a file"),
             .Lexer => "lex",
             .Parser => "parse",
-            .TypeCheck => "check",
+            .Typing => "check",
             .IntermediateRepresentation => "ir",
         };
     }
@@ -40,7 +40,7 @@ pub const Command = enum {
             .sim => SubCommand.Interpret,
             .lex => SubCommand.Lexer,
             .parse => SubCommand.Parser,
-            .check => SubCommand.TypeCheck,
+            .check => SubCommand.Typing,
             .ir => SubCommand.IntermediateRepresentation,
         };
     }
