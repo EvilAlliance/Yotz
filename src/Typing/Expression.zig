@@ -12,12 +12,14 @@ const Reason = enum {
     addInference,
     inference,
     check,
+    cycleGlobalTracing,
 
     pub fn toString(self: Reason) []const u8 {
         return switch (self) {
             .addInference => "Adding Inference",
             .inference => "Inferring Type",
             .check => "Checking Type",
+            .cycleGlobalTracing => "Tracing Global Cycle",
         };
     }
 };
@@ -77,6 +79,31 @@ fn push(self: *Self, alloc: Allocator, varIndex: Parser.NodeIndex, reason: Reaso
 
 fn pop(self: *Self) void {
     _ = self.hasCycle.pop();
+}
+pub fn traceVariable(self: *Self, alloc: Allocator, varI: Parser.NodeIndex) Allocator.Error!void {
+    try self.push(alloc, varI, .cycleGlobalTracing);
+    defer self.pop();
+
+    var variable = self.tu.global.nodes.get(varI);
+    const exprI = variable.data.@"1".load(.acquire);
+
+    var flat = Flatten{};
+    defer flat.deinit(alloc);
+
+    try self.flatten(alloc, &flat, exprI);
+
+    while (flat.pop()) |nodeI| {
+        const node = self.tu.global.nodes.get(nodeI);
+        switch (node.tag.load(.acquire)) {
+            .load => {
+                try self.push(alloc, nodeI, .cycleGlobalTracing);
+                defer self.pop();
+
+                try self.traceVariable(alloc, self.tu.scope.get(node.getText(self.tu.global)) orelse return);
+            },
+            else => {},
+        }
+    }
 }
 
 pub fn inferType(self: *Self, alloc: Allocator, varI: Parser.NodeIndex, exprI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!bool {

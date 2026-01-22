@@ -6,6 +6,8 @@ pub fn typing(self: TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeInd
     try self.global.observer.alert(alloc, self.id);
 
     try check(self, alloc, rootIndex, reports);
+
+    try cycleCheck(self, alloc, rootIndex);
 }
 
 fn record(self: TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
@@ -45,6 +47,23 @@ fn check(self: TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeIndex, r
             Expression.Error.TooBig, Expression.Error.IncompatibleType, Expression.Error.UndefVar => continue,
             else => return @errorCast(err),
         };
+    }
+}
+
+fn cycleCheck(self: TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeIndex) Allocator.Error!void {
+    const root = self.global.nodes.get(rootIndex);
+
+    var stmtI = root.data.@"0".load(.acquire);
+    const endIndex = root.data.@"1".load(.acquire);
+
+    while (stmtI != endIndex) {
+        const stmt = self.global.nodes.get(stmtI);
+        defer stmtI = stmt.next.load(.acquire);
+
+        const tag = stmt.tag.load(.acquire);
+
+        assert(tag == .variable or tag == .constant);
+        try Statement.traceVariable(self, alloc, stmtI);
     }
 }
 

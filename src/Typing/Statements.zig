@@ -7,6 +7,23 @@ pub fn recordVariable(self: TranslationUnit, alloc: Allocator, varIndex: Parser.
     };
 }
 
+pub fn traceVariable(self: TranslationUnit, alloc: Allocator, varI: Parser.NodeIndex) Allocator.Error!void {
+    const node = self.global.nodes.get(varI);
+
+    const expressionIndex = node.data.@"1".load(.acquire);
+    const expressionNode = self.global.nodes.get(expressionIndex);
+    const expressionTag = expressionNode.tag.load(.acquire);
+
+    if (expressionIndex == 0 or expressionTag == .funcProto) {
+        return;
+    } else {
+        var expr = Expression.init(&self);
+        defer expr.deinit(alloc);
+
+        try expr.traceVariable(alloc, varI);
+    }
+}
+
 pub fn checkVariable(self: TranslationUnit, alloc: Allocator, nodeIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
     const node = self.global.nodes.get(nodeIndex);
     // NOTE: At the time being this is not changed so it should be fine;
