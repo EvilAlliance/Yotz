@@ -84,7 +84,9 @@ fn checkTypeFunction(self: TranslationUnit, alloc: Allocator, funcTypeIndex: Par
 
 pub fn checkReturn(self: TranslationUnit, alloc: Allocator, nodeI: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
     const stmt = self.global.nodes.get(nodeI);
-    try Expression.checkType(self, alloc, stmt.data[1].load(.acquire), typeI, reports);
+    var expr = Expression.init(&self);
+    defer expr.deinit(alloc);
+    try expr.checkType(alloc, stmt.data[1].load(.acquire), typeI, reports);
 }
 
 fn checkPureVariable(self: TranslationUnit, alloc: Allocator, varIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
@@ -92,8 +94,12 @@ fn checkPureVariable(self: TranslationUnit, alloc: Allocator, varIndex: Parser.N
 
     const typeIndex = variable.data[0].load(.acquire);
 
+    var expr = Expression.init(&self);
+    defer expr.deinit(alloc);
+
     if (typeIndex == 0) {
-        if (!try Expression.inferType(self, alloc, varIndex, variable.data.@"1".load(.acquire), reports)) return;
+        if (!try expr.inferType(alloc, varIndex, variable.data.@"1".load(.acquire), reports)) return;
+        expr.reset();
     } else {
         Type.transformType(self, typeIndex);
     }
@@ -103,7 +109,7 @@ fn checkPureVariable(self: TranslationUnit, alloc: Allocator, varIndex: Parser.N
     std.debug.assert(typeIndex2 != 0);
     const exprI = variable.data.@"1".load(.acquire);
 
-    try Expression.checkType(self, alloc, exprI, typeIndex2, reports);
+    try expr.checkType(alloc, exprI, typeIndex2, reports);
 }
 
 const Expression = @import("Expression.zig");

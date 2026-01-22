@@ -14,6 +14,11 @@ pub fn ArrayListThreadSafe(comptime T: type) type {
             defer self.mutex.unlock();
             try self.items.append(alloc, item);
         }
+        pub fn appendBounded(self: *Self, item: T) Allocator.Error!void {
+            self.mutex.lock();
+            defer self.mutex.unlock();
+            try self.items.appendBounded(item);
+        }
 
         pub fn appendUnlock(self: *Self, alloc: Allocator, item: T) Allocator.Error!void {
             try self.items.append(alloc, item);
@@ -76,6 +81,13 @@ pub fn ArrayListThreadSafe(comptime T: type) type {
             defer self.mutex.unlock();
 
             try self.items.resize(alloc, newLength);
+        }
+
+        pub fn pop(self: *Self) ?T {
+            self.mutex.lock();
+            defer self.mutex.unlock();
+
+            return self.items.pop();
         }
     };
 }

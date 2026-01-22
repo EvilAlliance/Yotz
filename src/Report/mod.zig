@@ -10,6 +10,7 @@ pub const missingMain = Report.missingMain;
 pub const undefinedVariable = Report.undefinedVariable;
 pub const redefinition = Report.redefinition;
 pub const definedLater = Report.definedLater;
+pub const dependencyCycle = Report.dependencyCycle;
 
 pub const Reports = Bucketarray(Report, usize, ReportBucketSize);
 
@@ -20,6 +21,7 @@ pub const MissingMain = @import("MissingMain.zig");
 pub const UndefinedVariable = @import("UndefinedVariable.zig");
 pub const Redefinition = @import("Redefinition.zig");
 pub const DefinedLater = @import("DefinedLater.zig");
+pub const DependencyCycle = @import("DependencyCycle.zig");
 
 const Bucketarray = @import("../Util/BucketArray.zig").BucketArray;
 

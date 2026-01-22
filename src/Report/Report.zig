@@ -8,6 +8,7 @@ message: union(enum) {
     undefinedVariable: mod.UndefinedVariable,
     redefinition: mod.Redefinition,
     definedLater: mod.DefinedLater,
+    dependencyCycle: mod.DependencyCycle,
 },
 
 pub fn display(self: *const Self, message: mod.Message) void {
@@ -19,6 +20,7 @@ pub fn display(self: *const Self, message: mod.Message) void {
         .undefinedVariable => |uv| uv.display(message),
         .redefinition => |rd| rd.display(message),
         .definedLater => |dl| dl.display(message),
+        .dependencyCycle => |dc| dc.display(message),
     }
 }
 
@@ -118,6 +120,17 @@ pub fn definedLater(alloc: Allocator, reports: ?*mod.Reports, name: Parser.NodeI
     }
 
     return TypeCheck.Expression.Error.UndefVar;
+}
+
+pub fn dependencyCycle(alloc: Allocator, cycle: []const Parser.NodeIndex) Allocator.Error!Self {
+    const cycleCopy = try alloc.dupe(Parser.NodeIndex, cycle);
+    return .{
+        .message = .{
+            .dependencyCycle = .{
+                .cycle = cycleCopy,
+            },
+        },
+    };
 }
 
 const mod = @import("mod.zig");

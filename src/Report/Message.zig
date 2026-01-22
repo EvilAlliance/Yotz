@@ -264,6 +264,30 @@ const Error = struct {
             },
         );
     }
+
+    pub inline fn dependencyCycle(self: @This(), cycle: []const Parser.NodeIndex) void {
+        std.log.err("Dependency cycle detected with length {}:", .{cycle.len});
+
+        for (cycle, 0..) |nodeI, i| {
+            const node = self.global.nodes.get(nodeI);
+            const loc = node.getLocation(self.global);
+            const fileInfo = self.global.files.get(loc.source);
+            const where = placeSlice(loc, fileInfo.source);
+
+            std.log.info(
+                "{}. {s}:{}:{}: \n     {s}\n     {[5]c: >[6]}",
+                .{
+                    i + 1,
+                    fileInfo.path,
+                    loc.row,
+                    loc.col,
+                    fileInfo.source[where.beg..where.end],
+                    '^',
+                    where.pad,
+                },
+            );
+        }
+    }
 };
 
 const Info = struct {
