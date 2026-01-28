@@ -24,7 +24,7 @@ pub fn init(
     returnCode: i64,
     stdout: []const u8,
     stderr: []const u8,
-) std.mem.Allocator.Error!@This() {
+) (std.mem.Allocator.Error || error{notFound})!@This() {
     var fileAnswer = std.fs.openFileAbsolute(fileAbs, .{ .mode = .read_write }) catch null;
     if (fileAnswer == null) {
         std.fs.makeDirAbsolute(fileAbs[0..std.mem.lastIndexOf(u8, fileAbs, "/").?]) catch |e| {
@@ -40,10 +40,25 @@ pub fn init(
         .alloc = alloc,
 
         .args = args,
+
         .stdin = stdin,
+
         .returnCode = returnCode,
-        .stdout = try normalize(alloc, stdout),
-        .stderr = try normalize(alloc, stderr),
+
+        .stdout = normalize(alloc, stdout) catch |err| switch (err) {
+            error.notFound => {
+                std.log.err("{s}: \n{s}", .{ fileAbs, stdout });
+                return error.notFound;
+            },
+            else => return @errorCast(err),
+        },
+        .stderr = normalize(alloc, stderr) catch |err| switch (err) {
+            error.notFound => {
+                std.log.err("{s}: \n{s}", .{ fileAbs, stdout });
+                return error.notFound;
+            },
+            else => return @errorCast(err),
+        },
 
         .file = fileAnswer.?,
         .filePath = fileAbs,

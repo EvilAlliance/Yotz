@@ -4,7 +4,7 @@ const Report = struct {
     column: u32,
 };
 
-pub fn normalize(alloc: Allocator, str: []const u8) Allocator.Error![]const u8 {
+pub fn normalize(alloc: Allocator, str: []const u8) (Allocator.Error || error{notFound})![]const u8 {
     const firstReport = nextReport(str) orelse return str;
 
     var list = try std.ArrayList(u8).initCapacity(alloc, str.len);
@@ -19,7 +19,7 @@ pub fn normalize(alloc: Allocator, str: []const u8) Allocator.Error![]const u8 {
         const next = (nextReport(reports[current + 1 ..]) orelse reports.len - 1) + 1;
         const reportText = reports[current..next];
 
-        const location = parseLocation(reportText);
+        const location = try parseLocation(reportText);
 
         try reportList.append(alloc, .{
             .text = reportText,
@@ -44,8 +44,8 @@ pub fn normalize(alloc: Allocator, str: []const u8) Allocator.Error![]const u8 {
     return list.items;
 }
 
-fn parseLocation(reportText: []const u8) struct { line: u32, column: u32 } {
-    const start = std.mem.indexOf(u8, reportText, "]: ").?;
+fn parseLocation(reportText: []const u8) error{notFound}!struct { line: u32, column: u32 } {
+    const start = std.mem.indexOf(u8, reportText, "]: ") orelse return error.notFound;
     const afterLevel = start + 3; // Skip ]: and space
 
     const firtColon: usize = std.mem.indexOf(u8, reportText[afterLevel..], ":").? + afterLevel;

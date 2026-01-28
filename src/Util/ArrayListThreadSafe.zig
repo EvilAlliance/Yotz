@@ -89,6 +89,12 @@ pub fn ArrayListThreadSafe(comptime T: type) type {
 
             return self.items.pop();
         }
+
+        pub fn allocatedSclice(self: *Self) []T {
+            self.mutex.lock();
+            defer self.mutex.unlock();
+            return self.items.allocatedSlice();
+        }
     };
 }
 

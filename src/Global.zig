@@ -72,6 +72,7 @@ pub fn deinitStage2(self: *Self, alloc: Allocator) void {
     self.tokens.deinit(alloc);
     self.nodes.deinit(alloc);
     self.readyTu.deinit(alloc);
+    Typing.Expression.deinitStatic(alloc);
 }
 
 pub fn toStringToken(self: *Self, alloc: std.mem.Allocator) Allocator.Error![]const u8 {

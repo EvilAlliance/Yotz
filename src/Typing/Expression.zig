@@ -1,7 +1,5 @@
 const Self = @This();
 
-const Flatten = std.ArrayList(Parser.NodeIndex);
-
 pub const Error = error{
     TooBig,
     IncompatibleType,
@@ -33,21 +31,27 @@ pub const CycleUnit = struct {
     }
 };
 
-var buf: [std.math.pow(usize, 2, 9)]std.ArrayList(CycleUnit) = undefined;
-var reuse = ArrayListThreadSafe(std.ArrayList(CycleUnit)){
+var bufCycle: [std.math.pow(usize, 2, 9)]std.ArrayList(CycleUnit) = undefined;
+var reuseCycle = ArrayListThreadSafe(std.ArrayList(CycleUnit)){
     .items = .{
-        .items = buf[0..0],
-        .capacity = buf.len,
+        .items = bufCycle[0..0],
+        .capacity = bufCycle.len,
     },
 };
 
-tu: *const TranslationUnit,
-hasCycle: std.ArrayList(CycleUnit),
+const startCycleUnitSize = 32;
 
-pub fn init(tu: *const TranslationUnit) Self {
+tu: *const TranslationUnit,
+hasCycle: std.ArrayList(CycleUnit) = .{},
+
+pub fn init(alloc: Allocator, tu: *const TranslationUnit) Allocator.Error!Self {
     const self: Self = .{
         .tu = tu,
-        .hasCycle = reuse.pop() orelse .{},
+        .hasCycle = reuseCycle.pop() orelse blk: {
+            var hasCycle = std.ArrayList(CycleUnit){};
+            try hasCycle.ensureTotalCapacity(alloc, startCycleUnitSize);
+            break :blk hasCycle;
+        },
     };
 
     return self;
@@ -59,7 +63,13 @@ pub fn reset(self: *Self) void {
 
 pub fn deinit(self: *Self, alloc: Allocator) void {
     self.hasCycle.clearRetainingCapacity();
-    reuse.appendBounded(self.hasCycle) catch self.hasCycle.deinit(alloc);
+    reuseCycle.appendBounded(self.hasCycle) catch {
+        self.hasCycle.deinit(alloc);
+    };
+}
+
+pub fn deinitStatic(alloc: Allocator) void {
+    for (reuseCycle.slice()) |*x| x.deinit(alloc);
 }
 
 fn push(self: *Self, alloc: Allocator, varIndex: Parser.NodeIndex, reason: Reason) (Allocator.Error)!void {
@@ -87,22 +97,36 @@ pub fn traceVariable(self: *Self, alloc: Allocator, varI: Parser.NodeIndex) Allo
     var variable = self.tu.global.nodes.get(varI);
     const exprI = variable.data.@"1".load(.acquire);
 
-    var flat = Flatten{};
-    defer flat.deinit(alloc);
+    try self._traceVariable(alloc, exprI);
+}
 
-    try self.flatten(alloc, &flat, exprI);
+fn _traceVariable(self: *Self, alloc: Allocator, exprI: Parser.NodeIndex) Allocator.Error!void {
+    const expr = self.tu.global.nodes.get(exprI);
+    switch (expr.tag.load(.acquire)) {
+        .load => {
+            try self.push(alloc, exprI, .cycleGlobalTracing);
+            defer self.pop();
 
-    while (flat.pop()) |nodeI| {
-        const node = self.tu.global.nodes.get(nodeI);
-        switch (node.tag.load(.acquire)) {
-            .load => {
-                try self.push(alloc, nodeI, .cycleGlobalTracing);
-                defer self.pop();
+            try self.traceVariable(alloc, self.tu.scope.get(expr.getText(self.tu.global)) orelse return);
+        },
+        .neg => {
+            const left = expr.data[0].load(.acquire);
 
-                try self.traceVariable(alloc, self.tu.scope.get(node.getText(self.tu.global)) orelse return);
-            },
-            else => {},
-        }
+            try self.traceVariable(alloc, left);
+        },
+        .addition,
+        .subtraction,
+        .multiplication,
+        .division,
+        .power,
+        => {
+            const left = expr.data[0].load(.acquire);
+            const right = expr.data[1].load(.acquire);
+
+            try self.traceVariable(alloc, left);
+            try self.traceVariable(alloc, right);
+        },
+        else => {},
     }
 }
 
@@ -119,91 +143,67 @@ pub fn inferType(self: *Self, alloc: Allocator, varI: Parser.NodeIndex, exprI: P
     const variableToInferTag = variableToInfer.tag.load(.acquire);
     assert(Util.listContains(Parser.Node.Tag, &.{ .variable, .constant }, variableToInferTag));
 
-    var flat = Flatten{};
-    defer flat.deinit(alloc);
+    const typeI = try self._inferType(alloc, exprI, reports);
 
-    try self.flatten(alloc, &flat, exprI);
+    if (typeI == null) return false;
 
-    var firstSelected: Parser.NodeIndex = 0;
-    var oldTypeIndex: Parser.NodeIndex = 0;
-    var type_: Parser.Node = .{};
-
-    while (flat.items.len > 0) {
-        const firstI = flat.pop().?;
-        const first = self.tu.global.nodes.get(firstI);
-
-        if (first.tag.load(.acquire) != .load) continue;
-
-        const id = first.getText(self.tu.global);
-        const varia = self.tu.scope.get(id) orelse return Report.undefinedVariable(alloc, reports, firstI);
-
-        const variable = self.tu.global.nodes.get(varia);
-        const newTypeI = variable.data.@"0".load(.acquire);
-        if (newTypeI == 0) continue;
-
-        const newType = self.tu.global.nodes.get(newTypeI);
-        if (oldTypeIndex == 0 or (!Type.canTypeBeCoerced(self.tu.*, newTypeI, oldTypeIndex) and Type.canTypeBeCoerced(self.tu.*, oldTypeIndex, newTypeI))) {
-            firstSelected = firstI;
-            oldTypeIndex = newTypeI;
-            type_ = newType;
-        } else {
-            return Report.incompatibleType(alloc, reports, newTypeI, oldTypeIndex, firstI, varia);
-        }
-    }
-
-    if (oldTypeIndex == 0) return false;
-
-    try self.addInferType(alloc, .inferedFromExpression, firstSelected, varI, oldTypeIndex);
+    try self.addInferType(alloc, .inferedFromExpression, typeI.?.placeI, varI, typeI.?.typeI);
 
     return true;
 }
 
-pub fn checkType(self: *Self, alloc: Allocator, exprI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
-    try self.push(alloc, exprI, .check);
-    defer self.pop();
-
-    const expr = self.tu.global.nodes.get(exprI);
-    const expectedType = self.tu.global.nodes.get(expectedTypeI);
-
-    const typeTag = expectedType.tag.load(.acquire);
-    const exprTag = expr.tag.load(.acquire);
-    assert(typeTag == .type);
-    assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, exprTag));
-
-    var flat = Flatten{};
-    defer flat.deinit(alloc);
-
-    try self.flatten(alloc, &flat, exprI);
-
-    try self.checkFlatten(alloc, &flat, expectedTypeI, reports);
-}
-
-fn flatten(self: *Self, alloc: Allocator, stack: *Flatten, exprI: Parser.NodeIndex) std.mem.Allocator.Error!void {
+pub fn _inferType(self: *Self, alloc: Allocator, exprI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!?struct { typeI: Parser.NodeIndex, placeI: Parser.NodeIndex } {
     const expr = self.tu.global.nodes.get(exprI);
     const exprTag = expr.tag.load(.acquire);
-    assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, exprTag));
 
     switch (exprTag) {
-        .lit => {
-            try stack.append(alloc, exprI);
-        },
+        .lit => return null,
         .load => {
-            try stack.append(alloc, exprI);
+            const leaf = expr;
+            const id = leaf.getText(self.tu.global);
+
+            const variableI = self.tu.scope.get(id) orelse return Report.undefinedVariable(alloc, reports, exprI);
+
+            const variable = self.tu.global.nodes.get(variableI);
+            const typeIndex = variable.data.@"0".load(.acquire);
+
+            return if (typeIndex == 0) null else .{ .typeI = typeIndex, .placeI = exprI };
         },
+
         .neg => {
             const left = expr.data[0].load(.acquire);
 
-            try flatten(self, alloc, stack, left);
-
-            try stack.append(alloc, exprI);
+            return self._inferType(alloc, left, reports);
         },
-        .addition, .subtraction, .multiplication, .division, .power => {
+
+        .addition,
+        .subtraction,
+        .multiplication,
+        .division,
+        .power,
+        => {
             const left = expr.data[0].load(.acquire);
             const right = expr.data[1].load(.acquire);
 
-            try flatten(self, alloc, stack, left);
-            try stack.append(alloc, exprI);
-            try flatten(self, alloc, stack, right);
+            const typeLI = try self._inferType(alloc, left, reports);
+            const typeRI = try self._inferType(alloc, right, reports);
+
+            if (typeLI == null and typeRI == null) return null;
+            if (typeLI == null or typeRI == null) return if (typeLI == null) typeRI else typeLI;
+
+            if (typeLI != null and typeRI != null) {
+                if (Type.canTypeBeCoerced(self.tu.*, typeLI.?.typeI, typeRI.?.typeI)) return typeRI;
+                if (Type.canTypeBeCoerced(self.tu.*, typeRI.?.typeI, typeLI.?.typeI)) return typeLI;
+
+                return Report.incompatibleType(
+                    alloc,
+                    reports,
+                    typeLI.?.typeI,
+                    typeRI.?.typeI,
+                    exprI,
+                    self.tu.scope.get(self.tu.global.nodes.get(typeRI.?.placeI).getText(self.tu.global)).?,
+                );
+            }
         },
         else => {
             const loc = expr.getLocation(self.tu.global);
@@ -220,62 +220,68 @@ fn flatten(self: *Self, alloc: Allocator, stack: *Flatten, exprI: Parser.NodeInd
             });
         },
     }
+
+    unreachable;
 }
 
-fn checkFlatten(self: *Self, alloc: Allocator, flat: *Flatten, expectedTypeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
+pub fn checkType(self: *Self, alloc: Allocator, exprI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
+    try self.push(alloc, exprI, .check);
+    defer self.pop();
+
+    const expr = self.tu.global.nodes.get(exprI);
+    const expectedType = self.tu.global.nodes.get(expectedTypeI);
+
+    const typeTag = expectedType.tag.load(.acquire);
+    const exprTag = expr.tag.load(.acquire);
+    assert(typeTag == .type);
+    assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, exprTag));
+
+    try self.checkExpected(alloc, exprI, expectedTypeI, reports);
+}
+
+fn checkExpected(self: *Self, alloc: Allocator, exprI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
     const expectedType = self.tu.global.nodes.get(expectedTypeI);
     assert(expectedType.tag.load(.acquire) == .type);
 
-    while (flat.items.len > 0) {
-        const firstI = flat.getLast();
-        const first = self.tu.global.nodes.get(firstI);
+    const expr = self.tu.global.nodes.get(exprI);
+    const exprTag = expr.tag.load(.acquire);
 
-        if (first.tag.load(.acquire) != .neg) {
-            try checkLeaf(self, alloc, firstI, expectedTypeI, reports);
-            _ = flat.pop();
-        }
+    switch (exprTag) {
+        .lit => try self.checkLitType(alloc, exprI, expectedTypeI, reports),
+        .load => try self.checkVarType(alloc, exprI, expectedTypeI, reports),
 
-        while (flat.items.len > 0) {
-            const opI = flat.pop().?;
-            const op = self.tu.global.nodes.get(opI);
-            const opTag = op.tag.load(.acquire);
+        .neg => {
+            const left = expr.data[0].load(.acquire);
 
-            assert(Util.listContains(Parser.Node.Tag, &.{ .neg, .power, .division, .multiplication, .subtraction, .addition }, opTag));
+            try self.checkExpected(alloc, left, expectedTypeI, reports);
+        },
 
-            switch (opTag) {
-                .neg => break,
-                .power,
-                .division,
-                .multiplication,
-                .subtraction,
-                .addition,
-                => {
-                    const xI = flat.getLast();
-                    const x = self.tu.global.nodes.get(xI);
+        .addition,
+        .subtraction,
+        .multiplication,
+        .division,
+        .power,
+        => {
+            const left = expr.data[0].load(.acquire);
+            const right = expr.data[1].load(.acquire);
 
-                    if (x.tag.load(.acquire) == .neg) break;
-
-                    try checkLeaf(self, alloc, xI, expectedTypeI, reports);
-
-                    _ = flat.pop();
-                },
-                else => unreachable,
-            }
-        }
-    }
-}
-
-fn checkLeaf(self: *Self, alloc: Allocator, leafI: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
-    const leaf = self.tu.global.nodes.get(leafI);
-    const expectedType = self.tu.global.nodes.get(typeI);
-    const leafTag = leaf.tag.load(.acquire);
-
-    assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load }, leafTag) and expectedType.tag.load(.acquire) == .type);
-
-    switch (leafTag) {
-        .lit => try checkLitType(self, alloc, leafI, typeI, reports),
-        .load => try checkVarType(self, alloc, leafI, typeI, reports),
-        else => unreachable,
+            try self.checkExpected(alloc, left, expectedTypeI, reports);
+            try self.checkExpected(alloc, right, expectedTypeI, reports);
+        },
+        else => {
+            const loc = expr.getLocation(self.tu.global);
+            const fileInfo = self.tu.global.files.get(loc.source);
+            const where = Report.Message.placeSlice(loc, fileInfo.source);
+            std.debug.panic("{s}:{}:{}: Node not supported here: {}\n{s}\n{[5]c: >[6]}", .{
+                fileInfo.path,
+                loc.row,
+                loc.col,
+                exprTag,
+                fileInfo.source[where.beg..where.end],
+                '^',
+                where.pad,
+            });
+        },
     }
 }
 

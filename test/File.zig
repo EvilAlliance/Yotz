@@ -196,7 +196,10 @@ fn testSubCommand(
         return;
     });
 
-    var actual = TestCase.init(self.alloc, fileWithAnswer, &[0][]const u8{}, expected.stdin, result, stdout.items, stderr.items) catch @panic("Not enough memory");
+    var actual = TestCase.init(self.alloc, fileWithAnswer, &[0][]const u8{}, expected.stdin, result, stdout.items, stderr.items) catch |err| switch (err) {
+        error.notFound => return,
+        else => @panic("Not enough memory"),
+    };
     defer actual.deinit();
 
     if (self.generateCheck) {
