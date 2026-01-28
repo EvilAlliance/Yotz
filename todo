@@ -376,8 +376,10 @@
       {
         "id": "p24esSDp",
         "title": "stop using flatten",
-        "desc": "",
-        "time_created": "2026-01-12 18:47:33.470889566 -03:00:00"
+        "desc": "Make a recurse iterator, there is no need to resume and the array loses reason. ",
+        "time_created": "2026-01-12 18:47:33.470889566 -03:00:00",
+        "time_started": "2026-01-28 13:36:31.375355204 -03:00:00",
+        "time_completed": "2026-01-28 16:42:18.018993522 -03:00:00"
       },
       {
         "id": "jBF4uPJw",
