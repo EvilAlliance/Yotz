@@ -371,7 +371,9 @@
         "id": "GCrkBbRc",
         "title": "In the observer multiple do not use a LinkedList",
         "desc": "It is possible to use an array list of the handler and have a node in the struct which can point to the next unsed, there is not null if there is a free and point to some places into the arraylist",
-        "time_created": "2026-01-08 19:22:31.961898194 -03:00:00"
+        "time_created": "2026-01-08 19:22:31.961898194 -03:00:00",
+        "time_started": "2026-01-28 16:51:51.79688996 -03:00:00",
+        "time_completed": "2026-01-28 16:51:51.909872625 -03:00:00"
       },
       {
         "id": "p24esSDp",

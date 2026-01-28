@@ -69,18 +69,18 @@ pub const std_options = std.Options{
 };
 
 pub fn main() u8 {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    const allocArena = arena.allocator();
-    var allocSafe = std.heap.ThreadSafeAllocator{
-        .child_allocator = allocArena,
-        .mutex = std.Thread.Mutex{},
-    };
-    const alloc = allocSafe.allocator();
-    defer _ = arena.deinit();
+    // var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    // const allocArena = arena.allocator();
+    // var allocSafe = std.heap.ThreadSafeAllocator{
+    //     .child_allocator = allocArena,
+    //     .mutex = std.Thread.Mutex{},
+    // };
+    // const alloc = allocSafe.allocator();
+    // defer _ = arena.deinit();
 
-    // var generalPurpose: std.heap.DebugAllocator(.{ .thread_safe = true }) = .init;
-    // const alloc = generalPurpose.allocator();
-    // defer _ = generalPurpose.deinit();
+    var generalPurpose: std.heap.DebugAllocator(.{ .thread_safe = true }) = .init;
+    const alloc = generalPurpose.allocator();
+    defer _ = generalPurpose.deinit();
 
     const arguments = getArguments(alloc);
 

@@ -20,8 +20,7 @@ pub fn Multiple(Key: type, Args: type, ContextOpt: ?type) type {
             args: Args,
         };
 
-        bytes: [std.math.pow(usize, 2, 7)]*std.SinglyLinkedList.Node = undefined,
-        nodeList: std.ArrayList(*std.SinglyLinkedList.Node) = undefined,
+        node: std.SinglyLinkedList.Node = .{},
 
         pool: *std.Thread.Pool = undefined,
         mutex: std.Thread.Mutex = .{},
@@ -34,7 +33,6 @@ pub fn Multiple(Key: type, Args: type, ContextOpt: ?type) type {
 
         // PERF: Later check if listHandler is worth it
         pub fn init(self: *Self, pool: *std.Thread.Pool) void {
-            self.nodeList = .initBuffer(&self.bytes);
             self.pool = pool;
         }
 
@@ -46,7 +44,7 @@ pub fn Multiple(Key: type, Args: type, ContextOpt: ?type) type {
         }
 
         pub fn pushUnlock(self: *Self, alloc: Allocator, wait: Key, func: *const fn (Args) void, args: Args) Allocator.Error!void {
-            const handler: *Handler = if (self.nodeList.pop()) |handlerOld| @fieldParentPtr("node", handlerOld) else try alloc.create(Handler);
+            const handler: *Handler = if (self.node.removeNext()) |handlerOld| @fieldParentPtr("node", handlerOld) else try alloc.create(Handler);
 
             handler.* = .{
                 .func = func,
@@ -68,7 +66,7 @@ pub fn Multiple(Key: type, Args: type, ContextOpt: ?type) type {
             self.ctx.deinit(args, true);
         }
 
-        pub fn alert(self: *Self, alloc: Allocator, waited: Key) Allocator.Error!void {
+        pub fn alert(self: *Self, waited: Key) Allocator.Error!void {
             self.mutex.lock();
             defer self.mutex.unlock();
 
@@ -81,9 +79,7 @@ pub fn Multiple(Key: type, Args: type, ContextOpt: ?type) type {
                 try self.pool.spawn(executeHandler, .{ self, handler.func, handler.args });
 
                 node.next = null;
-                self.nodeList.appendBounded(node) catch {
-                    alloc.destroy(handler);
-                };
+                self.node.insertAfter(node);
             }
         }
 
@@ -97,7 +93,7 @@ pub fn Multiple(Key: type, Args: type, ContextOpt: ?type) type {
                 }
             }
 
-            while (self.nodeList.pop()) |n| {
+            while (self.node.removeNext()) |n| {
                 const handler: *Handler = @fieldParentPtr("node", n);
                 alloc.destroy(handler);
             }
