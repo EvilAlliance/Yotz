@@ -259,7 +259,7 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator, reports: ?*Report.Reports
         node.data[1].store(expr, .release);
     }
 
-    if (!func) try Report.expect(alloc, reports, self.peek()[0], &.{.semicolon});
+    if (!func) _ = self.popIf(.semicolon);
 
     return index;
 }
@@ -277,7 +277,7 @@ fn parseReturn(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std
 
     node.data[1].store(exp, .release);
 
-    if (!func) try Report.expect(alloc, reports, self.peek()[0], &.{.semicolon});
+    if (!func) _ = self.popIf(.semicolon);
 
     return nodeIndex;
 }
@@ -309,7 +309,7 @@ fn parseExpr(self: *@This(), alloc: Allocator, minPrecedence: u8, reports: ?*Rep
     var leftIndex = try self.parseTerm(alloc, reports);
     nextToken = self.peek()[0];
 
-    while (nextToken.tag != .semicolon and nextToken.tag != .closeParen) : (nextToken = self.peek()[0]) {
+    while (Util.listContains(Lexer.Token.Type, &.{ .plus, .minus, .asterik, .slash, .caret }, nextToken.tag)) : (nextToken = self.peek()[0]) {
         const op, const opIndex = self.peek();
         try Report.expect(alloc, reports, op, &.{ .plus, .minus, .asterik, .slash, .caret, .semicolon, .closeParen });
 

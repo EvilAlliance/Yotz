@@ -14,8 +14,8 @@ foo: () u8 : () u8 {
 outer: () u8 : () u8 { 
 } 
 
-:b stderr 471
-[ERROR]: Example/ParseError/NestedFunction.yt:3:20: Expected: "+", "-", "*", "/", "^", ";", ")" but found: '{' 
+:b stderr 441
+[ERROR]: Example/ParseError/NestedFunction.yt:3:20: Expected: ")" but found: '{' 
     nested :: ( u8 {
                    ^
 [ERROR]: Example/ParseError/NestedFunction.yt:13:19: Expected: "number literal", "(", "-", "identifier" but found: ';' 
@@ -23,5 +23,8 @@ outer: () u8 : () u8 {
                   ^
 [ERROR]: Example/ParseError/NestedFunction.yt:21:15: Expected: "number literal", "(", "-", "identifier" but found: ')' 
     middle :: ) u8 {
+              ^
+
+le :: ) u8 {
               ^
 
