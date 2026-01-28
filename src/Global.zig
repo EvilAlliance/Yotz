@@ -151,6 +151,8 @@ fn toStringType(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u
             else => unreachable,
         }
 
+        try self.toStringFlags(alloc, cont, t.flags.load(.acquire));
+
         index = t.next.load(.acquire);
 
         if (index != 0) {
@@ -273,6 +275,25 @@ fn toStringExpression(self: *@This(), alloc: std.mem.Allocator, cont: *std.Array
             try cont.appendSlice(alloc, node.getText(self));
         },
         else => unreachable,
+    }
+
+    try self.toStringFlags(alloc, cont, node.flags.load(.acquire));
+}
+
+fn toStringFlags(self: *Self, alloc: Allocator, cont: *std.ArrayList(u8), flags: Parser.Node.Flags) Allocator.Error!void {
+    _ = self;
+    const fields = std.meta.fields(Parser.Node.Flags);
+
+    inline for (fields) |field| {
+        if (field.type != bool) return;
+
+        const set = @field(flags, field.name);
+
+        if (set) {
+            try cont.append(alloc, ' ');
+            try cont.append(alloc, '#');
+            try cont.appendSlice(alloc, field.name);
+        }
     }
 }
 

@@ -2,8 +2,8 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 52
-a: u8 : 10;
+:b stdout 68
+a: u8 #inferedFromUse : 10;
 main: () u8 : () u8 { 
     return a;
 } 

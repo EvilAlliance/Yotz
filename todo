@@ -394,6 +394,12 @@
         "title": "Make optionals the semicolons at the end of a statement",
         "desc": "",
         "time_created": "2026-01-20 11:52:05.075938945 -03:00:00"
+      },
+      {
+        "id": "VZB3xpnw",
+        "title": "Maybe use DynamicBitSet instead of the bool ArrayList in Global",
+        "desc": "",
+        "time_created": "2026-01-28 17:06:53.20359133 -03:00:00"
       }
     ]
   }

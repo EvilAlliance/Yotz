@@ -294,17 +294,28 @@ fn checkVarType(self: *Self, alloc: Allocator, leafI: Parser.NodeIndex, typeI: P
     const variable = self.tu.global.nodes.get(varia);
     const typeIndex = variable.data.@"0".load(.acquire);
 
-    if (typeIndex == 0) {
-        try addInferType(self, alloc, .inferedFromUse, leafI, varia, typeI);
-    } else {
-        if (!Type.typeEqual(self.tu.*, typeIndex, typeI)) {
-            const tag = variable.tag.load(.acquire);
-            if (tag == .variable) {
-                return Report.incompatibleType(alloc, reports, typeIndex, typeI, leafI, varia);
-            } else {
-                assert(tag == .constant);
-                return addInferType(self, alloc, .inferedFromUse, leafI, varia, typeI);
-            }
+    if (typeIndex == 0)
+        return addInferType(self, alloc, .inferedFromUse, leafI, varia, typeI);
+
+    const tag = variable.tag.load(.acquire);
+
+    if (!Type.canTypeBeCoerced(self.tu.*, typeIndex, typeI)) {
+        if (tag == .constant)
+            return addInferType(self, alloc, .inferedFromUse, leafI, varia, typeI);
+        return Report.incompatibleType(alloc, reports, typeIndex, typeI, leafI, varia);
+    }
+
+    if (!Type.typeEqual(self.tu.*, typeIndex, typeI)) {
+        if (tag == .constant)
+            return addInferType(self, alloc, .inferedFromUse, leafI, varia, typeI);
+
+        var x: ?Parser.Node.Flags = .{};
+        while (x) |_| {
+            const pastFlags = leaf.flags.load(.acquire);
+            var flags = pastFlags;
+            flags.implicitCast = true;
+
+            x = self.tu.global.nodes.getPtr(leafI).flags.cmpxchgWeak(pastFlags, flags, .acquire, .monotonic);
         }
     }
 }
