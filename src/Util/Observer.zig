@@ -97,6 +97,11 @@ pub fn Multiple(Key: type, Args: type, ContextOpt: ?type) type {
                 }
             }
 
+            while (self.nodeList.pop()) |n| {
+                const handler: *Handler = @fieldParentPtr("node", n);
+                alloc.destroy(handler);
+            }
+
             self.eventToFunc.deinit(alloc);
         }
     };
