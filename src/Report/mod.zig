@@ -12,7 +12,7 @@ pub const redefinition = Report.redefinition;
 pub const definedLater = Report.definedLater;
 pub const dependencyCycle = Report.dependencyCycle;
 
-pub const Reports = Bucketarray(Report, usize, ReportBucketSize);
+pub const Reports = ArrayListThreadSafe(Report);
 
 pub const UnexpectedToken = @import("UnexpectedToken.zig");
 pub const IncompatibleType = @import("IncompatibleType.zig");
@@ -24,5 +24,6 @@ pub const DefinedLater = @import("DefinedLater.zig");
 pub const DependencyCycle = @import("DependencyCycle.zig");
 
 const Bucketarray = @import("../Util/BucketArray.zig").BucketArray;
+const ArrayListThreadSafe = @import("../Util/ArrayListThreadSafe.zig").ArrayListThreadSafe;
 
 const std = @import("std");

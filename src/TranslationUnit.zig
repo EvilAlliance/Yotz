@@ -146,8 +146,13 @@ pub fn startEntry(alloc: Allocator, arguments: *const ParseArgs.Arguments) std.m
 
     if (!try global.addFile(alloc, arguments.path)) return .{ "", 1 };
 
-    var reports = Report.Reports{};
-    defer reports.deinit(alloc);
+    var repBuff: [128]Report.Report = undefined;
+    var reports = Report.Reports{
+        .items = .{
+            .items = repBuff[0..0],
+            .capacity = repBuff.len,
+        },
+    };
 
     if (arguments.subCom != .Lexer) {
         const tu = try initRoot(alloc, &global);
@@ -160,8 +165,8 @@ pub fn startEntry(alloc: Allocator, arguments: *const ParseArgs.Arguments) std.m
     const ret = try waitForWork(alloc, &global);
 
     const message = Report.Message.init(&global);
-    for (0..reports.nextIndex.load(.acquire)) |i| {
-        reports.get(i).display(message);
+    for (reports.slice()) |r| {
+        r.display(message);
     }
 
     return ret;

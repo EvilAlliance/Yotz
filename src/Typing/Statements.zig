@@ -2,7 +2,10 @@ pub fn recordVariable(self: *const TranslationUnit, alloc: Allocator, varIndex: 
     const variable = self.global.nodes.get(varIndex);
 
     self.scope.put(alloc, variable.getText(self.global), varIndex) catch |err| switch (err) {
-        Scope.Error.KeyAlreadyExists => try Report.redefinition(alloc, reports, varIndex, self.scope.get(variable.getText(self.global)).?),
+        Scope.Error.KeyAlreadyExists => {
+            Report.redefinition(reports, varIndex, self.scope.get(variable.getText(self.global)).?);
+            return Scope.Error.KeyAlreadyExists;
+        },
         else => return @errorCast(err),
     };
 }
@@ -49,7 +52,7 @@ fn checkFunctionOuter(self: *const TranslationUnit, alloc: Allocator, variableIn
         const typeIndex = variable.data[0].load(.acquire);
         if (typeIndex != 0) {
             Type.transformType(self, typeIndex);
-            try checkTypeFunction(self, alloc, typeIndex, funcIndex, reports);
+            try checkTypeFunction(self, typeIndex, funcIndex, reports);
             break;
         } else {
             const result = try inferTypeFunction(self, alloc, variableIndex, funcIndex);
@@ -81,7 +84,7 @@ fn inferTypeFunction(self: *const TranslationUnit, alloc: Allocator, variableInd
     return result == null;
 }
 
-fn checkTypeFunction(self: *const TranslationUnit, alloc: Allocator, funcTypeIndex: Parser.NodeIndex, funcIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
+fn checkTypeFunction(self: *const TranslationUnit, funcTypeIndex: Parser.NodeIndex, funcIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Expression.Error)!void {
     const funcProto = self.global.nodes.get(funcIndex);
     std.debug.assert(funcProto.tag.load(.acquire) == .funcProto);
     std.debug.assert(funcProto.data[0].load(.acquire) == 0);
@@ -95,7 +98,7 @@ fn checkTypeFunction(self: *const TranslationUnit, alloc: Allocator, funcTypeInd
     const retTypeIndex = funcType.data[1].load(.acquire);
 
     if (!Type.typeEqual(self, funcRetTypeIndex, retTypeIndex)) {
-        return Report.incompatibleType(alloc, reports, retTypeIndex, funcRetTypeIndex, funcRetTypeIndex, 0);
+        return Report.incompatibleType(reports, retTypeIndex, funcRetTypeIndex, funcRetTypeIndex, 0);
     }
 }
 

@@ -360,7 +360,9 @@
         "id": "qyRcGaBX",
         "title": "Report when adding to the list do not use an extending list to not need the allocator, and 128 is too many errors to print",
         "desc": "",
-        "time_created": "2025-12-30 18:04:00.923226232 -03:00:00"
+        "time_created": "2025-12-30 18:04:00.923226232 -03:00:00",
+        "time_started": "2026-01-28 18:23:35.543897739 -03:00:00",
+        "time_completed": "2026-01-28 18:40:03.104243568 -03:00:00"
       },
       {
         "id": "vyvtnQyd",

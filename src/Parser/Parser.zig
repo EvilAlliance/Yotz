@@ -68,13 +68,12 @@ fn _parseRoot(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.
     var t, _ = self.peek();
 
     while (t.tag != .EOF) : (t, _ = self.peek()) {
-        Report.expect(alloc, reports, t, &.{.iden}) catch |err|
+        Report.expect(reports, t, &.{.iden}) catch |err|
             switch (err) {
                 Error.UnexpectedToken => {
                     self.popUnil(.iden);
                     continue;
                 },
-                else => return @errorCast(err),
             };
 
         const nodeIndex = switch (t.tag) {
@@ -134,9 +133,9 @@ fn skipBlock(self: *@This()) void {
 }
 
 fn parseFuncProto(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
-    try Report.expect(alloc, reports, self.pop()[0], &.{.openParen});
+    try Report.expect(reports, self.pop()[0], &.{.openParen});
     // TODO: Parse arguments
-    try Report.expect(alloc, reports, self.pop()[0], &.{.closeParen});
+    try Report.expect(reports, self.pop()[0], &.{.closeParen});
 
     const p = try self.parseType(alloc, reports);
 
@@ -148,9 +147,9 @@ fn parseFuncProto(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (
 fn parseTypeFunction(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
     assert(Util.listContains(Lexer.Token.Type, &.{.openParen}, self.peek()[0].tag));
 
-    try Report.expect(alloc, reports, self.peek()[0], &.{.openParen});
+    try Report.expect(reports, self.peek()[0], &.{.openParen});
     _, const initI = self.pop();
-    try Report.expect(alloc, reports, self.peek()[0], &.{.closeParen});
+    try Report.expect(reports, self.peek()[0], &.{.closeParen});
     _ = self.pop();
 
     const x = try self.parseType(alloc, reports);
@@ -165,7 +164,7 @@ fn parseTypeFunction(self: *@This(), alloc: Allocator, reports: ?*Report.Reports
 }
 
 fn parseType(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
-    try Report.expect(alloc, reports, self.peek()[0], &.{ .openParen, .iden });
+    try Report.expect(reports, self.peek()[0], &.{ .openParen, .iden });
     if (self.peek()[0].tag == .openParen) {
         return try self.parseTypeFunction(alloc, reports);
     } else {
@@ -203,7 +202,7 @@ fn parseScope(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.
         lastNodeParsed = nodeIndex;
     }
 
-    try Report.expect(alloc, reports, self.peek()[0], &.{.closeBrace});
+    try Report.expect(reports, self.peek()[0], &.{.closeBrace});
     _ = self.pop();
 
     const nodeIndex = try self.tu.global.nodes.appendIndex(alloc, .{
@@ -215,7 +214,7 @@ fn parseScope(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.
 }
 
 fn parseStatement(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
-    try Report.expect(alloc, reports, self.peek()[0], &.{ .ret, .iden });
+    try Report.expect(reports, self.peek()[0], &.{ .ret, .iden });
 
     const nodeIndex = switch (self.peek()[0].tag) {
         .ret => try self.parseReturn(alloc, reports),
@@ -238,7 +237,7 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator, reports: ?*Report.Reports
 
     const node = self.tu.global.nodes.getPtr(index);
 
-    try Report.expect(alloc, reports, self.peek()[0], &.{.colon});
+    try Report.expect(reports, self.peek()[0], &.{.colon});
     _ = self.pop();
 
     const possibleType = self.peek()[0];
@@ -309,7 +308,7 @@ fn parseExpr(self: *@This(), alloc: Allocator, minPrecedence: u8, reports: ?*Rep
 
     while (Util.listContains(Lexer.Token.Type, &.{ .plus, .minus, .asterik, .slash, .caret }, nextToken.tag)) : (nextToken = self.peek()[0]) {
         const op, const opIndex = self.peek();
-        try Report.expect(alloc, reports, op, &.{ .plus, .minus, .asterik, .slash, .caret, .semicolon, .closeParen });
+        try Report.expect(reports, op, &.{ .plus, .minus, .asterik, .slash, .caret, .semicolon, .closeParen });
 
         const tag: Node.Tag = Expression.tokenTagToNodeTag(op.tag);
         const prec = Expression.operandPresedence(tag);
@@ -334,7 +333,7 @@ fn parseExpr(self: *@This(), alloc: Allocator, minPrecedence: u8, reports: ?*Rep
 fn parseTerm(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
     const nextToken = self.peek()[0];
 
-    try Report.expect(alloc, reports, nextToken, &[_]Lexer.Token.Type{ .numberLiteral, .openParen, .minus, .iden });
+    try Report.expect(reports, nextToken, &[_]Lexer.Token.Type{ .numberLiteral, .openParen, .minus, .iden });
 
     switch (nextToken.tag) {
         .numberLiteral => {
@@ -369,7 +368,7 @@ fn parseTerm(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.m
             _ = self.pop();
 
             const expr = try self.parseExpression(alloc, reports);
-            try Report.expect(alloc, reports, self.peek()[0], &.{.closeParen});
+            try Report.expect(reports, self.peek()[0], &.{.closeParen});
 
             _ = self.pop();
 

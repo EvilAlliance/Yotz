@@ -162,7 +162,7 @@ pub fn _inferType(self: *Self, alloc: Allocator, exprI: Parser.NodeIndex, report
             const leaf = expr;
             const id = leaf.getText(self.tu.global);
 
-            const variableI = self.tu.scope.get(id) orelse return Report.undefinedVariable(alloc, reports, exprI);
+            const variableI = self.tu.scope.get(id) orelse return Report.undefinedVariable(reports, exprI);
 
             const variable = self.tu.global.nodes.get(variableI);
             const typeIndex = variable.data.@"0".load(.acquire);
@@ -196,7 +196,6 @@ pub fn _inferType(self: *Self, alloc: Allocator, exprI: Parser.NodeIndex, report
                 if (Type.canTypeBeCoerced(self.tu.*, typeRI.?.typeI, typeLI.?.typeI)) return typeLI;
 
                 return Report.incompatibleType(
-                    alloc,
                     reports,
                     typeLI.?.typeI,
                     typeRI.?.typeI,
@@ -247,7 +246,7 @@ fn checkExpected(self: *Self, alloc: Allocator, exprI: Parser.NodeIndex, expecte
     const exprTag = expr.tag.load(.acquire);
 
     switch (exprTag) {
-        .lit => try self.checkLitType(alloc, exprI, expectedTypeI, reports),
+        .lit => try self.checkLitType(exprI, expectedTypeI, reports),
         .load => try self.checkVarType(alloc, exprI, expectedTypeI, reports),
 
         .neg => {
@@ -289,7 +288,7 @@ fn checkVarType(self: *Self, alloc: Allocator, leafI: Parser.NodeIndex, typeI: P
     const leaf = self.tu.global.nodes.get(leafI);
     const id = leaf.getText(self.tu.global);
 
-    const varia = self.tu.scope.get(id) orelse return Report.undefinedVariable(alloc, reports, leafI);
+    const varia = self.tu.scope.get(id) orelse return Report.undefinedVariable(reports, leafI);
 
     const variable = self.tu.global.nodes.get(varia);
     const typeIndex = variable.data.@"0".load(.acquire);
@@ -302,7 +301,7 @@ fn checkVarType(self: *Self, alloc: Allocator, leafI: Parser.NodeIndex, typeI: P
     if (!Type.canTypeBeCoerced(self.tu.*, typeIndex, typeI)) {
         if (tag == .constant)
             return addInferType(self, alloc, .inferedFromUse, leafI, varia, typeI);
-        return Report.incompatibleType(alloc, reports, typeIndex, typeI, leafI, varia);
+        return Report.incompatibleType(reports, typeIndex, typeI, leafI, varia);
     }
 
     if (!Type.typeEqual(self.tu, typeIndex, typeI)) {
@@ -347,7 +346,7 @@ fn addInferType(self: *Self, alloc: Allocator, comptime flag: std.meta.FieldEnum
     self.tu.global.nodes.getPtr(varI).data.@"0".store(x, .release);
 }
 
-fn checkLitType(self: *Self, alloc: Allocator, litI: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
+fn checkLitType(self: *Self, litI: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) (Error)!void {
     const lit = self.tu.global.nodes.get(litI);
     const expectedType = self.tu.global.nodes.get(typeI);
 
@@ -360,18 +359,18 @@ fn checkLitType(self: *Self, alloc: Allocator, litI: Parser.NodeIndex, typeI: Pa
     switch (@as(Parser.Node.Primitive, @enumFromInt(primitive))) {
         Parser.Node.Primitive.uint => {
             const max = std.math.pow(u64, 2, size) - 1;
-            const number = std.fmt.parseInt(u64, text, 10) catch return Report.incompatibleLiteral(alloc, reports, litI, typeI);
+            const number = std.fmt.parseInt(u64, text, 10) catch return Report.incompatibleLiteral(reports, litI, typeI);
 
             if (number < max) return;
-            return Report.incompatibleLiteral(alloc, reports, litI, typeI);
+            return Report.incompatibleLiteral(reports, litI, typeI);
         },
         Parser.Node.Primitive.sint => {
             const max = std.math.pow(i64, 2, (size - 1)) - 1;
             const number = std.fmt.parseInt(i64, text, 10) catch
-                return Report.incompatibleLiteral(alloc, reports, litI, typeI);
+                return Report.incompatibleLiteral(reports, litI, typeI);
 
             if (number < max) return;
-            return Report.incompatibleLiteral(alloc, reports, litI, typeI);
+            return Report.incompatibleLiteral(reports, litI, typeI);
         },
         Parser.Node.Primitive.float => unreachable,
     }
