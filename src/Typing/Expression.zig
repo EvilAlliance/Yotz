@@ -1,6 +1,45 @@
 const Self = @This();
 
-const Flatten = std.ArrayList(Parser.NodeIndex);
+const Flatten = struct {
+    items: std.ArrayList(Parser.NodeIndex) = .{},
+
+    fn init(alloc: Allocator) Allocator.Error!@This() {
+        return reuseFlatten.pop() orelse {
+            var flat = @This(){};
+            try flat.items.ensureTotalCapacity(alloc, startFlatSize);
+            return flat;
+        };
+    }
+
+    pub fn deinit(self: *@This(), alloc: Allocator) void {
+        self._deinit(alloc, true);
+    }
+
+    pub fn _deinit(self: *@This(), alloc: Allocator, comptime b: bool) void {
+        self.items.clearRetainingCapacity();
+        if (b) reuseFlatten.appendBounded(self.*) catch self.items.deinit(alloc) else self.items.deinit(alloc);
+    }
+
+    pub inline fn slice(self: *@This()) []Parser.NodeIndex {
+        return self.items.items;
+    }
+
+    pub inline fn sliceConst(self: *@This()) []const Parser.NodeIndex {
+        return self.items.items;
+    }
+
+    pub inline fn append(self: *@This(), alloc: Allocator, nodeI: Parser.NodeIndex) Allocator.Error!void {
+        try self.items.append(alloc, nodeI);
+    }
+
+    pub inline fn pop(self: *@This()) ?Parser.NodeIndex {
+        return self.items.pop();
+    }
+
+    pub inline fn getLast(self: *@This()) Parser.NodeIndex {
+        return self.items.getLast();
+    }
+};
 
 pub const Error = error{
     TooBig,
@@ -33,21 +72,36 @@ pub const CycleUnit = struct {
     }
 };
 
-var buf: [std.math.pow(usize, 2, 9)]std.ArrayList(CycleUnit) = undefined;
-var reuse = ArrayListThreadSafe(std.ArrayList(CycleUnit)){
+var bufCycle: [std.math.pow(usize, 2, 9)]std.ArrayList(CycleUnit) = undefined;
+var reuseCycle = ArrayListThreadSafe(std.ArrayList(CycleUnit)){
     .items = .{
-        .items = buf[0..0],
-        .capacity = buf.len,
+        .items = bufCycle[0..0],
+        .capacity = bufCycle.len,
     },
 };
 
-tu: *const TranslationUnit,
-hasCycle: std.ArrayList(CycleUnit),
+var bufFlatten: [std.math.pow(usize, 2, 9)]Flatten = undefined;
+var reuseFlatten = ArrayListThreadSafe(Flatten){
+    .items = .{
+        .items = bufFlatten[0..0],
+        .capacity = bufFlatten.len,
+    },
+};
 
-pub fn init(tu: *const TranslationUnit) Self {
+const startFlatSize = 64;
+const startCycleUnitSize = 32;
+
+tu: *const TranslationUnit,
+hasCycle: std.ArrayList(CycleUnit) = .{},
+
+pub fn init(alloc: Allocator, tu: *const TranslationUnit) Allocator.Error!Self {
     const self: Self = .{
         .tu = tu,
-        .hasCycle = reuse.pop() orelse .{},
+        .hasCycle = reuseCycle.pop() orelse blk: {
+            var hasCycle = std.ArrayList(CycleUnit){};
+            try hasCycle.ensureTotalCapacity(alloc, startCycleUnitSize);
+            break :blk hasCycle;
+        },
     };
 
     return self;
@@ -59,7 +113,15 @@ pub fn reset(self: *Self) void {
 
 pub fn deinit(self: *Self, alloc: Allocator) void {
     self.hasCycle.clearRetainingCapacity();
-    reuse.appendBounded(self.hasCycle) catch self.hasCycle.deinit(alloc);
+    reuseCycle.appendBounded(self.hasCycle) catch {
+        self.hasCycle.deinit(alloc);
+    };
+}
+
+pub fn deinitStatic(alloc: Allocator) void {
+    for (reuseCycle.slice()) |*x| x.deinit(alloc);
+
+    for (reuseFlatten.slice()) |*x| x._deinit(alloc, false);
 }
 
 fn push(self: *Self, alloc: Allocator, varIndex: Parser.NodeIndex, reason: Reason) (Allocator.Error)!void {
@@ -87,7 +149,7 @@ pub fn traceVariable(self: *Self, alloc: Allocator, varI: Parser.NodeIndex) Allo
     var variable = self.tu.global.nodes.get(varI);
     const exprI = variable.data.@"1".load(.acquire);
 
-    var flat = Flatten{};
+    var flat = try Flatten.init(alloc);
     defer flat.deinit(alloc);
 
     try self.flatten(alloc, &flat, exprI);
@@ -119,7 +181,7 @@ pub fn inferType(self: *Self, alloc: Allocator, varI: Parser.NodeIndex, exprI: P
     const variableToInferTag = variableToInfer.tag.load(.acquire);
     assert(Util.listContains(Parser.Node.Tag, &.{ .variable, .constant }, variableToInferTag));
 
-    var flat = Flatten{};
+    var flat = try Flatten.init(alloc);
     defer flat.deinit(alloc);
 
     try self.flatten(alloc, &flat, exprI);
@@ -128,7 +190,7 @@ pub fn inferType(self: *Self, alloc: Allocator, varI: Parser.NodeIndex, exprI: P
     var oldTypeIndex: Parser.NodeIndex = 0;
     var type_: Parser.Node = .{};
 
-    while (flat.items.len > 0) {
+    while (flat.sliceConst().len > 0) {
         const firstI = flat.pop().?;
         const first = self.tu.global.nodes.get(firstI);
 
@@ -170,7 +232,7 @@ pub fn checkType(self: *Self, alloc: Allocator, exprI: Parser.NodeIndex, expecte
     assert(typeTag == .type);
     assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, exprTag));
 
-    var flat = Flatten{};
+    var flat = try Flatten.init(alloc);
     defer flat.deinit(alloc);
 
     try self.flatten(alloc, &flat, exprI);
@@ -226,7 +288,7 @@ fn checkFlatten(self: *Self, alloc: Allocator, flat: *Flatten, expectedTypeI: Pa
     const expectedType = self.tu.global.nodes.get(expectedTypeI);
     assert(expectedType.tag.load(.acquire) == .type);
 
-    while (flat.items.len > 0) {
+    while (flat.sliceConst().len > 0) {
         const firstI = flat.getLast();
         const first = self.tu.global.nodes.get(firstI);
 
@@ -235,7 +297,7 @@ fn checkFlatten(self: *Self, alloc: Allocator, flat: *Flatten, expectedTypeI: Pa
             _ = flat.pop();
         }
 
-        while (flat.items.len > 0) {
+        while (flat.sliceConst().len > 0) {
             const opI = flat.pop().?;
             const op = self.tu.global.nodes.get(opI);
             const opTag = op.tag.load(.acquire);

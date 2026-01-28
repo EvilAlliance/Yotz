@@ -17,7 +17,7 @@ pub fn traceVariable(self: TranslationUnit, alloc: Allocator, varI: Parser.NodeI
     if (expressionIndex == 0 or expressionTag == .funcProto) {
         return;
     } else {
-        var expr = Expression.init(&self);
+        var expr = try Expression.init(alloc, &self);
         defer expr.deinit(alloc);
 
         try expr.traceVariable(alloc, varI);
@@ -101,7 +101,7 @@ fn checkTypeFunction(self: TranslationUnit, alloc: Allocator, funcTypeIndex: Par
 
 pub fn checkReturn(self: TranslationUnit, alloc: Allocator, nodeI: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
     const stmt = self.global.nodes.get(nodeI);
-    var expr = Expression.init(&self);
+    var expr = try Expression.init(alloc, &self);
     defer expr.deinit(alloc);
     try expr.checkType(alloc, stmt.data[1].load(.acquire), typeI, reports);
 }
@@ -111,7 +111,7 @@ fn checkPureVariable(self: TranslationUnit, alloc: Allocator, varIndex: Parser.N
 
     const typeIndex = variable.data[0].load(.acquire);
 
-    var expr = Expression.init(&self);
+    var expr = try Expression.init(alloc, &self);
     defer expr.deinit(alloc);
 
     if (typeIndex == 0) {
