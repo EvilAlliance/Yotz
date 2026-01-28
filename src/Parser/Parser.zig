@@ -248,13 +248,11 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator, reports: ?*Report.Reports
 
     const possibleExpr = self.peek()[0];
 
-    var func: bool = undefined;
-
     if (possibleExpr.tag == .colon or possibleExpr.tag == .equal) {
         if (self.pop()[0].tag == .colon)
             node.tag = .init(.constant);
 
-        const expr, func = try self.parseExpression(alloc, reports);
+        const expr = try self.parseExpression(alloc, reports);
 
         node.data[1].store(expr, .release);
     }
@@ -271,7 +269,7 @@ fn parseReturn(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std
         .tag = .init(.ret),
         .tokenIndex = .init(retIndex),
     });
-    const exp, const func = try self.parseExpression(alloc, reports);
+    const exp = try self.parseExpression(alloc, reports);
 
     const node = self.tu.global.nodes.getPtr(nodeIndex);
 
@@ -282,7 +280,7 @@ fn parseReturn(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std
     return nodeIndex;
 }
 
-fn parseExpression(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!struct { mod.NodeIndex, bool } {
+fn parseExpression(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
     if (self.isFunction()) {
         const index = try self.parseFuncProto(alloc, reports);
 
@@ -297,9 +295,9 @@ fn parseExpression(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) 
 
         try (try self.tu.initFunc(alloc)).startFunction(alloc, start, index, reports);
 
-        return .{ index, true };
+        return index;
     } else {
-        return .{ try self.parseExpr(alloc, 1, reports), false };
+        return self.parseExpr(alloc, 1, reports);
     }
 }
 
@@ -370,8 +368,7 @@ fn parseTerm(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.m
 
             _ = self.pop();
 
-            const expr, const func = try self.parseExpression(alloc, reports);
-            assert(!func);
+            const expr = try self.parseExpression(alloc, reports);
             try Report.expect(alloc, reports, self.peek()[0], &.{.closeParen});
 
             _ = self.pop();

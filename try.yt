@@ -1,6 +1,6 @@
 main :: () u8 {
     a : u8 = 2;
-    b : u16 = 1;
-    c := a + b;
-    return a;
+    return a + () u8 {
+        return 8
+    };
 }
