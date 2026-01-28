@@ -1,4 +1,4 @@
-pub fn typing(self: TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
+pub fn typing(self: *const TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
     try record(self, alloc, rootIndex, reports);
 
     assert(self.global.readyTu.getPtr(self.id).cmpxchgStrong(false, true, .acq_rel, .monotonic) == null);
@@ -11,7 +11,7 @@ pub fn typing(self: TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeInd
     try cycleCheck(self, alloc, rootIndex);
 }
 
-fn record(self: TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
+fn record(self: *const TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
     const root = self.global.nodes.get(rootIndex);
 
     var stmtI = root.data.@"0".load(.acquire);
@@ -31,7 +31,7 @@ fn record(self: TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeIndex, 
     }
 }
 
-fn check(self: TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
+fn check(self: *const TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
     const root = self.global.nodes.get(rootIndex);
 
     var stmtI = root.data.@"0".load(.acquire);
@@ -51,7 +51,7 @@ fn check(self: TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeIndex, r
     }
 }
 
-fn cycleCheck(self: TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeIndex) Allocator.Error!void {
+fn cycleCheck(self: *const TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeIndex) Allocator.Error!void {
     const root = self.global.nodes.get(rootIndex);
 
     var stmtI = root.data.@"0".load(.acquire);

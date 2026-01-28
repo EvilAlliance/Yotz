@@ -305,7 +305,7 @@ fn checkVarType(self: *Self, alloc: Allocator, leafI: Parser.NodeIndex, typeI: P
         return Report.incompatibleType(alloc, reports, typeIndex, typeI, leafI, varia);
     }
 
-    if (!Type.typeEqual(self.tu.*, typeIndex, typeI)) {
+    if (!Type.typeEqual(self.tu, typeIndex, typeI)) {
         if (tag == .constant)
             return addInferType(self, alloc, .inferedFromUse, leafI, varia, typeI);
 

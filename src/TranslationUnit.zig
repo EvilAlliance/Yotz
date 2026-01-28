@@ -58,26 +58,26 @@ pub fn acquire(self: Self, alloc: Allocator) Allocator.Error!Self {
     };
 }
 
-pub fn startFunction(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
+pub fn startFunction(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
     std.debug.assert(self.tag == .Function);
 
     const callBack = struct {
         fn callBack(comptime func: anytype, args: anytype) void {
-            @call(.auto, func, args) catch {
+            @call(.auto, func, .{ &args[0], args[1], args[2], args[3], args[4] }) catch {
                 std.debug.panic("Run Out of Memory", .{});
             };
         }
     }.callBack;
 
-    try self.global.threadPool.spawn(callBack, .{ _startFunction, .{ self, alloc, start, placeHolder, reports } });
+    try self.global.threadPool.spawn(callBack, .{ _startFunction, .{ self.*, alloc, start, placeHolder, reports } });
 }
 
-fn _startFunction(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
+fn _startFunction(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
     defer self.deinit(alloc);
 
     if (self.global.subCommand == .Lexer) unreachable;
 
-    var parser = try Parser.Parser.init(&self);
+    var parser = try Parser.Parser.init(self);
 
     parser.parseFunction(alloc, start, placeHolder, reports) catch |err| switch (err) {
         Parser.Error.UnexpectedToken => return,
@@ -100,25 +100,25 @@ fn _startFunction(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeH
     // if (parser.errors.items.len > 0) return .{ "", 1 };
 }
 
-pub fn startRoot(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
+pub fn startRoot(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
     std.debug.assert(self.tag == .Root);
 
     const callBack = struct {
         fn callBack(comptime func: anytype, args: anytype) void {
-            @call(.auto, func, args) catch {
+            @call(.auto, func, .{ &args[0], args[1], args[2], args[3], args[4] }) catch {
                 std.debug.panic("Run Out of Memory", .{});
             };
         }
     }.callBack;
 
-    try self.global.threadPool.spawn(callBack, .{ _startRoot, .{ self, alloc, start, placeHolder, reports } });
+    try self.global.threadPool.spawn(callBack, .{ _startRoot, .{ self.*, alloc, start, placeHolder, reports } });
 }
 
-fn _startRoot(self: Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
+fn _startRoot(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
     if (self.global.subCommand == .Lexer) unreachable;
     defer self.deinit(alloc);
 
-    var parser = try Parser.Parser.init(&self);
+    var parser = try Parser.Parser.init(self);
 
     try parser.parseRoot(alloc, start, placeHolder, reports);
 

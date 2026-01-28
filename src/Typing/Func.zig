@@ -1,4 +1,4 @@
-pub fn typing(self: TranslationUnit, alloc: Allocator, funcIndex: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
+pub fn typing(self: *const TranslationUnit, alloc: Allocator, funcIndex: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
     const func = self.global.nodes.get(funcIndex);
     std.debug.assert(func.tag.load(.acquire) == .funcProto);
 
@@ -27,7 +27,7 @@ pub fn typing(self: TranslationUnit, alloc: Allocator, funcIndex: Parser.NodeInd
         try _checkScope(self, alloc, stmtORscopeIndex, tIndex, reports);
 }
 
-fn checkScope(self: TranslationUnit, alloc: Allocator, scopeIndex: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
+fn checkScope(self: *const TranslationUnit, alloc: Allocator, scopeIndex: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
     const scope = self.global.nodes.get(scopeIndex);
     const retType = self.global.nodes.get(typeI);
 
@@ -38,7 +38,7 @@ fn checkScope(self: TranslationUnit, alloc: Allocator, scopeIndex: Parser.NodeIn
     try _checkScope(self, alloc, i, typeI, reports);
 }
 
-fn _checkScope(self: TranslationUnit, alloc: Allocator, stmtI: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error)!void {
+fn _checkScope(self: *const TranslationUnit, alloc: Allocator, stmtI: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error)!void {
     var i = stmtI;
 
     while (i != 0) {
@@ -54,7 +54,7 @@ fn _checkScope(self: TranslationUnit, alloc: Allocator, stmtI: Parser.NodeIndex,
     }
 }
 
-fn checkStatements(self: TranslationUnit, alloc: Allocator, stmtI: Parser.NodeIndex, retTypeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error || Scope.Error)!void {
+fn checkStatements(self: *const TranslationUnit, alloc: Allocator, stmtI: Parser.NodeIndex, retTypeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error || Scope.Error)!void {
     _ = .{ alloc, retTypeI };
     const stmt = self.global.nodes.get(stmtI);
 
@@ -77,7 +77,7 @@ comptime {
 pub fn resumeScopeCheck(args: Global.Args) void {
     const tu, const alloc, const stmtI, const retTypeI, const reports = args;
 
-    _checkScope(tu.*, alloc, stmtI, retTypeI, reports) catch {
+    _checkScope(tu, alloc, stmtI, retTypeI, reports) catch {
         std.debug.panic("Run Ouf of Memory", .{});
     };
 }

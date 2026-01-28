@@ -1,4 +1,4 @@
-pub fn recordVariable(self: TranslationUnit, alloc: Allocator, varIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Scope.Error)!void {
+pub fn recordVariable(self: *const TranslationUnit, alloc: Allocator, varIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Scope.Error)!void {
     const variable = self.global.nodes.get(varIndex);
 
     self.scope.put(alloc, variable.getText(self.global), varIndex) catch |err| switch (err) {
@@ -7,7 +7,7 @@ pub fn recordVariable(self: TranslationUnit, alloc: Allocator, varIndex: Parser.
     };
 }
 
-pub fn traceVariable(self: TranslationUnit, alloc: Allocator, varI: Parser.NodeIndex) Allocator.Error!void {
+pub fn traceVariable(self: *const TranslationUnit, alloc: Allocator, varI: Parser.NodeIndex) Allocator.Error!void {
     const node = self.global.nodes.get(varI);
 
     const expressionIndex = node.data.@"1".load(.acquire);
@@ -17,14 +17,14 @@ pub fn traceVariable(self: TranslationUnit, alloc: Allocator, varI: Parser.NodeI
     if (expressionIndex == 0 or expressionTag == .funcProto) {
         return;
     } else {
-        var expr = try Expression.init(alloc, &self);
+        var expr = try Expression.init(alloc, self);
         defer expr.deinit(alloc);
 
         try expr.traceVariable(alloc, varI);
     }
 }
 
-pub fn checkVariable(self: TranslationUnit, alloc: Allocator, nodeIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
+pub fn checkVariable(self: *const TranslationUnit, alloc: Allocator, nodeIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
     const node = self.global.nodes.get(nodeIndex);
     // NOTE: At the time being this is not changed so it should be fine;
     const expressionIndex = node.data.@"1".load(.acquire);
@@ -38,7 +38,7 @@ pub fn checkVariable(self: TranslationUnit, alloc: Allocator, nodeIndex: Parser.
     }
 }
 
-fn checkFunctionOuter(self: TranslationUnit, alloc: Allocator, variableIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
+fn checkFunctionOuter(self: *const TranslationUnit, alloc: Allocator, variableIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
     const variable = self.global.nodes.get(variableIndex);
     const funcIndex = variable.data.@"1".load(.acquire);
 
@@ -60,7 +60,7 @@ fn checkFunctionOuter(self: TranslationUnit, alloc: Allocator, variableIndex: Pa
     }
 }
 
-fn inferTypeFunction(self: TranslationUnit, alloc: Allocator, variableIndex: Parser.NodeIndex, funcIndex: Parser.NodeIndex) Allocator.Error!bool {
+fn inferTypeFunction(self: *const TranslationUnit, alloc: Allocator, variableIndex: Parser.NodeIndex, funcIndex: Parser.NodeIndex) Allocator.Error!bool {
     const proto = self.global.nodes.get(funcIndex);
     std.debug.assert(proto.tag.load(.acquire) == .funcProto);
 
@@ -81,7 +81,7 @@ fn inferTypeFunction(self: TranslationUnit, alloc: Allocator, variableIndex: Par
     return result == null;
 }
 
-fn checkTypeFunction(self: TranslationUnit, alloc: Allocator, funcTypeIndex: Parser.NodeIndex, funcIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
+fn checkTypeFunction(self: *const TranslationUnit, alloc: Allocator, funcTypeIndex: Parser.NodeIndex, funcIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
     const funcProto = self.global.nodes.get(funcIndex);
     std.debug.assert(funcProto.tag.load(.acquire) == .funcProto);
     std.debug.assert(funcProto.data[0].load(.acquire) == 0);
@@ -99,19 +99,19 @@ fn checkTypeFunction(self: TranslationUnit, alloc: Allocator, funcTypeIndex: Par
     }
 }
 
-pub fn checkReturn(self: TranslationUnit, alloc: Allocator, nodeI: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
+pub fn checkReturn(self: *const TranslationUnit, alloc: Allocator, nodeI: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
     const stmt = self.global.nodes.get(nodeI);
-    var expr = try Expression.init(alloc, &self);
+    var expr = try Expression.init(alloc, self);
     defer expr.deinit(alloc);
     try expr.checkType(alloc, stmt.data[1].load(.acquire), typeI, reports);
 }
 
-fn checkPureVariable(self: TranslationUnit, alloc: Allocator, varIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
+fn checkPureVariable(self: *const TranslationUnit, alloc: Allocator, varIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
     var variable = self.global.nodes.get(varIndex);
 
     const typeIndex = variable.data[0].load(.acquire);
 
-    var expr = try Expression.init(alloc, &self);
+    var expr = try Expression.init(alloc, self);
     defer expr.deinit(alloc);
 
     if (typeIndex == 0) {
