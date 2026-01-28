@@ -248,18 +248,16 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator, reports: ?*Report.Reports
 
     const possibleExpr = self.peek()[0];
 
-    var func: bool = undefined;
-
     if (possibleExpr.tag == .colon or possibleExpr.tag == .equal) {
         if (self.pop()[0].tag == .colon)
             node.tag = .init(.constant);
 
-        const expr, func = try self.parseExpression(alloc, reports);
+        const expr = try self.parseExpression(alloc, reports);
 
         node.data[1].store(expr, .release);
     }
 
-    if (!func) try Report.expect(alloc, reports, self.peek()[0], &.{.semicolon});
+    _ = self.popIf(.semicolon);
 
     return index;
 }
@@ -271,18 +269,18 @@ fn parseReturn(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std
         .tag = .init(.ret),
         .tokenIndex = .init(retIndex),
     });
-    const exp, const func = try self.parseExpression(alloc, reports);
+    const exp = try self.parseExpression(alloc, reports);
 
     const node = self.tu.global.nodes.getPtr(nodeIndex);
 
     node.data[1].store(exp, .release);
 
-    if (!func) try Report.expect(alloc, reports, self.peek()[0], &.{.semicolon});
+    _ = self.popIf(.semicolon);
 
     return nodeIndex;
 }
 
-fn parseExpression(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!struct { mod.NodeIndex, bool } {
+fn parseExpression(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
     if (self.isFunction()) {
         const index = try self.parseFuncProto(alloc, reports);
 
@@ -297,9 +295,9 @@ fn parseExpression(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) 
 
         try (try self.tu.initFunc(alloc)).startFunction(alloc, start, index, reports);
 
-        return .{ index, true };
+        return index;
     } else {
-        return .{ try self.parseExpr(alloc, 1, reports), false };
+        return self.parseExpr(alloc, 1, reports);
     }
 }
 
@@ -309,7 +307,7 @@ fn parseExpr(self: *@This(), alloc: Allocator, minPrecedence: u8, reports: ?*Rep
     var leftIndex = try self.parseTerm(alloc, reports);
     nextToken = self.peek()[0];
 
-    while (nextToken.tag != .semicolon and nextToken.tag != .closeParen) : (nextToken = self.peek()[0]) {
+    while (Util.listContains(Lexer.Token.Type, &.{ .plus, .minus, .asterik, .slash, .caret }, nextToken.tag)) : (nextToken = self.peek()[0]) {
         const op, const opIndex = self.peek();
         try Report.expect(alloc, reports, op, &.{ .plus, .minus, .asterik, .slash, .caret, .semicolon, .closeParen });
 
@@ -370,8 +368,7 @@ fn parseTerm(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.m
 
             _ = self.pop();
 
-            const expr, const func = try self.parseExpression(alloc, reports);
-            assert(!func);
+            const expr = try self.parseExpression(alloc, reports);
             try Report.expect(alloc, reports, self.peek()[0], &.{.closeParen});
 
             _ = self.pop();
