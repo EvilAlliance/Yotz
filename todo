@@ -188,7 +188,8 @@
         "id": "6dUeBfJ5",
         "title": "Print flag in the ToString of the AST",
         "desc": "like #inferd from use",
-        "time_created": "2025-10-20 11:03:52.053675129 -03:00:00"
+        "time_created": "2025-10-20 11:03:52.053675129 -03:00:00",
+        "time_completed": "2026-01-28 17:53:41.663175989 -03:00:00"
       },
       {
         "id": "64poMgL9",
@@ -397,7 +398,7 @@
       },
       {
         "id": "VZB3xpnw",
-        "title": "Maybe use DynamicBitSet instead of the bool ArrayList in Global",
+        "title": "Maybe use DynamicBitSet instead of the bool ArrayList in Global, Investigate",
         "desc": "",
         "time_created": "2026-01-28 17:06:53.20359133 -03:00:00"
       }
