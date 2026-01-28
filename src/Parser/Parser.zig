@@ -259,7 +259,7 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator, reports: ?*Report.Reports
         node.data[1].store(expr, .release);
     }
 
-    if (!func) _ = self.popIf(.semicolon);
+    _ = self.popIf(.semicolon);
 
     return index;
 }
@@ -277,7 +277,7 @@ fn parseReturn(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std
 
     node.data[1].store(exp, .release);
 
-    if (!func) _ = self.popIf(.semicolon);
+    _ = self.popIf(.semicolon);
 
     return nodeIndex;
 }
