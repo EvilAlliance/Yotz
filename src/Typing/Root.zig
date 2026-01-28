@@ -3,7 +3,8 @@ pub fn typing(self: TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeInd
 
     assert(self.global.readyTu.getPtr(self.id).cmpxchgStrong(false, true, .acq_rel, .monotonic) == null);
     self.global.readyTu.unlock();
-    try self.global.observer.alert(alloc, self.id);
+
+    try self.global.observer.alert(self.id);
 
     try check(self, alloc, rootIndex, reports);
 
