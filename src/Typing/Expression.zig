@@ -90,11 +90,11 @@ fn push(self: *Self, alloc: Allocator, varIndex: Parser.NodeIndex, reason: Reaso
 fn pop(self: *Self) void {
     _ = self.hasCycle.pop();
 }
-pub fn traceVariable(self: *Self, alloc: Allocator, varI: Parser.NodeIndex) Allocator.Error!void {
+pub fn traceVariable(self: *Self, alloc: Allocator, variable: *const Parser.Node) Allocator.Error!void {
+    const varI = self.tu.global.nodes.indexOf(variable);
     try self.push(alloc, varI, .cycleGlobalTracing);
     defer self.pop();
 
-    var variable = self.tu.global.nodes.get(varI);
     const exprI = variable.data.@"1".load(.acquire);
 
     try self._traceVariable(alloc, exprI);
@@ -107,12 +107,13 @@ fn _traceVariable(self: *Self, alloc: Allocator, exprI: Parser.NodeIndex) Alloca
             try self.push(alloc, exprI, .cycleGlobalTracing);
             defer self.pop();
 
-            try self.traceVariable(alloc, self.tu.scope.get(expr.getText(self.tu.global)) orelse return);
+            const varIndex = self.tu.scope.get(expr.getText(self.tu.global)) orelse return;
+            try self.traceVariable(alloc, self.tu.global.nodes.getPtr(varIndex));
         },
         .neg => {
             const left = expr.data[0].load(.acquire);
 
-            try self.traceVariable(alloc, left);
+            try self.traceVariable(alloc, self.tu.global.nodes.getPtr(left));
         },
         .addition,
         .subtraction,
@@ -123,30 +124,30 @@ fn _traceVariable(self: *Self, alloc: Allocator, exprI: Parser.NodeIndex) Alloca
             const left = expr.data[0].load(.acquire);
             const right = expr.data[1].load(.acquire);
 
-            try self.traceVariable(alloc, left);
-            try self.traceVariable(alloc, right);
+            try self.traceVariable(alloc, self.tu.global.nodes.getPtr(left));
+            try self.traceVariable(alloc, self.tu.global.nodes.getPtr(right));
         },
         else => {},
     }
 }
 
-pub fn inferType(self: *Self, alloc: Allocator, varI: Parser.NodeIndex, exprI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!bool {
+pub fn inferType(self: *Self, alloc: Allocator, variable: *const Parser.Node, exprI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!bool {
     try self.push(alloc, exprI, .inference);
     defer self.pop();
 
     const expr = self.tu.global.nodes.get(exprI);
-    const variableToInfer = self.tu.global.nodes.get(varI);
 
     const exprTag = expr.tag.load(.acquire);
     assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition }, exprTag));
 
-    const variableToInferTag = variableToInfer.tag.load(.acquire);
+    const variableToInferTag = variable.tag.load(.acquire);
     assert(Util.listContains(Parser.Node.Tag, &.{ .variable, .constant }, variableToInferTag));
 
     const typeI = try self._inferType(alloc, exprI, reports);
 
     if (typeI == null) return false;
 
+    const varI = self.tu.global.nodes.indexOf(variable);
     try self.addInferType(alloc, .inferedFromExpression, typeI.?.placeI, varI, typeI.?.typeI);
 
     return true;

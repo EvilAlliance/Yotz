@@ -18,13 +18,13 @@ fn record(self: *const TranslationUnit, alloc: Allocator, rootIndex: Parser.Node
     const endIndex = root.data.@"1".load(.acquire);
 
     while (stmtI != endIndex) {
-        const stmt = self.global.nodes.get(stmtI);
+        const stmt = self.global.nodes.getPtr(stmtI);
         defer stmtI = stmt.next.load(.acquire);
 
         const tag = stmt.tag.load(.acquire);
 
         assert(tag == .variable or tag == .constant);
-        Statement.recordVariable(self, alloc, stmtI, reports) catch |err| switch (err) {
+        Statement.recordVariable(self, alloc, stmt, reports) catch |err| switch (err) {
             Scope.Error.KeyAlreadyExists => {},
             else => return @errorCast(err),
         };
@@ -38,13 +38,13 @@ fn check(self: *const TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeI
     const endIndex = root.data.@"1".load(.acquire);
 
     while (stmtI != endIndex) {
-        const stmt = self.global.nodes.get(stmtI);
+        const stmt = self.global.nodes.getPtr(stmtI);
         defer stmtI = stmt.next.load(.acquire);
 
         const tag = stmt.tag.load(.acquire);
 
         assert(tag == .variable or tag == .constant);
-        Statement.checkVariable(self, alloc, stmtI, reports) catch |err| switch (err) {
+        Statement.checkVariable(self, alloc, stmt, reports) catch |err| switch (err) {
             Expression.Error.TooBig, Expression.Error.IncompatibleType, Expression.Error.UndefVar => continue,
             else => return @errorCast(err),
         };
@@ -58,13 +58,13 @@ fn cycleCheck(self: *const TranslationUnit, alloc: Allocator, rootIndex: Parser.
     const endIndex = root.data.@"1".load(.acquire);
 
     while (stmtI != endIndex) {
-        const stmt = self.global.nodes.get(stmtI);
+        const stmt = self.global.nodes.getPtr(stmtI);
         defer stmtI = stmt.next.load(.acquire);
 
         const tag = stmt.tag.load(.acquire);
 
         assert(tag == .variable or tag == .constant);
-        try Statement.traceVariable(self, alloc, stmtI);
+        try Statement.traceVariable(self, alloc, stmt);
     }
 }
 

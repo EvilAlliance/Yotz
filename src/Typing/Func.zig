@@ -56,16 +56,16 @@ fn _checkScope(self: *const TranslationUnit, alloc: Allocator, stmtI: Parser.Nod
 
 fn checkStatements(self: *const TranslationUnit, alloc: Allocator, stmtI: Parser.NodeIndex, retTypeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error || Scope.Error)!void {
     _ = .{ alloc, retTypeI };
-    const stmt = self.global.nodes.get(stmtI);
+    const stmt = self.global.nodes.getPtr(stmtI);
 
     switch (stmt.tag.load(.acquire)) {
-        .ret => try Statement.checkReturn(self, alloc, stmtI, retTypeI, reports),
+        .ret => try Statement.checkReturn(self, alloc, stmt, retTypeI, reports),
         .variable, .constant => {
-            Statement.checkVariable(self, alloc, stmtI, reports) catch |err| {
-                try Statement.recordVariable(self, alloc, stmtI, reports);
+            Statement.checkVariable(self, alloc, stmt, reports) catch |err| {
+                try Statement.recordVariable(self, alloc, stmt, reports);
                 return err;
             };
-            try Statement.recordVariable(self, alloc, stmtI, reports);
+            try Statement.recordVariable(self, alloc, stmt, reports);
         },
         else => unreachable,
     }

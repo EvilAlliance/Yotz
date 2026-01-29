@@ -1,5 +1,5 @@
-pub fn recordVariable(self: *const TranslationUnit, alloc: Allocator, varIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Scope.Error)!void {
-    const variable = self.global.nodes.get(varIndex);
+pub fn recordVariable(self: *const TranslationUnit, alloc: Allocator, variable: *const Parser.Node, reports: ?*Report.Reports) (Allocator.Error || Scope.Error)!void {
+    const varIndex = self.global.nodes.indexOf(variable);
 
     self.scope.put(alloc, variable.getText(self.global), varIndex) catch |err| switch (err) {
         Scope.Error.KeyAlreadyExists => {
@@ -10,10 +10,8 @@ pub fn recordVariable(self: *const TranslationUnit, alloc: Allocator, varIndex: 
     };
 }
 
-pub fn traceVariable(self: *const TranslationUnit, alloc: Allocator, varI: Parser.NodeIndex) Allocator.Error!void {
-    const node = self.global.nodes.get(varI);
-
-    const expressionIndex = node.data.@"1".load(.acquire);
+pub fn traceVariable(self: *const TranslationUnit, alloc: Allocator, variable: *const Parser.Node) Allocator.Error!void {
+    const expressionIndex = variable.data.@"1".load(.acquire);
     const expressionNode = self.global.nodes.get(expressionIndex);
     const expressionTag = expressionNode.tag.load(.acquire);
 
@@ -23,39 +21,38 @@ pub fn traceVariable(self: *const TranslationUnit, alloc: Allocator, varI: Parse
         var expr = try Expression.init(alloc, self);
         defer expr.deinit(alloc);
 
-        try expr.traceVariable(alloc, varI);
+        try expr.traceVariable(alloc, variable);
     }
 }
 
-pub fn checkVariable(self: *const TranslationUnit, alloc: Allocator, nodeIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
-    const node = self.global.nodes.get(nodeIndex);
+pub fn checkVariable(self: *const TranslationUnit, alloc: Allocator, node: *const Parser.Node, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
     // NOTE: At the time being this is not changed so it should be fine;
     const expressionIndex = node.data.@"1".load(.acquire);
     const expressionNode = self.global.nodes.get(expressionIndex);
     const expressionTag = expressionNode.tag.load(.acquire);
 
     if (expressionIndex == 0 or expressionTag == .funcProto) {
-        try checkFunctionOuter(self, alloc, nodeIndex, reports);
+        try checkFunctionOuter(self, alloc, node, reports);
     } else {
-        try checkPureVariable(self, alloc, nodeIndex, reports);
+        try checkPureVariable(self, alloc, node, reports);
     }
 }
 
-fn checkFunctionOuter(self: *const TranslationUnit, alloc: Allocator, variableIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
-    const variable = self.global.nodes.get(variableIndex);
+fn checkFunctionOuter(self: *const TranslationUnit, alloc: Allocator, variable: *const Parser.Node, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
     const funcIndex = variable.data.@"1".load(.acquire);
+    const funcProto = self.global.nodes.getPtr(funcIndex);
 
     // Return Type
-    Type.transformType(self, self.global.nodes.get(funcIndex).data[1].load(.acquire));
+    Type.transformType(self, funcProto.data[1].load(.acquire));
 
     while (true) {
         const typeIndex = variable.data[0].load(.acquire);
         if (typeIndex != 0) {
             Type.transformType(self, typeIndex);
-            try checkTypeFunction(self, typeIndex, funcIndex, reports);
+            try checkTypeFunction(self, self.global.nodes.getPtr(typeIndex), funcProto, reports);
             break;
         } else {
-            const result = try inferTypeFunction(self, alloc, variableIndex, funcIndex);
+            const result = try inferTypeFunction(self, alloc, variable, funcProto);
 
             if (result)
                 break;
@@ -63,8 +60,7 @@ fn checkFunctionOuter(self: *const TranslationUnit, alloc: Allocator, variableIn
     }
 }
 
-fn inferTypeFunction(self: *const TranslationUnit, alloc: Allocator, variableIndex: Parser.NodeIndex, funcIndex: Parser.NodeIndex) Allocator.Error!bool {
-    const proto = self.global.nodes.get(funcIndex);
+fn inferTypeFunction(self: *const TranslationUnit, alloc: Allocator, variable: *const Parser.Node, proto: *const Parser.Node) Allocator.Error!bool {
     std.debug.assert(proto.tag.load(.acquire) == .funcProto);
 
     const tIndex = proto.data[1].load(.acquire);
@@ -78,20 +74,19 @@ fn inferTypeFunction(self: *const TranslationUnit, alloc: Allocator, variableInd
         .flags = .init(.{ .inferedFromExpression = true }),
     });
 
+    const variableIndex = self.global.nodes.indexOf(variable);
     const nodePtr = self.global.nodes.getPtr(variableIndex);
     const result = nodePtr.data.@"0".cmpxchgStrong(0, functionTypeIndex, .acq_rel, .monotonic);
 
     return result == null;
 }
 
-fn checkTypeFunction(self: *const TranslationUnit, funcTypeIndex: Parser.NodeIndex, funcIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Expression.Error)!void {
-    const funcProto = self.global.nodes.get(funcIndex);
+fn checkTypeFunction(self: *const TranslationUnit, funcType: *const Parser.Node, funcProto: *const Parser.Node, reports: ?*Report.Reports) (Expression.Error)!void {
     std.debug.assert(funcProto.tag.load(.acquire) == .funcProto);
     std.debug.assert(funcProto.data[0].load(.acquire) == 0);
 
     const funcRetTypeIndex = funcProto.data[1].load(.acquire);
 
-    const funcType = self.global.nodes.get(funcTypeIndex);
     std.debug.assert(funcType.tag.load(.acquire) == .funcType);
     std.debug.assert(funcType.data[0].load(.acquire) == 0);
 
@@ -102,28 +97,24 @@ fn checkTypeFunction(self: *const TranslationUnit, funcTypeIndex: Parser.NodeInd
     }
 }
 
-pub fn checkReturn(self: *const TranslationUnit, alloc: Allocator, nodeI: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
-    const stmt = self.global.nodes.get(nodeI);
+pub fn checkReturn(self: *const TranslationUnit, alloc: Allocator, stmt: *const Parser.Node, typeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
     var expr = try Expression.init(alloc, self);
     defer expr.deinit(alloc);
     try expr.checkType(alloc, stmt.data[1].load(.acquire), typeI, reports);
 }
 
-fn checkPureVariable(self: *const TranslationUnit, alloc: Allocator, varIndex: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
-    var variable = self.global.nodes.get(varIndex);
-
+fn checkPureVariable(self: *const TranslationUnit, alloc: Allocator, variable: *const Parser.Node, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
     const typeIndex = variable.data[0].load(.acquire);
 
     var expr = try Expression.init(alloc, self);
     defer expr.deinit(alloc);
 
     if (typeIndex == 0) {
-        if (!try expr.inferType(alloc, varIndex, variable.data.@"1".load(.acquire), reports)) return;
+        if (!try expr.inferType(alloc, variable, variable.data.@"1".load(.acquire), reports)) return;
         expr.reset();
     } else {
         Type.transformType(self, typeIndex);
     }
-    variable = self.global.nodes.get(varIndex);
 
     const typeIndex2 = variable.data.@"0".load(.acquire);
     std.debug.assert(typeIndex2 != 0);
