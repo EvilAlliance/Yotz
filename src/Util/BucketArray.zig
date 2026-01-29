@@ -74,20 +74,27 @@ pub fn BucketArray(comptime T: type, comptime BucketType: type, comptime nodesPe
             return &self.buckets.items[bucketId][offset];
         }
 
+        pub fn getConstPtr(self: *const Self, index: BucketType) *const T {
+            const bucketId = index / nodesPerBucket;
+            const offset = index % nodesPerBucket;
+
+            return &self.buckets.items[bucketId][offset];
+        }
+
         pub fn indexOf(self: *const Self, ptr: *const T) BucketType {
             const addr = @intFromPtr(ptr);
-            
+
             for (self.buckets.items, 0..) |bucket, bucketId| {
                 const bucketAddr = @intFromPtr(bucket);
                 const bucketSize = @sizeOf(Bucket);
-                
+
                 if (addr >= bucketAddr and addr < bucketAddr + bucketSize) {
                     const offset = (addr - bucketAddr) / @sizeOf(T);
                     return @intCast(bucketId * nodesPerBucket + offset);
                 }
             }
-            
-            unreachable; // Pointer not from this bucket array
+
+            @panic("Pointer not from this Array");
         }
     };
 }

@@ -266,8 +266,7 @@ const Error = struct {
     }
 
     pub inline fn dependencyCycle(self: @This(), cycle: []const Typing.Expression.CycleUnit) void {
-        const nodeI_ = cycle[0].index;
-        var node = self.global.nodes.get(nodeI_);
+        var node = cycle[0].node;
         var loc = node.getLocation(self.global);
         var fileInfo = self.global.files.get(loc.source);
         var where = placeSlice(loc, fileInfo.source);
@@ -280,7 +279,7 @@ const Error = struct {
         });
 
         for (cycle, 0..) |unit, i| {
-            node = self.global.nodes.get(unit.index);
+            node = unit.node;
             loc = node.getLocation(self.global);
             fileInfo = self.global.files.get(loc.source);
             where = placeSlice(loc, fileInfo.source);

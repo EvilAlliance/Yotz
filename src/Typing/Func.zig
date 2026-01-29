@@ -3,7 +3,7 @@ pub fn typing(self: *const TranslationUnit, alloc: Allocator, funcIndex: Parser.
     std.debug.assert(func.tag.load(.acquire) == .funcProto);
 
     const tIndex = func.data[1].load(.acquire);
-    Type.transformType(self, tIndex);
+    Type.transformType(self, self.global.nodes.getPtr(tIndex));
 
     const stmtORscopeIndex = func.next.load(.acquire);
     const stmtORscope = self.global.nodes.get(stmtORscopeIndex);
@@ -11,40 +11,39 @@ pub fn typing(self: *const TranslationUnit, alloc: Allocator, funcIndex: Parser.
     try self.scope.push(alloc);
     defer self.scope.pop(alloc);
 
+    const type_ = self.global.nodes.getConstPtr(tIndex);
     {
         self.global.observer.mutex.lock();
         defer self.global.observer.mutex.unlock();
         if (!self.global.readyTu.get(self.id).load(.acquire)) {
             const i = if (stmtORscope.tag.load(.acquire) == .scope) stmtORscope.data[0].load(.acquire) else stmtORscopeIndex;
-            try self.global.observer.pushUnlock(alloc, self.id, resumeScopeCheck, .{ try Util.dupe(alloc, try self.acquire(alloc)), alloc, i, tIndex, reports });
+            try self.global.observer.pushUnlock(alloc, self.id, resumeScopeCheck, .{ try Util.dupe(alloc, try self.acquire(alloc)), alloc, i, type_, reports });
             return;
         }
     }
-
     if (stmtORscope.tag.load(.acquire) == .scope)
-        try checkScope(self, alloc, stmtORscopeIndex, tIndex, reports)
+        try checkScope(self, alloc, stmtORscopeIndex, type_, reports)
     else
-        try _checkScope(self, alloc, stmtORscopeIndex, tIndex, reports);
+        try _checkScope(self, alloc, stmtORscopeIndex, type_, reports);
 }
 
-fn checkScope(self: *const TranslationUnit, alloc: Allocator, scopeIndex: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
+fn checkScope(self: *const TranslationUnit, alloc: Allocator, scopeIndex: Parser.NodeIndex, retType: *const Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
     const scope = self.global.nodes.get(scopeIndex);
-    const retType = self.global.nodes.get(typeI);
 
     std.debug.assert(scope.tag.load(.acquire) == .scope and retType.tag.load(.acquire) == .type);
 
     const i = scope.data[0].load(.acquire);
 
-    try _checkScope(self, alloc, i, typeI, reports);
+    try _checkScope(self, alloc, i, retType, reports);
 }
 
-fn _checkScope(self: *const TranslationUnit, alloc: Allocator, stmtI: Parser.NodeIndex, typeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error)!void {
+fn _checkScope(self: *const TranslationUnit, alloc: Allocator, stmtI: Parser.NodeIndex, type_: *const Parser.Node, reports: ?*Report.Reports) (Allocator.Error)!void {
     var i = stmtI;
 
     while (i != 0) {
-        const stmt = self.global.nodes.get(i);
+        const stmt = self.global.nodes.getPtr(i);
 
-        checkStatements(self, alloc, i, typeI, reports) catch |err| switch (err) {
+        checkStatements(self, alloc, stmt, type_, reports) catch |err| switch (err) {
             Expression.Error.TooBig, Expression.Error.IncompatibleType, Expression.Error.UndefVar => {},
             Scope.Error.KeyAlreadyExists => {},
             else => return @errorCast(err),
@@ -54,12 +53,9 @@ fn _checkScope(self: *const TranslationUnit, alloc: Allocator, stmtI: Parser.Nod
     }
 }
 
-fn checkStatements(self: *const TranslationUnit, alloc: Allocator, stmtI: Parser.NodeIndex, retTypeI: Parser.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Expression.Error || Scope.Error)!void {
-    _ = .{ alloc, retTypeI };
-    const stmt = self.global.nodes.getPtr(stmtI);
-
+fn checkStatements(self: *const TranslationUnit, alloc: Allocator, stmt: *Parser.Node, retType: *const Parser.Node, reports: ?*Report.Reports) (Allocator.Error || Expression.Error || Scope.Error)!void {
     switch (stmt.tag.load(.acquire)) {
-        .ret => try Statement.checkReturn(self, alloc, stmt, retTypeI, reports),
+        .ret => try Statement.checkReturn(self, alloc, stmt, retType, reports),
         .variable, .constant => {
             Statement.checkVariable(self, alloc, stmt, reports) catch |err| {
                 try Statement.recordVariable(self, alloc, stmt, reports);

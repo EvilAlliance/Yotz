@@ -1,6 +1,6 @@
 const Self = @This();
 
-base: StringHashMapUnmanaged(Parser.NodeIndex) = .{},
+base: StringHashMapUnmanaged(*Parser.Node) = .{},
 refCount: std.atomic.Value(usize) = std.atomic.Value(usize).init(1),
 rwLock: std.Thread.RwLock = .{},
 
@@ -12,7 +12,7 @@ pub fn initHeap(alloc: Allocator) Allocator.Error!*Self {
     return self;
 }
 
-pub fn put(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: Parser.NodeIndex) (Allocator.Error || mod.Error)!void {
+pub fn put(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: *Parser.Node) (Allocator.Error || mod.Error)!void {
     const self: *Self = @ptrCast(@alignCast(ctx));
     if (get(self, key)) |_| return mod.Error.KeyAlreadyExists;
     {
@@ -23,7 +23,7 @@ pub fn put(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: Parser.Nod
     }
 }
 
-pub fn get(ctx: *anyopaque, key: []const u8) ?Parser.NodeIndex {
+pub fn get(ctx: *anyopaque, key: []const u8) ?*Parser.Node {
     const self: *Self = @ptrCast(@alignCast(ctx));
     self.rwLock.lockShared();
     defer self.rwLock.unlockShared();

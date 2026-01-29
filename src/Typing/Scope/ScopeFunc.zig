@@ -1,7 +1,7 @@
 const Self = @This();
 
 global: *ScopeGlobal,
-base: ArrayList(StringHashMapUnmanaged(Parser.NodeIndex)) = .{},
+base: ArrayList(StringHashMapUnmanaged(*Parser.Node)) = .{},
 // NOTE: This is not manipulated multithreaded, this is for a specific TranslationUnit
 order: usize = 0,
 
@@ -15,7 +15,7 @@ pub fn initHeap(alloc: Allocator, globaScope: *ScopeGlobal) Allocator.Error!*Sel
     return self;
 }
 
-pub fn put(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: Parser.NodeIndex) (Allocator.Error || mod.Error)!void {
+pub fn put(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: *Parser.Node) (Allocator.Error || mod.Error)!void {
     const self: *Self = @ptrCast(@alignCast(ctx));
     if (get(self, key)) |_| return mod.Error.KeyAlreadyExists;
 
@@ -27,7 +27,7 @@ pub fn put(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: Parser.Nod
     self.order += 1;
 }
 
-pub fn get(ctx: *anyopaque, key: []const u8) ?Parser.NodeIndex {
+pub fn get(ctx: *anyopaque, key: []const u8) ?*Parser.Node {
     const self: *Self = @ptrCast(@alignCast(ctx));
 
     var i: usize = self.base.items.len;
