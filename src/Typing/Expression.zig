@@ -279,24 +279,29 @@ fn checkVarType(self: *Self, alloc: Allocator, leaf: *Parser.Node, type_: *const
 
     const variable = self.tu.scope.get(id) orelse return Report.undefinedVariable(reports, leaf);
 
-    const typeIndex = variable.data.@"0".load(.acquire);
+    var typeIndex = variable.data.@"0".load(.acquire);
 
     if (typeIndex == 0)
         return addInferType(self, alloc, .inferedFromUse, leaf, variable, type_);
 
     const tag = variable.tag.load(.acquire);
 
-    const variableType = self.tu.global.nodes.getConstPtr(typeIndex);
-    if (!Type.canTypeBeCoerced(variableType, type_)) {
-        if (tag == .constant)
-            return addInferType(self, alloc, .inferedFromUse, leaf, variable, type_);
-        return Report.incompatibleType(reports, variableType, type_, leaf, variable);
+    var variableType: *const Parser.Node = undefined;
+
+    var couldBeCoerce = false;
+    // NOTE: This will be runned once for variable and could be multiple with constants
+    while (typeIndex != 0) : (typeIndex = variableType.next.load(.acquire)) {
+        variableType = self.tu.global.nodes.getConstPtr(typeIndex);
+
+        if (Type.typeEqual(variableType, type_)) return;
+        // NOTE: This has to be appart because if it a constant I want to check if it has an equal
+        if (Type.canTypeBeCoerced(variableType, type_)) couldBeCoerce = true;
     }
 
-    if (!Type.typeEqual(variableType, type_)) {
-        if (tag == .constant)
-            return addInferType(self, alloc, .inferedFromUse, leaf, variable, type_);
+    if (tag == .constant)
+        return addInferType(self, alloc, .inferedFromUse, leaf, variable, type_);
 
+    if (couldBeCoerce) {
         var x: ?Parser.Node.Flags = .{};
         while (x) |_| {
             const pastFlags = leaf.flags.load(.acquire);
@@ -305,7 +310,11 @@ fn checkVarType(self: *Self, alloc: Allocator, leaf: *Parser.Node, type_: *const
 
             x = leaf.flags.cmpxchgWeak(pastFlags, flags, .acquire, .monotonic);
         }
+
+        return;
     }
+
+    return Report.incompatibleType(reports, variableType, type_, leaf, variable);
 }
 
 fn addInferType(self: *Self, alloc: Allocator, comptime flag: std.meta.FieldEnum(Parser.Node.Flags), leaf: *const Parser.Node, variable: *Parser.Node, type_: *const Parser.Node) (Allocator.Error || Error)!void {
