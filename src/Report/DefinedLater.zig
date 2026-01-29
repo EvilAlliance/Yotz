@@ -1,7 +1,7 @@
 const Self = @This();
 
-name: Parser.NodeIndex,
-definition: Parser.NodeIndex,
+name: *const Parser.Node,
+definition: *const Parser.Node,
 
 pub fn display(self: *const Self, message: Message) void {
     message.err.usedBeforeDefined(self.name);

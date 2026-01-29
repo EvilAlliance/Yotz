@@ -1,6 +1,6 @@
 const Self = @This();
 
-name: Parser.NodeIndex,
+name: *const Parser.Node,
 
 pub fn display(self: *const Self, message: Message) void {
     message.err.unknownIdentifier(self.name);

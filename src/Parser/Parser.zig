@@ -45,20 +45,20 @@ fn popUnil(self: *@This(), tokenType: Lexer.Token.Type) void {
     }
 }
 
-pub fn parseFunction(self: *@This(), alloc: Allocator, start: mod.TokenIndex, placeHolder: mod.NodeIndex, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
+pub fn parseFunction(self: *@This(), alloc: Allocator, start: mod.TokenIndex, placeHolder: *Parser.Node, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
     self.index = start;
 
     const index = if (self.peek()[0].tag == .openBrace) try self.parseScope(alloc, reports) else try self.parseStatement(alloc, reports);
 
-    if (self.tu.global.nodes.getPtr(placeHolder).next.cmpxchgStrong(0, index, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
+    if (placeHolder.next.cmpxchgStrong(0, index, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
 }
 
-pub fn parseRoot(self: *@This(), alloc: Allocator, start: mod.TokenIndex, placeHolder: mod.NodeIndex, reports: ?*Report.Reports) (std.mem.Allocator.Error)!void {
+pub fn parseRoot(self: *@This(), alloc: Allocator, start: mod.TokenIndex, placeHolder: *Parser.Node, reports: ?*Report.Reports) (std.mem.Allocator.Error)!void {
     self.index = start;
 
     const index = try self._parseRoot(alloc, reports);
 
-    if (self.tu.global.nodes.getPtr(placeHolder).data[1].cmpxchgStrong(0, index, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
+    if (placeHolder.data[1].cmpxchgStrong(0, index, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
 }
 
 fn _parseRoot(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error)!mod.NodeIndex {
@@ -292,7 +292,7 @@ fn parseExpression(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) 
             _ = self.popIf(.semicolon);
         }
 
-        try (try self.tu.initFunc(alloc)).startFunction(alloc, start, index, reports);
+        try (try self.tu.initFunc(alloc)).startFunction(alloc, start, self.tu.global.nodes.getPtr(index), reports);
 
         return index;
     } else {
@@ -384,6 +384,7 @@ fn parseTerm(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.m
 const Node = @import("Node.zig");
 const Expression = @import("Expression.zig");
 pub const mod = @import("mod.zig");
+const Parser = mod;
 
 const Util = @import("../Util.zig");
 const Lexer = @import("../Lexer/mod.zig");

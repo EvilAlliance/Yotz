@@ -1,18 +1,17 @@
-pub fn typing(self: *const TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
-    try record(self, alloc, rootIndex, reports);
+pub fn typing(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
+    try record(self, alloc, root, reports);
 
     assert(self.global.readyTu.getPtr(self.id).cmpxchgStrong(false, true, .acq_rel, .monotonic) == null);
     self.global.readyTu.unlock();
 
     try self.global.observer.alert(self.id);
 
-    try check(self, alloc, rootIndex, reports);
+    try check(self, alloc, root, reports);
 
-    try cycleCheck(self, alloc, rootIndex);
+    try cycleCheck(self, alloc, root);
 }
 
-fn record(self: *const TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
-    const root = self.global.nodes.get(rootIndex);
+fn record(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
 
     var stmtI = root.data.@"0".load(.acquire);
     const endIndex = root.data.@"1".load(.acquire);
@@ -31,8 +30,7 @@ fn record(self: *const TranslationUnit, alloc: Allocator, rootIndex: Parser.Node
     }
 }
 
-fn check(self: *const TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
-    const root = self.global.nodes.get(rootIndex);
+fn check(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
 
     var stmtI = root.data.@"0".load(.acquire);
     const endIndex = root.data.@"1".load(.acquire);
@@ -51,8 +49,7 @@ fn check(self: *const TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeI
     }
 }
 
-fn cycleCheck(self: *const TranslationUnit, alloc: Allocator, rootIndex: Parser.NodeIndex) Allocator.Error!void {
-    const root = self.global.nodes.get(rootIndex);
+fn cycleCheck(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Node) Allocator.Error!void {
 
     var stmtI = root.data.@"0".load(.acquire);
     const endIndex = root.data.@"1".load(.acquire);

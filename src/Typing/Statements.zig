@@ -1,7 +1,8 @@
 pub fn recordVariable(self: *const TranslationUnit, alloc: Allocator, variable: *Parser.Node, reports: ?*Report.Reports) (Allocator.Error || Scope.Error)!void {
     self.scope.put(alloc, variable.getText(self.global), variable) catch |err| switch (err) {
         Scope.Error.KeyAlreadyExists => {
-            Report.redefinition(reports, self.global.nodes.indexOf(variable), self.global.nodes.indexOf(self.scope.get(variable.getText(self.global)).?));
+            const original = self.scope.get(variable.getText(self.global)).?;
+            Report.redefinition(reports, variable, original);
             return Scope.Error.KeyAlreadyExists;
         },
         else => return @errorCast(err),
@@ -90,8 +91,11 @@ fn checkTypeFunction(self: *const TranslationUnit, funcType: *const Parser.Node,
 
     const retTypeIndex = funcType.data[1].load(.acquire);
 
-    if (!Type.typeEqual(self.global.nodes.getPtr(funcRetTypeIndex), self.global.nodes.getPtr(retTypeIndex))) {
-        return Report.incompatibleType(reports, retTypeIndex, funcRetTypeIndex, funcRetTypeIndex, 0);
+    const retType = self.global.nodes.getPtr(retTypeIndex);
+    const funcRetType = self.global.nodes.getPtr(funcRetTypeIndex);
+
+    if (!Type.typeEqual(funcRetType, retType)) {
+        return Report.incompatibleType(reports, retType, funcRetType, funcRetType, funcRetType);
     }
 }
 

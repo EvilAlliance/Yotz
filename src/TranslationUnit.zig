@@ -58,7 +58,7 @@ pub fn acquire(self: Self, alloc: Allocator) Allocator.Error!Self {
     };
 }
 
-pub fn startFunction(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
+pub fn startFunction(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: *Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
     std.debug.assert(self.tag == .Function);
 
     const callBack = struct {
@@ -72,7 +72,7 @@ pub fn startFunction(self: *const Self, alloc: Allocator, start: Parser.TokenInd
     try self.global.threadPool.spawn(callBack, .{ _startFunction, .{ self.*, alloc, start, placeHolder, reports } });
 }
 
-fn _startFunction(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
+fn _startFunction(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: *Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
     defer self.deinit(alloc);
 
     if (self.global.subCommand == .Lexer) unreachable;
@@ -100,7 +100,7 @@ fn _startFunction(self: *const Self, alloc: Allocator, start: Parser.TokenIndex,
     // if (parser.errors.items.len > 0) return .{ "", 1 };
 }
 
-pub fn startRoot(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
+pub fn startRoot(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: *Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
     std.debug.assert(self.tag == .Root);
 
     const callBack = struct {
@@ -114,7 +114,7 @@ pub fn startRoot(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, 
     try self.global.threadPool.spawn(callBack, .{ _startRoot, .{ self.*, alloc, start, placeHolder, reports } });
 }
 
-fn _startRoot(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
+fn _startRoot(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: *Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
     if (self.global.subCommand == .Lexer) unreachable;
     defer self.deinit(alloc);
 
@@ -124,7 +124,8 @@ fn _startRoot(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, pla
 
     if (self.global.subCommand == .Parser) return;
 
-    try Typing.Root.typing(self, alloc, self.global.nodes.get(placeHolder).data[1].load(.acquire), reports);
+    const rootIndex = placeHolder.data[1].load(.acquire);
+    try Typing.Root.typing(self, alloc, self.global.nodes.getPtr(rootIndex), reports);
 
     if (self.global.subCommand == .Typing) return;
 
@@ -159,7 +160,7 @@ pub fn startEntry(alloc: Allocator, arguments: *const ParseArgs.Arguments) std.m
 
         const index = try global.nodes.appendIndex(alloc, Parser.Node{ .tag = .init(.entry) });
 
-        try tu.startRoot(alloc, 0, index, &reports);
+        try tu.startRoot(alloc, 0, global.nodes.getPtr(index), &reports);
     }
 
     const ret = try waitForWork(alloc, &global);

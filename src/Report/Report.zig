@@ -43,7 +43,7 @@ pub fn expect(reports: ?*mod.Reports, token: Lexer.Token, t: []const Lexer.Token
     return Parser.Parser.Error.UnexpectedToken;
 }
 
-pub fn incompatibleLiteral(reports: ?*mod.Reports, literal: Parser.NodeIndex, expectedType: Parser.NodeIndex) (Typing.Expression.Error) {
+pub fn incompatibleLiteral(reports: ?*mod.Reports, literal: *const Parser.Node, expectedType: *const Parser.Node) (Typing.Expression.Error) {
     if (reports) |rs| rs.appendBounded(.{
         .message = .{
             .incompatibleLiteral = .{
@@ -56,7 +56,7 @@ pub fn incompatibleLiteral(reports: ?*mod.Reports, literal: Parser.NodeIndex, ex
     return Typing.Expression.Error.TooBig;
 }
 
-pub fn incompatibleType(reports: ?*mod.Reports, actualType: Parser.NodeIndex, expectedType: Parser.NodeIndex, place: Parser.NodeIndex, declared: Parser.NodeIndex) (Typing.Expression.Error) {
+pub fn incompatibleType(reports: ?*mod.Reports, actualType: *const Parser.Node, expectedType: *const Parser.Node, place: *const Parser.Node, declared: *const Parser.Node) (Typing.Expression.Error) {
     if (reports) |rs| rs.appendBounded(.{
         .message = .{
             .incompatibleType = .{
@@ -80,7 +80,7 @@ pub fn missingMain(reports: ?*mod.Reports) void {
     }) catch {};
 }
 
-pub fn undefinedVariable(reports: ?*mod.Reports, name: Parser.NodeIndex) (Typing.Expression.Error) {
+pub fn undefinedVariable(reports: ?*mod.Reports, name: *const Parser.Node) (Typing.Expression.Error) {
     if (reports) |rs| {
         rs.appendBounded(.{
             .message = .{
@@ -94,7 +94,7 @@ pub fn undefinedVariable(reports: ?*mod.Reports, name: Parser.NodeIndex) (Typing
     return Typing.Expression.Error.UndefVar;
 }
 
-pub fn redefinition(reports: ?*mod.Reports, name: Parser.NodeIndex, original: Parser.NodeIndex) void {
+pub fn redefinition(reports: ?*mod.Reports, name: *const Parser.Node, original: *const Parser.Node) void {
     if (reports) |rs| {
         rs.appendBounded(.{
             .message = .{
@@ -107,7 +107,7 @@ pub fn redefinition(reports: ?*mod.Reports, name: Parser.NodeIndex, original: Pa
     }
 }
 
-pub fn definedLater(reports: ?*mod.Reports, name: Parser.NodeIndex, definition: Parser.NodeIndex) (Typing.Expression.Error) {
+pub fn definedLater(reports: ?*mod.Reports, name: *const Parser.Node, definition: *const Parser.Node) (Typing.Expression.Error) {
     if (reports) |rs| {
         try rs.appendBounded(.{
             .message = .{

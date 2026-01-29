@@ -1,11 +1,10 @@
-expectedType: Parser.NodeIndex,
-literal: Parser.NodeIndex,
+expectedType: *const Parser.Node,
+literal: *const Parser.Node,
 
 pub fn display(self: @This(), message: Message) void {
     message.err.numberDoesNotFit(self.literal, self.expectedType);
 
-    const expectedTypeNode = message.global.nodes.get(self.expectedType);
-    const flags = expectedTypeNode.flags.load(.acquire);
+    const flags = self.expectedType.flags.load(.acquire);
     if (flags.inferedFromExpression or flags.inferedFromUse) {
         message.info.inferedType(self.expectedType);
     }

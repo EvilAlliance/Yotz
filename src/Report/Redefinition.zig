@@ -1,7 +1,7 @@
 const Self = @This();
 
-name: Parser.NodeIndex,
-original: Parser.NodeIndex,
+name: *const Parser.Node,
+original: *const Parser.Node,
 
 pub fn display(self: *const Self, message: Message) void {
     message.err.identifierIsUsed(self.name);

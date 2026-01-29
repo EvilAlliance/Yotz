@@ -74,9 +74,8 @@ const Error = struct {
         });
     }
 
-    pub inline fn identifierIsUsed(self: @This(), reDefI: Parser.NodeIndex) void {
-        const locStmt = self.global.nodes.get(reDefI).getLocation(self.global);
-        const varia = self.global.nodes.get(reDefI);
+    pub inline fn identifierIsUsed(self: @This(), reDef: *const Parser.Node) void {
+        const locStmt = reDef.getLocation(self.global);
         const fileInfo = self.global.files.get(locStmt.source);
         const where = placeSlice(locStmt, fileInfo.source);
         std.log.err(
@@ -85,7 +84,7 @@ const Error = struct {
                 fileInfo.path,
                 locStmt.row,
                 locStmt.col,
-                varia.getText(self.global),
+                reDef.getText(self.global),
                 fileInfo.source[where.beg..where.end],
                 '^',
                 where.pad,
@@ -93,9 +92,8 @@ const Error = struct {
         );
     }
 
-    pub inline fn unknownIdentifier(self: @This(), unkownNode: Parser.NodeIndex) void {
-        const stmt = self.global.nodes.get(unkownNode);
-        const loc = stmt.getLocation(self.global);
+    pub inline fn unknownIdentifier(self: @This(), unknownNode: *const Parser.Node) void {
+        const loc = unknownNode.getLocation(self.global);
         const fileInfo = self.global.files.get(loc.source);
         const where = placeSlice(loc, fileInfo.source);
         std.log.err(
@@ -104,7 +102,7 @@ const Error = struct {
                 fileInfo.path,
                 loc.row,
                 loc.col,
-                stmt.getText(self.global),
+                unknownNode.getText(self.global),
                 fileInfo.source[where.beg..where.end],
                 '^',
                 where.pad,
@@ -112,9 +110,8 @@ const Error = struct {
         );
     }
 
-    pub inline fn usedBeforeDefined(self: @This(), nameNode: Parser.NodeIndex) void {
-        const stmt = self.global.nodes.get(nameNode);
-        const loc = stmt.getLocation(self.global);
+    pub inline fn usedBeforeDefined(self: @This(), nameNode: *const Parser.Node) void {
+        const loc = nameNode.getLocation(self.global);
         const fileInfo = self.global.files.get(loc.source);
         const where = placeSlice(loc, fileInfo.source);
         std.log.err(
@@ -123,7 +120,7 @@ const Error = struct {
                 fileInfo.path,
                 loc.row,
                 loc.col,
-                stmt.getText(self.global),
+                nameNode.getText(self.global),
                 fileInfo.source[where.beg..where.end],
                 '^',
                 where.pad,
@@ -168,9 +165,7 @@ const Error = struct {
         );
     }
 
-    pub inline fn incompatibleType(self: @This(), actualI: Parser.NodeIndex, expectedI: Parser.NodeIndex, loc: Lexer.Location) void {
-        const actual = self.global.nodes.get(actualI);
-        const expected = self.global.nodes.get(expectedI);
+    pub inline fn incompatibleType(self: @This(), actual: *const Parser.Node, expected: *const Parser.Node, loc: Lexer.Location) void {
         const fileInfo = self.global.files.get(loc.source);
         const where = placeSlice(loc, fileInfo.source);
         std.log.err(
@@ -210,9 +205,8 @@ const Error = struct {
         );
     }
 
-    pub inline fn numberDoesNotFit(self: @This(), exprI: Parser.NodeIndex, expectedTypeI: Parser.NodeIndex) void {
-        const expectedType = self.global.nodes.get(expectedTypeI);
-        const loc = self.global.nodes.get(exprI).getLocation(self.global);
+    pub inline fn numberDoesNotFit(self: @This(), expr: *const Parser.Node, expectedType: *const Parser.Node) void {
+        const loc = expr.getLocation(self.global);
         const fileInfo = self.global.files.get(loc.source);
 
         const size = expectedType.data[0].load(.acquire);
@@ -308,8 +302,7 @@ const Info = struct {
         return .{ .global = global };
     }
 
-    pub inline fn isDeclaredHere(self: @This(), varI: Parser.NodeIndex) void {
-        const varia = self.global.nodes.get(varI);
+    pub inline fn isDeclaredHere(self: @This(), varia: *const Parser.Node) void {
         const locVar = varia.getLocation(self.global);
         const fileInfo = self.global.files.get(locVar.source);
         const where = placeSlice(locVar, fileInfo.source);
@@ -327,8 +320,7 @@ const Info = struct {
         );
     }
 
-    pub inline fn inferedType(self: @This(), t: Parser.NodeIndex) void { // type
-        const typeNode = self.global.nodes.get(t);
+    pub inline fn inferedType(self: @This(), typeNode: *const Parser.Node) void { // type
         const inferedLoc = typeNode.getLocation(self.global);
         const fileInfo = self.global.files.get(inferedLoc.source);
         const where = placeSlice(inferedLoc, fileInfo.source);

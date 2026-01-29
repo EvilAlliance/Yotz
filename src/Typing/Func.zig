@@ -1,5 +1,4 @@
-pub fn typing(self: *const TranslationUnit, alloc: Allocator, funcIndex: Parser.NodeIndex, reports: ?*Report.Reports) Allocator.Error!void {
-    const func = self.global.nodes.get(funcIndex);
+pub fn typing(self: *const TranslationUnit, alloc: Allocator, func: *const Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
     std.debug.assert(func.tag.load(.acquire) == .funcProto);
 
     const tIndex = func.data[1].load(.acquire);

@@ -157,7 +157,7 @@ pub fn _inferType(self: *Self, alloc: Allocator, expr: *const Parser.Node, repor
             const leaf = expr;
             const id = leaf.getText(self.tu.global);
 
-            const variable = self.tu.scope.get(id) orelse return Report.undefinedVariable(reports, self.tu.global.nodes.indexOf(expr));
+            const variable = self.tu.scope.get(id) orelse return Report.undefinedVariable(reports, expr);
 
             const typeIndex = variable.data.@"0".load(.acquire);
 
@@ -189,12 +189,13 @@ pub fn _inferType(self: *Self, alloc: Allocator, expr: *const Parser.Node, repor
                 if (Type.canTypeBeCoerced(typeL.?.type, typeR.?.type)) return typeR;
                 if (Type.canTypeBeCoerced(typeR.?.type, typeL.?.type)) return typeL;
 
+                const declared = self.tu.scope.get(typeR.?.place.getText(self.tu.global)).?;
                 return Report.incompatibleType(
                     reports,
-                    self.tu.global.nodes.indexOf(typeL.?.type),
-                    self.tu.global.nodes.indexOf(typeR.?.type),
-                    self.tu.global.nodes.indexOf(expr),
-                    self.tu.global.nodes.indexOf(self.tu.scope.get(typeR.?.place.getText(self.tu.global)).?),
+                    typeL.?.type,
+                    typeR.?.type,
+                    expr,
+                    declared,
                 );
             }
         },
@@ -276,7 +277,7 @@ fn checkExpected(self: *Self, alloc: Allocator, expr: *Parser.Node, expectedType
 fn checkVarType(self: *Self, alloc: Allocator, leaf: *Parser.Node, type_: *const Parser.Node, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
     const id = leaf.getText(self.tu.global);
 
-    const variable = self.tu.scope.get(id) orelse return Report.undefinedVariable(reports, self.tu.global.nodes.indexOf(leaf));
+    const variable = self.tu.scope.get(id) orelse return Report.undefinedVariable(reports, leaf);
 
     const typeIndex = variable.data.@"0".load(.acquire);
 
@@ -289,7 +290,7 @@ fn checkVarType(self: *Self, alloc: Allocator, leaf: *Parser.Node, type_: *const
     if (!Type.canTypeBeCoerced(variableType, type_)) {
         if (tag == .constant)
             return addInferType(self, alloc, .inferedFromUse, leaf, variable, type_);
-        return Report.incompatibleType(reports, typeIndex, self.tu.global.nodes.indexOf(type_), self.tu.global.nodes.indexOf(leaf), self.tu.global.nodes.indexOf(variable));
+        return Report.incompatibleType(reports, variableType, type_, leaf, variable);
     }
 
     if (!Type.typeEqual(variableType, type_)) {
@@ -341,18 +342,18 @@ fn checkLitType(self: *Self, lit: *const Parser.Node, expectedType: *const Parse
     switch (@as(Parser.Node.Primitive, @enumFromInt(primitive))) {
         Parser.Node.Primitive.uint => {
             const max = std.math.pow(u64, 2, size) - 1;
-            const number = std.fmt.parseInt(u64, text, 10) catch return Report.incompatibleLiteral(reports, self.tu.global.nodes.indexOf(lit), self.tu.global.nodes.indexOf(expectedType));
+            const number = std.fmt.parseInt(u64, text, 10) catch return Report.incompatibleLiteral(reports, lit, expectedType);
 
             if (number < max) return;
-            return Report.incompatibleLiteral(reports, self.tu.global.nodes.indexOf(lit), self.tu.global.nodes.indexOf(expectedType));
+            return Report.incompatibleLiteral(reports, lit, expectedType);
         },
         Parser.Node.Primitive.sint => {
             const max = std.math.pow(i64, 2, (size - 1)) - 1;
             const number = std.fmt.parseInt(i64, text, 10) catch
-                return Report.incompatibleLiteral(reports, self.tu.global.nodes.indexOf(lit), self.tu.global.nodes.indexOf(expectedType));
+                return Report.incompatibleLiteral(reports, lit, expectedType);
 
             if (number < max) return;
-            return Report.incompatibleLiteral(reports, self.tu.global.nodes.indexOf(lit), self.tu.global.nodes.indexOf(expectedType));
+            return Report.incompatibleLiteral(reports, lit, expectedType);
         },
         Parser.Node.Primitive.float => unreachable,
     }

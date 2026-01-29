@@ -1,21 +1,19 @@
-actualType: Parser.NodeIndex,
-expectedType: Parser.NodeIndex,
+actualType: *const Parser.Node,
+expectedType: *const Parser.Node,
 
-place: Parser.NodeIndex,
-declared: Parser.NodeIndex,
+place: *const Parser.Node,
+declared: *const Parser.Node,
 
 pub fn display(self: @This(), message: Message) void {
-    message.err.incompatibleType(self.actualType, self.expectedType, message.global.nodes.get(self.place).getLocation(message.global));
+    message.err.incompatibleType(self.actualType, self.expectedType, self.place.getLocation(message.global));
     message.info.isDeclaredHere(self.declared);
 
-    const actual = message.global.nodes.get(self.actualType);
-    const actualFlags = actual.flags.load(.acquire);
+    const actualFlags = self.actualType.flags.load(.acquire);
     if (actualFlags.inferedFromExpression or actualFlags.inferedFromUse) {
         message.info.inferedType(self.actualType);
     }
 
-    const expected = message.global.nodes.get(self.expectedType);
-    const expectedFlags = expected.flags.load(.acquire);
+    const expectedFlags = self.expectedType.flags.load(.acquire);
     if (expectedFlags.inferedFromExpression or expectedFlags.inferedFromUse) {
         message.info.inferedType(self.expectedType);
     }
