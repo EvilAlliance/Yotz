@@ -52,8 +52,14 @@ fn parseLocation(reportText: []const u8) error{notFound}!struct { line: u32, col
     const secondColon: usize = std.mem.indexOf(u8, reportText[firtColon + 1 ..], ":").? + 1 + firtColon;
     const thrirdColon: usize = std.mem.indexOf(u8, reportText[secondColon + 1 ..], ":").? + 1 + secondColon;
 
-    const row = std.fmt.parseInt(u32, reportText[firtColon + 1 .. secondColon], 10) catch @panic("File Too Big");
-    const column = std.fmt.parseInt(u32, reportText[secondColon + 1 .. thrirdColon], 10) catch @panic("File Too Big");
+    const row = std.fmt.parseInt(u32, reportText[firtColon + 1 .. secondColon], 10) catch {
+        std.log.debug("{s}", .{reportText});
+        @panic("File Too Big");
+    };
+    const column = std.fmt.parseInt(u32, reportText[secondColon + 1 .. thrirdColon], 10) catch {
+        std.log.debug("{s}", .{reportText});
+        @panic("File Too Big");
+    };
 
     return .{ .line = row, .column = column };
 }

@@ -155,11 +155,11 @@ pub fn startEntry(alloc: Allocator, arguments: *const ParseArgs.Arguments) std.m
         },
     };
 
-    var scopeOp: ?Typing.Scope.Scope = undefined;
-    defer if (scopeOp) |scope| scope.deinit(alloc);
+    var scope: Typing.Scope.Scope = undefined;
+    defer if (arguments.subCom != .Lexer) scope.deinit(alloc);
     if (arguments.subCom != .Lexer) {
         const tu = try initRoot(alloc, &global);
-        scopeOp = try tu.scope.deepClone(alloc);
+        scope = try tu.scope.deepClone(alloc);
 
         const index = try global.nodes.appendIndex(alloc, Parser.Node{ .tag = .init(.entry) });
 
@@ -168,7 +168,7 @@ pub fn startEntry(alloc: Allocator, arguments: *const ParseArgs.Arguments) std.m
 
     const ret = try waitForWork(alloc, &global);
 
-    if (scopeOp) |scope| {
+    if (arguments.subCom != .Parser and arguments.subCom != .Lexer) {
         if (scope.get("main")) |main| {
             const funcProto = global.nodes.getConstPtr(main.data[1].load(.acquire));
             if (funcProto.tag.load(.acquire) != .funcProto) {

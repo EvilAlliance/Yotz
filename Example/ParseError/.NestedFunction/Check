@@ -14,17 +14,23 @@ foo: () u8 : () u8 {
 outer: () u8 : () u8 { 
 } 
 
-:b stderr 441
+:b stderr 868
+[ERROR]: Example/ParseError/NestedFunction.yt:2:12: Function must return type u8 but has no return statement 
+main :: () u8 {
+           ^
 [ERROR]: Example/ParseError/NestedFunction.yt:3:20: Expected: ")" but found: '{' 
     nested :: ( u8 {
                    ^
+[ERROR]: Example/ParseError/NestedFunction.yt:12:15: Function must return type u8 but has no return statement 
+    bar :: () u8 {
+              ^
 [ERROR]: Example/ParseError/NestedFunction.yt:13:19: Expected: "number literal", "(", "-", "identifier" but found: ';' 
         return 3 +;
                   ^
+[ERROR]: Example/ParseError/NestedFunction.yt:20:13: Function must return type u8 but has no return statement 
+outer :: () u8 {
+            ^
 [ERROR]: Example/ParseError/NestedFunction.yt:21:15: Expected: "number literal", "(", "-", "identifier" but found: ')' 
     middle :: ) u8 {
-              ^
-
-le :: ) u8 {
               ^
 
