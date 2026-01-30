@@ -413,6 +413,12 @@
         "title": "Add Comments into the Ast",
         "desc": "",
         "time_created": "2026-01-30 07:33:55.070862811 -03:00:00"
+      },
+      {
+        "id": "woga8xoY",
+        "title": "Make it impossible to stablish a variable with name of a primitive",
+        "desc": "",
+        "time_created": "2026-01-30 09:44:08.324733672 -03:00:00"
       }
     ]
   }

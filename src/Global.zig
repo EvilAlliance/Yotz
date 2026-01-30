@@ -199,7 +199,7 @@ fn toStringStatement(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayL
         .variable, .constant => {
             try self.toStringVariable(alloc, cont, d, stmt);
         },
-        else => unreachable,
+        else => std.debug.panic("What node is this {}", .{stmt}),
     }
 
     if (self.nodes.get(exprIndex).tag.load(.acquire) != .funcProto) {
@@ -265,6 +265,11 @@ fn toStringExpression(self: *@This(), alloc: std.mem.Allocator, cont: *std.Array
         .load => {
             try cont.appendSlice(alloc, node.getText(self));
         },
+        .call => {
+            try cont.appendSlice(alloc, node.getText(self));
+            try cont.appendSlice(alloc, "()");
+            assert(node.data.@"0".load(.acquire) == 0 and node.data.@"1".load(.acquire) == 0);
+        },
         .lit => {
             try cont.appendSlice(alloc, node.getText(self));
         },
@@ -304,6 +309,6 @@ const Observer = @import("Util/Observer.zig");
 const std = @import("std");
 
 const Allocator = std.mem.Allocator;
-
 const Thread = std.Thread;
 const Atomic = std.atomic.Value;
+const assert = std.debug.assert;

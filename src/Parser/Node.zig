@@ -17,6 +17,7 @@ pub const Tag = enum(mod.NodeIndex) {
     ret, // right expression
     variable, // left type, right expr
     constant, // left type, right expr
+    call, //
 
     //expresion
     addition,
