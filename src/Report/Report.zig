@@ -10,6 +10,8 @@ message: union(enum) {
     definedLater: mod.DefinedLater,
     dependencyCycle: mod.DependencyCycle,
     mustReturnU8: mod.MustReturnU8,
+    missingReturn: mod.MissingReturn,
+    unreachableStatement: mod.UnreachableStatement,
 },
 
 pub fn display(self: *const Self, message: mod.Message) void {
@@ -23,6 +25,8 @@ pub fn display(self: *const Self, message: mod.Message) void {
         .definedLater => |dl| dl.display(message),
         .dependencyCycle => |dc| dc.display(message),
         .mustReturnU8 => |mru| mru.display(message),
+        .missingReturn => |mr| mr.display(message),
+        .unreachableStatement => |us| us.display(message),
     }
 }
 
@@ -142,6 +146,24 @@ pub fn mustReturnU8(reports: ?*mod.Reports, name: []const u8, type_: *const Pars
                 .mustReturnU8 = .{
                     .functionName = name,
                     .type_ = type_,
+pub fn missingReturn(reports: ?*mod.Reports, returnType: *const Parser.Node) void {
+    if (reports) |rs| {
+        rs.appendBounded(.{
+            .message = .{
+                .missingReturn = .{
+                    .returnType = returnType,
+                },
+            },
+        }) catch {};
+    }
+}
+
+pub fn unreachableStatement(reports: ?*mod.Reports, statement: *const Parser.Node) void {
+    if (reports) |rs| {
+        rs.appendBounded(.{
+            .message = .{
+                .unreachableStatement = .{
+                    .statement = statement,
                 },
             },
         }) catch {};
