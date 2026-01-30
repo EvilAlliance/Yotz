@@ -14,6 +14,8 @@ pub const dependencyCycle = Report.dependencyCycle;
 pub const mustReturnU8 = Report.mustReturnU8;
 pub const missingReturn = Report.missingReturn;
 pub const unreachableStatement = Report.unreachableStatement;
+pub const expectedFunction = Report.expectedFunction;
+pub const incompatibleReturnType = Report.incompatibleReturnType;
 
 pub const Reports = ArrayListThreadSafe(Report);
 
@@ -28,6 +30,8 @@ pub const DependencyCycle = @import("DependencyCycle.zig");
 pub const MustReturnU8 = @import("MustReturnU8.zig");
 pub const MissingReturn = @import("MissingReturn.zig");
 pub const UnreachableStatement = @import("UnreachableStatement.zig");
+pub const ExpectedFunction = @import("ExpectedFunction.zig");
+pub const IncompatibleReturnType = @import("IncompatibleReturnType.zig");
 
 const Bucketarray = @import("../Util/BucketArray.zig").BucketArray;
 const ArrayListThreadSafe = @import("../Util/ArrayListThreadSafe.zig").ArrayListThreadSafe;
