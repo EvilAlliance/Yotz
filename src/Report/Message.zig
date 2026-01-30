@@ -28,20 +28,20 @@ const Error = struct {
         return .{ .global = global };
     }
 
-    pub inline fn funcReturnsU8(self: @This(), functionName: []const u8, typeIndex: Parser.NodeIndex) void {
-        const loc = self.global.getNodeLocation(typeIndex);
-        const typeNode = self.global.getNode(typeIndex);
-        const where = placeSlice(loc, self.global.cont.source);
+    pub inline fn funcReturnsU8(self: @This(), functionName: []const u8, typeNode: *const Parser.Node) void {
+        const loc = typeNode.getLocation(self.global);
+        const fileInfo = self.global.files.get(loc.source);
+        const where = placeSlice(loc, fileInfo.source);
         std.log.err(
             "{s}:{}:{}: {s} must return u8 instead of {c}{}\n{s}\n{[7]c: >[8]}",
             .{
-                self.global.cont.path,
+                fileInfo.path,
                 loc.row,
                 loc.col,
                 functionName,
                 typeNode.typeToString(),
-                typeNode.data[0],
-                self.global.cont.source[where.beg..where.end],
+                typeNode.data[0].load(.acquire),
+                fileInfo.source[where.beg..where.end],
                 '^',
                 where.pad,
             },

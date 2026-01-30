@@ -155,8 +155,11 @@ pub fn startEntry(alloc: Allocator, arguments: *const ParseArgs.Arguments) std.m
         },
     };
 
+    var scopeOp: ?Typing.Scope.Scope = undefined;
+    defer if (scopeOp) |scope| scope.deinit(alloc);
     if (arguments.subCom != .Lexer) {
         const tu = try initRoot(alloc, &global);
+        scopeOp = try tu.scope.deepClone(alloc);
 
         const index = try global.nodes.appendIndex(alloc, Parser.Node{ .tag = .init(.entry) });
 
@@ -164,6 +167,23 @@ pub fn startEntry(alloc: Allocator, arguments: *const ParseArgs.Arguments) std.m
     }
 
     const ret = try waitForWork(alloc, &global);
+
+    if (scopeOp) |scope| {
+        if (scope.get("main")) |main| {
+            const funcProto = global.nodes.getConstPtr(main.data[1].load(.acquire));
+            if (funcProto.tag.load(.acquire) != .funcProto) {
+                Report.missingMain(&reports);
+            } else {
+                const type_ = global.nodes.getConstPtr(funcProto.data[1].load(.acquire));
+                if (!Typing.Type.typeEqual(type_, &.{
+                    .tag = .init(.type),
+                    .tokenIndex = .init(0),
+                    .data = .{ .init(8), .init(@intFromEnum(Parser.Node.Primitive.uint)) },
+                    .next = .init(0),
+                })) Report.mustReturnU8(&reports, "main", type_);
+            }
+        } else Report.missingMain(&reports);
+    }
 
     const message = Report.Message.init(&global);
     for (reports.slice()) |r| {

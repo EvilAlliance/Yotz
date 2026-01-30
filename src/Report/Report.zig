@@ -9,6 +9,7 @@ message: union(enum) {
     redefinition: mod.Redefinition,
     definedLater: mod.DefinedLater,
     dependencyCycle: mod.DependencyCycle,
+    mustReturnU8: mod.MustReturnU8,
 },
 
 pub fn display(self: *const Self, message: mod.Message) void {
@@ -21,6 +22,7 @@ pub fn display(self: *const Self, message: mod.Message) void {
         .redefinition => |rd| rd.display(message),
         .definedLater => |dl| dl.display(message),
         .dependencyCycle => |dc| dc.display(message),
+        .mustReturnU8 => |mru| mru.display(message),
     }
 }
 
@@ -131,6 +133,19 @@ pub fn dependencyCycle(alloc: Allocator, cycle: []const Typing.Expression.CycleU
             },
         },
     };
+}
+
+pub fn mustReturnU8(reports: ?*mod.Reports, name: []const u8, type_: *const Parser.Node) void {
+    if (reports) |rs| {
+        rs.appendBounded(.{
+            .message = .{
+                .mustReturnU8 = .{
+                    .functionName = name,
+                    .type_ = type_,
+                },
+            },
+        }) catch {};
+    }
 }
 
 const mod = @import("mod.zig");

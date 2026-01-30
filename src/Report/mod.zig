@@ -11,6 +11,7 @@ pub const undefinedVariable = Report.undefinedVariable;
 pub const redefinition = Report.redefinition;
 pub const definedLater = Report.definedLater;
 pub const dependencyCycle = Report.dependencyCycle;
+pub const mustReturnU8 = Report.mustReturnU8;
 
 pub const Reports = ArrayListThreadSafe(Report);
 
@@ -22,6 +23,7 @@ pub const UndefinedVariable = @import("UndefinedVariable.zig");
 pub const Redefinition = @import("Redefinition.zig");
 pub const DefinedLater = @import("DefinedLater.zig");
 pub const DependencyCycle = @import("DependencyCycle.zig");
+pub const MustReturnU8 = @import("MustReturnU8.zig");
 
 const Bucketarray = @import("../Util/BucketArray.zig").BucketArray;
 const ArrayListThreadSafe = @import("../Util/ArrayListThreadSafe.zig").ArrayListThreadSafe;
