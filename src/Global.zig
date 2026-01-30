@@ -128,7 +128,7 @@ fn toStringType(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u
 
     while (true) {
         switch (current.tag.load(.acquire)) {
-            .funcType => {
+            .fakeFuncType, .funcType => {
                 std.debug.assert(current.data[0].load(.acquire) == 0);
                 try cont.appendSlice(alloc, "() ");
 
@@ -269,6 +269,16 @@ fn toStringExpression(self: *@This(), alloc: std.mem.Allocator, cont: *std.Array
             try cont.appendSlice(alloc, node.getText(self));
             try cont.appendSlice(alloc, "()");
             assert(node.data.@"0".load(.acquire) == 0 and node.data.@"1".load(.acquire) == 0);
+
+            var next = node.next.load(.acquire);
+            while (next != 0) {
+                const call = self.nodes.getConstPtr(next);
+
+                try cont.appendSlice(alloc, "()");
+                assert(node.data.@"0".load(.acquire) == 0 and node.data.@"1".load(.acquire) == 0);
+
+                next = call.next.load(.acquire);
+            }
         },
         .lit => {
             try cont.appendSlice(alloc, node.getText(self));

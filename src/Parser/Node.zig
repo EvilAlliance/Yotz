@@ -7,17 +7,19 @@ pub const Tag = enum(mod.NodeIndex) {
 
     funcProto, // data[0] args data[1] retutn type next scope
     args,
+
     fakeType, // indentifier in token
     type, // data[0] size in bits, data[1] Primitive if next != 0 can have multiple types
+
+    fakeFuncType, // data[0] argsType, data[1] type
     funcType, // data[0] argsType, data[1] type
-    argType, // data[0] argsType, data[1] type
 
     scope, // data[0] start, when next is zero of the children stop
 
     ret, // right expression
     variable, // left type, right expr
     constant, // left type, right expr
-    call, //
+    call, // next can hold another hold executed before
 
     //expresion
     addition,

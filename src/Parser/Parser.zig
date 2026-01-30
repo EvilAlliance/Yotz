@@ -155,7 +155,7 @@ fn parseTypeFunction(self: *@This(), alloc: Allocator, reports: ?*Report.Reports
     const x = try self.parseType(alloc, reports);
 
     const node = Node{
-        .tag = .init(.funcType),
+        .tag = .init(.fakeFuncType),
         .data = .{ .init(0), .init(x) },
         .tokenIndex = .init(initI),
     };
@@ -281,16 +281,35 @@ fn parseReturn(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std
 
 fn parseCall(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (Allocator.Error || Error)!?mod.NodeIndex {
     if (self.peek().@"0".tag != .iden or self.peekMany(1).@"0".tag != .openParen) return null;
-    const iden = self.pop().@"1";
+    var iden = self.pop().@"1";
     _ = self.pop();
 
     try Report.expect(reports, self.peek().@"0", &.{.closeParen});
     assert(self.popIf(.closeParen) != null);
 
-    return try self.tu.global.nodes.appendIndex(alloc, .{
+    const callF = try self.tu.global.nodes.reserve(alloc);
+    callF.* = .{
         .tag = .init(.call),
         .tokenIndex = .init(iden),
-    });
+    };
+
+    var call = callF;
+    while (self.peek().@"0".tag == .openParen) {
+        iden = self.pop().@"1";
+
+        try Report.expect(reports, self.peek().@"0", &.{.closeParen});
+        assert(self.popIf(.closeParen) != null);
+
+        const nextCall = try self.tu.global.nodes.reserve(alloc);
+        nextCall.* = .{
+            .tag = .init(.call),
+            .tokenIndex = .init(iden),
+        };
+        call.next.store(self.tu.global.nodes.indexOf(nextCall), .release);
+        call = nextCall;
+    }
+
+    return self.tu.global.nodes.indexOf(callF);
 }
 
 fn parseExpression(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {

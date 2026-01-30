@@ -1,0 +1,7 @@
+foo :: () u8 {
+    return 8;
+}
+
+main :: () u8 {
+    return foo();
+}

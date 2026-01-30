@@ -1,0 +1,14 @@
+:i argc 0
+:b stdin 0
+
+:i returncode 0
+:b stdout 71
+foo :: () u8 { 
+    return 8;
+} 
+main :: () u8 { 
+    return foo();
+} 
+
+:b stderr 0
+

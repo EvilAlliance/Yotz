@@ -1,0 +1,13 @@
+foo :: () u8 {
+    return 8;
+}
+
+bar :: () u16 {
+    return 8;
+}
+
+main :: () u8 {
+    a : u16 = foo();
+    b:u8 = bar();
+    return foo();
+}

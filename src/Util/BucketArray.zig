@@ -37,6 +37,27 @@ pub fn BucketArray(comptime T: type, comptime BucketType: type, comptime nodesPe
             self.buckets.items[bucketId][offset] = item;
         }
 
+        pub fn reserve(self: *Self, alloc: Allocator) Allocator.Error!*T {
+            const index = self.nextIndex.fetchAdd(1, .monotonic);
+            const bucketId = index / nodesPerBucket;
+            const offset = index % nodesPerBucket;
+
+            if (bucketId < self.bucketCount.load(.acquire)) {
+                return &self.buckets.items[bucketId][offset];
+            }
+
+            self.protec.lock();
+            defer self.protec.unlock();
+
+            while (bucketId >= self.buckets.items.len) {
+                const bucket = try alloc.create(Bucket);
+                try self.buckets.append(alloc, bucket);
+                self.bucketCount.store(@intCast(self.buckets.items.len), .release);
+            }
+
+            return &self.buckets.items[bucketId][offset];
+        }
+
         pub fn appendIndex(self: *Self, alloc: Allocator, item: T) Allocator.Error!BucketType {
             const index = self.nextIndex.fetchAdd(1, .monotonic);
             const bucketId = index / nodesPerBucket;

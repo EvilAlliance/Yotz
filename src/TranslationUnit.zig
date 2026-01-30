@@ -175,7 +175,7 @@ pub fn startEntry(alloc: Allocator, arguments: *const ParseArgs.Arguments) std.m
                 Report.missingMain(&reports);
             } else {
                 const type_ = global.nodes.getConstPtr(funcProto.data[1].load(.acquire));
-                if (!Typing.Type.typeEqual(type_, &.{
+                if (!Typing.Type.typeEqual(&global, type_, &.{
                     .tag = .init(.type),
                     .tokenIndex = .init(0),
                     .data = .{ .init(8), .init(@intFromEnum(Parser.Node.Primitive.uint)) },

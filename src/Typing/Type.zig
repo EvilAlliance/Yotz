@@ -2,20 +2,25 @@ pub fn transformType(self: *const TranslationUnit, type_: *Parser.Node) void {
     const tag = type_.tag.load(.acquire);
     switch (tag) {
         .fakeType => transformIdentiferType(self, type_),
-        .funcType => transformFuncType(self, type_),
-        .type => {},
+        .fakeFuncType => transformFuncType(self, type_),
+        .type, .funcType => {},
         else => unreachable,
     }
 }
 
-fn transformFuncType(self: *const TranslationUnit, funcType: *const Parser.Node) void {
-    std.debug.assert(funcType.tag.load(.acquire) == .funcType);
+fn transformFuncType(self: *const TranslationUnit, funcType: *Parser.Node) void {
+    std.debug.assert(funcType.tag.load(.acquire) == .fakeFuncType);
 
     std.debug.assert(funcType.data[0].load(.acquire) == 0);
 
     const retTypeIndex = funcType.data[1].load(.acquire);
     std.debug.assert(retTypeIndex != 0);
     transformType(self, self.global.nodes.getPtr(retTypeIndex));
+
+    if (funcType.tag.cmpxchgStrong(.fakeFuncType, .funcType, .seq_cst, .monotonic) != null) {
+        std.debug.assert(funcType.tag.load(.acquire) == .funcType);
+        return;
+    }
 }
 
 // NOTE: Maybe good idea to create a new node, if the panic is triggered and cannot check if the correctness is still okey
@@ -43,22 +48,36 @@ fn transformIdentiferType(self: *const TranslationUnit, type_: *Parser.Node) voi
 
     const typeInfo = std.meta.stringToEnum(TypeName, name[0..1]) orelse @panic("Aliases or struct arent supported yet");
 
+    type_.data.@"0".store(std.fmt.parseInt(u32, name[1..], 10) catch @panic("Aliases or struct arent supported yet"), .release);
+    type_.data.@"1".store(@intFromEnum(typeInfo.nodeKind()), .release);
+
     if (type_.tag.cmpxchgStrong(.fakeType, .type, .seq_cst, .monotonic) != null) {
         std.debug.assert(type_.tag.load(.acquire) == .type);
         return;
     }
-
-    const resultSize = type_.data.@"0".cmpxchgStrong(0, std.fmt.parseInt(u32, name[1..], 10) catch @panic("Aliases or struct arent supported yet"), .acq_rel, .monotonic);
-    const resultPrimitive = type_.data.@"1".cmpxchgStrong(0, @intFromEnum(typeInfo.nodeKind()), .acq_rel, .monotonic);
-
-    // NOTE: if this fails and the if was successful is sus
-    std.debug.assert(resultSize == null and resultPrimitive == null);
 }
 
-pub fn typeEqual(actual: *const Parser.Node, expected: *const Parser.Node) bool {
-    std.debug.assert(actual.tag.load(.acquire) == .type and expected.tag.load(.acquire) == .type);
+pub fn typeEqual(global: *const Global, actual: *const Parser.Node, expected: *const Parser.Node) bool {
+    const actualTag = actual.tag.load(.acquire);
+    const expectedTag = expected.tag.load(.acquire);
 
-    return expected.data[1].load(.acquire) == actual.data[1].load(.acquire) and expected.data[0].load(.acquire) == actual.data[0].load(.acquire);
+    if (actualTag == .fakeType) std.log.debug("Actual: {}", .{actual});
+    if (expectedTag == .fakeType) std.log.debug("Expected: {}", .{expected});
+    assert(actualTag != .fakeType and expectedTag != .fakeType);
+
+    if (actualTag == .type and expectedTag == .type)
+        return expected.data[1].load(.acquire) == actual.data[1].load(.acquire) and expected.data[0].load(.acquire) == actual.data[0].load(.acquire);
+    if (actualTag == .funcType and expectedTag == .funcType) {
+        //Args
+        assert(actual.data[0].load(.acquire) == 0 and expected.data.@"0".load(.acquire) == 0);
+        return typeEqual(
+            global,
+            global.nodes.getConstPtr(actual.data.@"1".load(.acquire)),
+            global.nodes.getConstPtr(expected.data.@"1".load(.acquire)),
+        );
+    }
+
+    return false;
 }
 
 pub fn canTypeBeCoerced(actual: *const Parser.Node, expected: *const Parser.Node) bool {
@@ -66,6 +85,9 @@ pub fn canTypeBeCoerced(actual: *const Parser.Node, expected: *const Parser.Node
 }
 
 const TranslationUnit = @import("../TranslationUnit.zig");
+const Global = @import("../Global.zig");
 const Parser = @import("../Parser/mod.zig");
 
 const std = @import("std");
+
+const assert = std.debug.assert;

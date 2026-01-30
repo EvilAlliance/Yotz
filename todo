@@ -419,6 +419,42 @@
         "title": "Make it impossible to stablish a variable with name of a primitive",
         "desc": "",
         "time_created": "2026-01-30 09:44:08.324733672 -03:00:00"
+      },
+      {
+        "id": "4bWmAEAL",
+        "title": "Implent Void",
+        "desc": "",
+        "time_created": "2026-01-30 09:50:43.015455697 -03:00:00"
+      },
+      {
+        "id": "HLwWUatk",
+        "title": "Discard Value _",
+        "desc": "",
+        "time_created": "2026-01-30 09:51:00.840745693 -03:00:00"
+      },
+      {
+        "id": "QS9JuznG",
+        "title": "Allow multiple function with the same name but different type",
+        "desc": "",
+        "time_created": "2026-01-30 09:54:43.783222392 -03:00:00"
+      },
+      {
+        "id": "AtbTMKaH",
+        "title": "When type alias is implemmented the trace should not be stopped",
+        "desc": "",
+        "time_created": "2026-01-30 11:52:26.783239634 -03:00:00"
+      },
+      {
+        "id": "AQbxF6cR",
+        "title": "Variable when there are infering types, it does the check 2 times",
+        "desc": "",
+        "time_created": "2026-01-30 12:09:28.121316734 -03:00:00"
+      },
+      {
+        "id": "noZ58Ak7",
+        "title": "Make fake function type",
+        "desc": "",
+        "time_created": "2026-01-30 15:18:18.733861188 -03:00:00"
       }
     ]
   }

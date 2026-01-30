@@ -1,0 +1,21 @@
+:i argc 0
+:b stdin 0
+
+:i returncode 0
+:b stdout 159
+bar :: () () u8 { 
+    return () u8 { 
+        return 8;
+    } 
+
+} 
+foo :: () u8 { 
+    return bar()();
+} 
+main :: () u8 { 
+    b := bar();
+    return b();
+} 
+
+:b stderr 0
+

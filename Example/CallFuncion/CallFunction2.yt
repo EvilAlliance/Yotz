@@ -5,9 +5,7 @@ bar :: () () u8 {
 }
 
 foo :: () u8 {
-    a := bar()();
-
-    return a;
+    return bar()();
 }
 
 main :: () u8 {

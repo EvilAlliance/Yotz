@@ -31,7 +31,8 @@ pub fn typing(self: *const TranslationUnit, alloc: Allocator, func: *const Parse
 fn checkScope(self: *const TranslationUnit, alloc: Allocator, scopeIndex: Parser.NodeIndex, retType: *const Parser.Node, reports: ?*Report.Reports) Allocator.Error!bool {
     const scope = self.global.nodes.get(scopeIndex);
 
-    std.debug.assert(scope.tag.load(.acquire) == .scope and retType.tag.load(.acquire) == .type);
+    const retTypeTag = retType.tag.load(.acquire);
+    std.debug.assert(scope.tag.load(.acquire) == .scope and retTypeTag == .type or retTypeTag == .funcType);
 
     const i = scope.data[0].load(.acquire);
 

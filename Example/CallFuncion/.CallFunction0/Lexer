@@ -1,0 +1,33 @@
+:i argc 0
+:b stdin 0
+
+:i returncode 0
+:b stdout 1357
+Example/CallFuncion/CallFunction0.yt:1:1 foo (iden)
+Example/CallFuncion/CallFunction0.yt:1:5 : (colon)
+Example/CallFuncion/CallFunction0.yt:1:6 : (colon)
+Example/CallFuncion/CallFunction0.yt:1:8 ( (openParen)
+Example/CallFuncion/CallFunction0.yt:1:9 ) (closeParen)
+Example/CallFuncion/CallFunction0.yt:1:11 u8 (iden)
+Example/CallFuncion/CallFunction0.yt:1:14 { (openBrace)
+Example/CallFuncion/CallFunction0.yt:2:5 return (ret)
+Example/CallFuncion/CallFunction0.yt:2:12 8 (numberLiteral)
+Example/CallFuncion/CallFunction0.yt:2:13 ; (semicolon)
+Example/CallFuncion/CallFunction0.yt:3:1 } (closeBrace)
+Example/CallFuncion/CallFunction0.yt:5:1 main (iden)
+Example/CallFuncion/CallFunction0.yt:5:6 : (colon)
+Example/CallFuncion/CallFunction0.yt:5:7 : (colon)
+Example/CallFuncion/CallFunction0.yt:5:9 ( (openParen)
+Example/CallFuncion/CallFunction0.yt:5:10 ) (closeParen)
+Example/CallFuncion/CallFunction0.yt:5:12 u8 (iden)
+Example/CallFuncion/CallFunction0.yt:5:15 { (openBrace)
+Example/CallFuncion/CallFunction0.yt:6:5 return (ret)
+Example/CallFuncion/CallFunction0.yt:6:12 foo (iden)
+Example/CallFuncion/CallFunction0.yt:6:15 ( (openParen)
+Example/CallFuncion/CallFunction0.yt:6:16 ) (closeParen)
+Example/CallFuncion/CallFunction0.yt:6:17 ; (semicolon)
+Example/CallFuncion/CallFunction0.yt:7:1 } (closeBrace)
+Example/CallFuncion/CallFunction0.yt:8:1 EOF (EOF)
+
+:b stderr 0
+

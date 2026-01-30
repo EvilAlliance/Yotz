@@ -1,0 +1,22 @@
+:i argc 0
+:b stdin 0
+
+:i returncode 0
+:b stdout 83
+foo: () u8 : () u8 { 
+    return 8;
+} 
+main: () u8 : () u8 { 
+    return foo();
+} 
+
+:b stderr 0
+
+
+[INFO]: Example/CallFuncion/CallFunction0.yt:1:1: foo is declared here 
+foo :: () u8 {
+^
+[ERROR]: Example/CallFuncion/CallFunction0.yt:6:12: Expected a function but got a different type 
+    return foo();
+           ^
+
