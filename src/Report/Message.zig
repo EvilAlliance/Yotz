@@ -74,6 +74,25 @@ const Error = struct {
         });
     }
 
+    pub inline fn missingReturn(self: @This(), returnType: *const Parser.Node) void {
+        const loc = returnType.getLocation(self.global);
+        const fileInfo = self.global.files.get(loc.source);
+        const where = placeSlice(loc, fileInfo.source);
+        std.log.err(
+            "{s}:{}:{}: Function must return type {c}{} but has no return statement \n{s}\n{[6]c: >[7]}",
+            .{
+                fileInfo.path,
+                loc.row,
+                loc.col,
+                returnType.typeToString(),
+                returnType.data[0].load(.acquire),
+                fileInfo.source[where.beg..where.end],
+                '^',
+                where.pad,
+            },
+        );
+    }
+
     pub inline fn identifierIsUsed(self: @This(), reDef: *const Parser.Node) void {
         const locStmt = reDef.getLocation(self.global);
         const fileInfo = self.global.files.get(locStmt.source);
@@ -340,15 +359,42 @@ const Info = struct {
     }
 };
 
+const Warn = struct {
+    global: *Global,
+
+    pub fn init(global: *Global) @This() {
+        return .{ .global = global };
+    }
+
+    pub inline fn unreachableStatement(self: @This(), statement: *const Parser.Node) void {
+        const loc = statement.getLocation(self.global);
+        const fileInfo = self.global.files.get(loc.source);
+        const where = placeSlice(loc, fileInfo.source);
+        std.log.warn(
+            "{s}:{}:{}: Unreachable statement detected \n{s}\n{[4]c: >[5]}",
+            .{
+                fileInfo.path,
+                loc.row,
+                loc.col,
+                fileInfo.source[where.beg..where.end],
+                '^',
+                where.pad,
+            },
+        );
+    }
+};
+
 global: *Global,
 err: Error,
 info: Info,
+warn: Warn,
 
 pub fn init(global: *Global) Self {
     return .{
         .global = global,
         .err = Error.init(global),
         .info = Info.init(global),
+        .warn = Warn.init(global),
     };
 }
 
