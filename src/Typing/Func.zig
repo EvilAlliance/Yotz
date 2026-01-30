@@ -20,23 +20,26 @@ pub fn typing(self: *const TranslationUnit, alloc: Allocator, func: *const Parse
             return;
         }
     }
-    if (stmtORscope.tag.load(.acquire) == .scope)
+    const ret = if (stmtORscope.tag.load(.acquire) == .scope)
         try checkScope(self, alloc, stmtORscopeIndex, type_, reports)
     else
         try _checkScope(self, alloc, stmtORscopeIndex, type_, reports);
+
+    if (!ret) Report.missingReturn(reports, type_);
 }
 
-fn checkScope(self: *const TranslationUnit, alloc: Allocator, scopeIndex: Parser.NodeIndex, retType: *const Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
+fn checkScope(self: *const TranslationUnit, alloc: Allocator, scopeIndex: Parser.NodeIndex, retType: *const Parser.Node, reports: ?*Report.Reports) Allocator.Error!bool {
     const scope = self.global.nodes.get(scopeIndex);
 
     std.debug.assert(scope.tag.load(.acquire) == .scope and retType.tag.load(.acquire) == .type);
 
     const i = scope.data[0].load(.acquire);
 
-    try _checkScope(self, alloc, i, retType, reports);
+    return try _checkScope(self, alloc, i, retType, reports);
 }
 
-fn _checkScope(self: *const TranslationUnit, alloc: Allocator, stmtI: Parser.NodeIndex, type_: *const Parser.Node, reports: ?*Report.Reports) (Allocator.Error)!void {
+fn _checkScope(self: *const TranslationUnit, alloc: Allocator, stmtI: Parser.NodeIndex, type_: *const Parser.Node, reports: ?*Report.Reports) (Allocator.Error)!bool {
+    var ret = false;
     var i = stmtI;
 
     while (i != 0) {
@@ -48,12 +51,20 @@ fn _checkScope(self: *const TranslationUnit, alloc: Allocator, stmtI: Parser.Nod
             else => return @errorCast(err),
         };
 
+        if (ret) Report.unreachableStatement(reports, stmt);
+
+        const tag = stmt.tag.load(.acquire);
+        if (tag == .ret) ret = true;
+
         i = stmt.next.load(.acquire);
     }
+
+    return ret;
 }
 
 fn checkStatements(self: *const TranslationUnit, alloc: Allocator, stmt: *Parser.Node, retType: *const Parser.Node, reports: ?*Report.Reports) (Allocator.Error || Expression.Error || Scope.Error)!void {
-    switch (stmt.tag.load(.acquire)) {
+    const tag = stmt.tag.load(.acquire);
+    switch (tag) {
         .ret => try Statement.checkReturn(self, alloc, stmt, retType, reports),
         .variable, .constant => {
             Statement.checkVariable(self, alloc, stmt, reports) catch |err| {
@@ -72,9 +83,11 @@ comptime {
 pub fn resumeScopeCheck(args: Global.Args) void {
     const tu, const alloc, const stmtI, const retTypeI, const reports = args;
 
-    _checkScope(tu, alloc, stmtI, retTypeI, reports) catch {
+    const ret = _checkScope(tu, alloc, stmtI, retTypeI, reports) catch {
         std.debug.panic("Run Ouf of Memory", .{});
     };
+
+    if (!ret) Report.missingReturn(reports, retTypeI);
 }
 
 const Expression = @import("Expression.zig");

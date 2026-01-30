@@ -407,6 +407,12 @@
         "title": "Maybe use DynamicBitSet instead of the bool ArrayList in Global, Investigate",
         "desc": "",
         "time_created": "2026-01-28 17:06:53.20359133 -03:00:00"
+      },
+      {
+        "id": "Tnbc3P3X",
+        "title": "Add Comments into the Ast",
+        "desc": "",
+        "time_created": "2026-01-30 07:33:55.070862811 -03:00:00"
       }
     ]
   }

@@ -148,7 +148,7 @@ pub fn mustReturnU8(reports: ?*mod.Reports, name: []const u8, type_: *const Pars
                     .type_ = type_,
                 },
             },
-        });
+        }) catch {};
     }
 }
 
