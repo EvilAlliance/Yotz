@@ -21,28 +21,15 @@ fn transformFuncType(self: *const TranslationUnit, funcType: *const Parser.Node)
 // NOTE: Maybe good idea to create a new node, if the panic is triggered and cannot check if the correctness is still okey
 fn transformIdentiferType(self: *const TranslationUnit, type_: *Parser.Node) void {
     const TypeName = enum {
-        u8,
-        u16,
-        u32,
-        u64,
-        s8,
-        s16,
-        s32,
-        s64,
-
-        pub fn bitSize(s: @This()) Parser.NodeIndex {
-            return switch (s) {
-                .u8, .s8 => 8,
-                .u16, .s16 => 16,
-                .u32, .s32 => 32,
-                .u64, .s64 => 64,
-            };
-        }
+        u,
+        s,
+        f,
 
         pub fn nodeKind(s: @This()) Parser.Node.Primitive {
             return switch (s) {
-                .s8, .s16, .s32, .s64 => .sint,
-                .u8, .u16, .u32, .u64 => .uint,
+                .s => .sint,
+                .u => .uint,
+                .f => .float,
             };
         }
     };
@@ -52,15 +39,16 @@ fn transformIdentiferType(self: *const TranslationUnit, type_: *Parser.Node) voi
     std.debug.assert(tag == .fakeType);
 
     const name = type_.getText(self.global);
+    if (name.len > 3) @panic("Aliases or struct arent supported yet");
 
-    const typeInfo = std.meta.stringToEnum(TypeName, name) orelse @panic("Aliases or struct arent supported yet");
+    const typeInfo = std.meta.stringToEnum(TypeName, name[0..1]) orelse @panic("Aliases or struct arent supported yet");
 
     if (type_.tag.cmpxchgStrong(.fakeType, .type, .seq_cst, .monotonic) != null) {
         std.debug.assert(type_.tag.load(.acquire) == .type);
         return;
     }
 
-    const resultSize = type_.data.@"0".cmpxchgStrong(0, typeInfo.bitSize(), .acq_rel, .monotonic);
+    const resultSize = type_.data.@"0".cmpxchgStrong(0, std.fmt.parseInt(u32, name[1..], 10) catch @panic("Aliases or struct arent supported yet"), .acq_rel, .monotonic);
     const resultPrimitive = type_.data.@"1".cmpxchgStrong(0, @intFromEnum(typeInfo.nodeKind()), .acq_rel, .monotonic);
 
     // NOTE: if this fails and the if was successful is sus
