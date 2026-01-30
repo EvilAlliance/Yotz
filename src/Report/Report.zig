@@ -146,6 +146,12 @@ pub fn mustReturnU8(reports: ?*mod.Reports, name: []const u8, type_: *const Pars
                 .mustReturnU8 = .{
                     .functionName = name,
                     .type_ = type_,
+                },
+            },
+        });
+    }
+}
+
 pub fn missingReturn(reports: ?*mod.Reports, returnType: *const Parser.Node) void {
     if (reports) |rs| {
         rs.appendBounded(.{
