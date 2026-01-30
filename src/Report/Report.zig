@@ -12,6 +12,8 @@ message: union(enum) {
     mustReturnU8: mod.MustReturnU8,
     missingReturn: mod.MissingReturn,
     unreachableStatement: mod.UnreachableStatement,
+    expectedFunction: mod.ExpectedFunction,
+    incompatibleReturnType: mod.IncompatibleReturnType,
 },
 
 pub fn display(self: *const Self, message: mod.Message) void {
@@ -27,6 +29,8 @@ pub fn display(self: *const Self, message: mod.Message) void {
         .mustReturnU8 => |mru| mru.display(message),
         .missingReturn => |mr| mr.display(message),
         .unreachableStatement => |us| us.display(message),
+        .expectedFunction => |ef| ef.display(message),
+        .incompatibleReturnType => |irt| irt.display(message),
     }
 }
 
@@ -174,6 +178,38 @@ pub fn unreachableStatement(reports: ?*mod.Reports, statement: *const Parser.Nod
             },
         }) catch {};
     }
+}
+
+pub fn expectedFunction(reports: ?*mod.Reports, variable: *const Parser.Node, declared: *const Parser.Node) (Typing.Expression.Error) {
+    if (reports) |rs| {
+        rs.appendBounded(.{
+            .message = .{
+                .expectedFunction = .{
+                    .variable = variable,
+                    .declared = declared,
+                },
+            },
+        }) catch {};
+    }
+
+    return Typing.Expression.Error.IncompatibleType;
+}
+
+pub fn incompatibleReturnType(reports: ?*mod.Reports, actualReturnType: *const Parser.Node, expectedReturnType: *const Parser.Node, place: *const Parser.Node, declared: *const Parser.Node) (Typing.Expression.Error) {
+    if (reports) |rs| {
+        rs.appendBounded(.{
+            .message = .{
+                .incompatibleReturnType = .{
+                    .actualReturnType = actualReturnType,
+                    .expectedReturnType = expectedReturnType,
+                    .place = place,
+                    .declared = declared,
+                },
+            },
+        }) catch {};
+    }
+
+    return Typing.Expression.Error.IncompatibleType;
 }
 
 const mod = @import("mod.zig");

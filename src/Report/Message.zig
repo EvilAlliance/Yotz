@@ -93,6 +93,43 @@ const Error = struct {
         );
     }
 
+    pub inline fn expectedFunction(self: @This(), variable: *const Parser.Node) void {
+        const loc = variable.getLocation(self.global);
+        const fileInfo = self.global.files.get(loc.source);
+        const where = placeSlice(loc, fileInfo.source);
+        std.log.err(
+            "{s}:{}:{}: Expected a function but got a different type \n{s}\n{[4]c: >[5]}",
+            .{
+                fileInfo.path,
+                loc.row,
+                loc.col,
+                fileInfo.source[where.beg..where.end],
+                '^',
+                where.pad,
+            },
+        );
+    }
+
+    pub inline fn incompatibleReturnType(self: @This(), actual: *const Parser.Node, expected: *const Parser.Node, loc: Lexer.Location) void {
+        const fileInfo = self.global.files.get(loc.source);
+        const where = placeSlice(loc, fileInfo.source);
+        std.log.err(
+            "{s}:{}:{}: Incompatible return type {c}{}, expected {c}{} \n{s}\n{[8]c: >[9]}",
+            .{
+                fileInfo.path,
+                loc.row,
+                loc.col,
+                actual.typeToString(),
+                actual.data[0].load(.acquire),
+                expected.typeToString(),
+                expected.data[0].load(.acquire),
+                fileInfo.source[where.beg..where.end],
+                '^',
+                where.pad,
+            },
+        );
+    }
+
     pub inline fn identifierIsUsed(self: @This(), reDef: *const Parser.Node) void {
         const locStmt = reDef.getLocation(self.global);
         const fileInfo = self.global.files.get(locStmt.source);
