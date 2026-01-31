@@ -106,10 +106,29 @@ pub fn toStringAst(self: *@This(), alloc: std.mem.Allocator, rootIndex: Parser.N
 
 fn toStringFuncProto(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, node: *const Parser.Node) std.mem.Allocator.Error!void {
     std.debug.assert(node.tag.load(.acquire) == .funcProto);
-    std.debug.assert(node.data[0].load(.acquire) == 0);
 
     // TODO : Put arguments
-    try cont.appendSlice(alloc, "() ");
+    try cont.append(alloc, '(');
+    const argIndex = node.data.@"0".load(.acquire);
+    if (argIndex != 0) {
+        var args = self.nodes.getConstPtr(argIndex);
+
+        try cont.appendSlice(alloc, args.getText(self));
+        try cont.appendSlice(alloc, ": ");
+        try self.toStringType(alloc, cont, d, self.nodes.getPtr(args.data[1].load(.acquire)));
+
+        while (args.next.load(.acquire) != 0) {
+            args = self.nodes.getConstPtr(args.next.load(.acquire));
+
+            try cont.appendSlice(alloc, ", ");
+
+            try cont.appendSlice(alloc, args.getText(self));
+            try cont.appendSlice(alloc, ": ");
+            try self.toStringType(alloc, cont, d, self.nodes.getPtr(args.data[1].load(.acquire)));
+        }
+    }
+
+    try cont.appendSlice(alloc, ") ");
 
     try self.toStringType(alloc, cont, d, self.nodes.getPtr(node.data[1].load(.acquire)));
 
@@ -122,15 +141,15 @@ fn toStringFuncProto(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayL
 }
 
 fn toStringType(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, node: *const Parser.Node) std.mem.Allocator.Error!void {
-    _ = d;
-
     var current = node;
 
     while (true) {
         switch (current.tag.load(.acquire)) {
             .fakeFuncType, .funcType => {
-                std.debug.assert(current.data[0].load(.acquire) == 0);
-                try cont.appendSlice(alloc, "() ");
+                try cont.append(alloc, '(');
+                const argsIndex = current.data[0].load(.acquire);
+                if (argsIndex != 0) try self.toStringType(alloc, cont, d, self.nodes.getPtr(argsIndex));
+                try cont.appendSlice(alloc, ") ");
 
                 current = self.nodes.getPtr(current.data[1].load(.acquire));
                 continue;
@@ -145,6 +164,14 @@ fn toStringType(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u
             .fakeType => {
                 const x = current.getText(self);
                 try cont.appendSlice(alloc, x);
+            },
+            .fakeArgType => {
+                if (current.data.@"0".load(.acquire) == 1) {
+                    try cont.appendSlice(alloc, current.getText(self));
+                    try cont.appendSlice(alloc, ": ");
+                }
+
+                try self.toStringType(alloc, cont, d, self.nodes.getConstPtr(current.data.@"1".load(.acquire)));
             },
             else => unreachable,
         }

@@ -88,14 +88,18 @@ pub fn advance(self: *@This()) Token {
                 self.advanceIndex();
                 t.tag = .asterik;
             },
+            '^' => {
+                self.advanceIndex();
+                t.tag = .caret;
+            },
+            ',' => {
+                self.advanceIndex();
+                t.tag = .coma;
+            },
             '/' => {
                 self.advanceIndex();
                 t.tag = .slash;
                 continue :state .slash;
-            },
-            '^' => {
-                self.advanceIndex();
-                t.tag = .caret;
             },
             '=' => {
                 self.advanceIndex();
