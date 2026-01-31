@@ -294,15 +294,41 @@ fn toStringExpression(self: *@This(), alloc: std.mem.Allocator, cont: *std.Array
         },
         .call => {
             try cont.appendSlice(alloc, node.getText(self));
-            try cont.appendSlice(alloc, "()");
-            assert(node.data.@"0".load(.acquire) == 0 and node.data.@"1".load(.acquire) == 0);
+            try cont.append(alloc, '(');
+            
+            var argIndex = node.data.@"0".load(.acquire);
+            while (argIndex != 0) {
+                const arg = self.nodes.getConstPtr(argIndex);
+                const exprIndex = arg.data.@"1".load(.acquire);
+                if (exprIndex != 0) {
+                    try self.toStringExpression(alloc, cont, d, self.nodes.getPtr(exprIndex));
+                }
+                
+                argIndex = arg.next.load(.acquire);
+                if (argIndex != 0) try cont.appendSlice(alloc, ", ");
+            }
+            
+            try cont.append(alloc, ')');
 
             var next = node.next.load(.acquire);
             while (next != 0) {
                 const call = self.nodes.getConstPtr(next);
 
-                try cont.appendSlice(alloc, "()");
-                assert(node.data.@"0".load(.acquire) == 0 and node.data.@"1".load(.acquire) == 0);
+                try cont.append(alloc, '(');
+                
+                argIndex = call.data.@"0".load(.acquire);
+                while (argIndex != 0) {
+                    const arg = self.nodes.getConstPtr(argIndex);
+                    const exprIndex = arg.data.@"1".load(.acquire);
+                    if (exprIndex != 0) {
+                        try self.toStringExpression(alloc, cont, d, self.nodes.getPtr(exprIndex));
+                    }
+                    
+                    argIndex = arg.next.load(.acquire);
+                    if (argIndex != 0) try cont.appendSlice(alloc, ", ");
+                }
+                
+                try cont.append(alloc, ')');
 
                 next = call.next.load(.acquire);
             }

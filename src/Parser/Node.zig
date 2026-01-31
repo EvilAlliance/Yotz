@@ -22,7 +22,7 @@ pub const Tag = enum(mod.NodeIndex) {
     ret, // right expression
     variable, // left type, right expr
     constant, // left type, right expr
-    call, // next can hold another hold executed before
+    call, // left first arg (linked list), next can hold another call executed before
 
     //expresion
     addition,
