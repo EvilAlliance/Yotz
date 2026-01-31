@@ -2,20 +2,21 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 159
+:b stdout 154
 bar :: () () u8 { 
     return () u8 { 
         return 8;
-    } 
-
-} 
+    }
+}
 foo :: () u8 { 
     return bar()();
-} 
+}
 main :: () u8 { 
     b := bar();
     return b();
-} 
+}
 
 :b stderr 0
+
+r 0
 

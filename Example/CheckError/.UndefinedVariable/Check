@@ -2,19 +2,19 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 184
+:b stdout 181
 main: () u8 : () u8 { 
     return x;
-} 
+}
 foo: () u8 : () u8 { 
     y: u8 = (z + 5);
     return y;
-} 
+}
 bar: () u8 : () u8 { 
     a: u8 = 10;
     b := (a + undefinedVar);
     return b;
-} 
+}
 
 :b stderr 466
 [ERROR]: Example/CheckError/UndefinedVariable.yt:3:12: Unknown identifier 'x' 
@@ -26,6 +26,8 @@ bar: () u8 : () u8 {
 [ERROR]: Example/CheckError/UndefinedVariable.yt:15:14: Unknown identifier 'undefinedVar' 
     b := a + undefinedVar;  // Error: undefined variable 'undefinedVar'
              ^
+
+^
 
 ^
 [ERROR]: Example/CheckError/UndefinedVariable.yt:15:14: Unknown identifier 'undefinedVar' 

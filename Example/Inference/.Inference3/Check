@@ -2,14 +2,15 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 179
+:b stdout 178
 main: () u8 : () u8 { 
     a: u8 #inferedFromUse = 10;
     b: u8 #inferedFromUse = (a + 20);
     c: u8 #inferedFromUse = 30;
     e: u8 #inferedFromUse = (b + c);
     return e;
-} 
+}
 
 :b stderr 0
+
 

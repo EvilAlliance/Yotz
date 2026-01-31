@@ -2,10 +2,11 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 53
+:b stdout 52
 main: () u8 : () u8 { 
     return (2 ^ (4 ^ 10));
-} 
+}
 
 :b stderr 0
+
 

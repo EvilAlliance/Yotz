@@ -2,18 +2,18 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 188
+:b stdout 185
 main: () u8 : () u8 { 
     x: u8 = 5;
     x: u8 = 10;
     return x;
-} 
+}
 bar: () u8 : () u8 { 
     return 0;
-} 
+}
 bar: () u8 : () u8 { 
     return 1;
-} 
+}
 globalVar: u8 = 5;
 globalVar: u8 = 10;
 
@@ -35,6 +35,8 @@ globalVar : u8 = 5;
 ^
 [ERROR]: Example/CheckError/Redefinition.yt:19:1: Identifier globalVar is already in use 
 globalVar : u8 = 10;  // Error: identifier 'globalVar' is already in use
+^
+
 ^
 
 se

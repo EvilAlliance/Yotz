@@ -98,6 +98,8 @@ pub fn toStringAst(self: *@This(), alloc: std.mem.Allocator, rootIndex: Parser.N
 
         if (self.nodes.get(self.nodes.get(i).data[1].load(.acquire)).tag.load(.acquire) != .funcProto) {
             try cont.appendSlice(alloc, ";\n");
+        } else {
+            try cont.append(alloc, '\n');
         }
     }
 
@@ -208,7 +210,7 @@ fn toStringScope(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(
         try cont.append(alloc, ' ');
     }
 
-    try cont.appendSlice(alloc, "} \n");
+    try cont.append(alloc, '}');
 }
 
 fn toStringStatement(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, stmt: *const Parser.Node) std.mem.Allocator.Error!void {

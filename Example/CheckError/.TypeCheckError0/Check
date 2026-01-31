@@ -2,25 +2,25 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 252
+:b stdout 248
 main: () u8 : () u8 { 
     x: s8 = 5;
     y: u8 = x;
     return y;
-} 
+}
 foo: () u8 : () u8 { 
     a: u8 = 5;
     b: s8 = 10;
     c := (a + b);
     return c;
-} 
+}
 bar: () u8 : () u8 { 
     return x;
-} 
+}
 baz: () u8 : () u8 { 
     x: s8 = 42;
     return x;
-} 
+}
 
 :b stderr 908
 [INFO]: Example/CheckError/TypeCheckError0.yt:3:5: x is declared here 
@@ -44,6 +44,8 @@ baz: () u8 : () u8 {
 [ERROR]: Example/CheckError/TypeCheckError0.yt:24:12: Type s8, is incompatible with u8 
     return x;  // Error: cannot return s8 where u8 expected
            ^
+
+ ^
 
 ^
 

@@ -2,12 +2,13 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 108
+:b stdout 107
 main: () u8 : () u8 { 
     a: u8 #inferedFromUse, u16 #inferedFromUse : 2;
     b: u16 = a;
     return a;
-} 
+}
 
 :b stderr 0
+
 

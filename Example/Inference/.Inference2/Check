@@ -2,12 +2,12 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 88
+:b stdout 87
 main: () u8 : () u8 { 
     a: u16 #inferedFromUse = 8;
     b: u16 = a;
     return a;
-} 
+}
 
 :b stderr 293
 [INFO]: Example/Inference/Inference2.yt:2:5: a is declared here 
@@ -19,4 +19,5 @@ main: () u8 : () u8 {
 [ERROR]: Example/Inference/Inference2.yt:6:12: Type u16, is incompatible with u8 
     return a;
            ^
+
 

@@ -2,10 +2,11 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 60
+:b stdout 59
 main: () u8 : () u8 { 
     return (74 - (-(-(2)) * 10));
-} 
+}
 
 :b stderr 0
+
 

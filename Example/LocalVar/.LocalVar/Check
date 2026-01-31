@@ -2,13 +2,14 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 68
+:b stdout 67
 main: () u8 : () u8 { 
     a: u8 : (10 + 5);
     return (a - 6);
-} 
+}
 
 :b stderr 0
+
 
  0
 
