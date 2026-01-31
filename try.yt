@@ -1,28 +1,21 @@
-bar :: () (u8) u8 {
-    return (a: u8) u8 {
-        return a;
+bar :: () (u8, u8) u8 {
+    return (a: u8, b: u8) u8 {
+        return a * b;
     };
 }
 
-foo :: () u8 {
-    a := bar()(2);
+foo :: (a: u8) u8 {
+    b := bar()(2 + a, 2 * a);
 
-    return a;
+    return b;
 }
 
-pepe :: () (a: u8) u8 {
-    return (a: u8) u8 {
-        return a;
-    };
-}
+baz :: (a: u8) u8 {
+    b := bar();
 
-baz :: () u8 {
-    a := pepe()(1);
-
-    return a;
+    return a(a, a);
 }
 
 main :: () u8 {
-    b := bar();
-    return b();
+    return baz(1) * baz(2);
 }

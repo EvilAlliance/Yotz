@@ -380,14 +380,22 @@ fn checkFuncProtoType(self: *Self, funcProto: *const Parser.Node, expectedType: 
     var funcRetTypeTag = funcRetType.tag.load(.acquire);
 
     // NOTE: this is needed because it is possible that the typing of the function didnt do it yet
-    if (funcRetTypeTag == .funcType or funcRetTypeTag == .fakeType) Type.transformType(self.tu, funcRetType);
-
+    assert(funcRetTypeTag != .argType and funcRetTypeTag != .fakeArgType);
+    if (funcRetTypeTag == .fakeFuncType or funcRetTypeTag == .fakeType) Type.transformType(self.tu, funcRetType);
     funcRetTypeTag = funcRetType.tag.load(.acquire);
     assert(funcRetTypeTag == .funcType or funcRetTypeTag == .type);
 
     if (!Type.typeEqual(self.tu.global, funcRetType, retType)) {
         return Report.incompatibleType(reports, retType, funcRetType, funcRetType, funcRetType);
     }
+
+    const argsI = funcProto.data.@"0".load(.acquire);
+    const typeArgsI = expectedType.data.@"0".load(.acquire);
+
+    if (argsI == 0 and typeArgsI == 0) return;
+    if (argsI == 0 or typeArgsI == 0) {}
+
+    while (true) {}
 }
 
 fn checkVarType(self: *Self, alloc: Allocator, leaf: *Parser.Node, type_: *const Parser.Node, reports: ?*Report.Reports) (Allocator.Error || Error)!void {

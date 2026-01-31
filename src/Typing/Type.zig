@@ -3,7 +3,8 @@ pub fn transformType(self: *const TranslationUnit, type_: *Parser.Node) void {
     switch (tag) {
         .fakeType => transformIdentiferType(self, type_),
         .fakeFuncType => transformFuncType(self, type_),
-        .type, .funcType => {},
+        .fakeArgType => transformArgsType(self, type_),
+        .type, .funcType, .argType => {},
         else => unreachable,
     }
 }
@@ -11,7 +12,8 @@ pub fn transformType(self: *const TranslationUnit, type_: *Parser.Node) void {
 fn transformFuncType(self: *const TranslationUnit, funcType: *Parser.Node) void {
     std.debug.assert(funcType.tag.load(.acquire) == .fakeFuncType);
 
-    std.debug.assert(funcType.data[0].load(.acquire) == 0);
+    const argIndex = funcType.data[0].load(.acquire);
+    if (argIndex != 0) transformType(self, self.global.nodes.getPtr(argIndex));
 
     const retTypeIndex = funcType.data[1].load(.acquire);
     std.debug.assert(retTypeIndex != 0);
@@ -19,6 +21,22 @@ fn transformFuncType(self: *const TranslationUnit, funcType: *Parser.Node) void 
 
     if (funcType.tag.cmpxchgStrong(.fakeFuncType, .funcType, .seq_cst, .monotonic) != null) {
         std.debug.assert(funcType.tag.load(.acquire) == .funcType);
+        return;
+    }
+}
+
+fn transformArgsType(self: *const TranslationUnit, argType: *Parser.Node) void {
+    std.debug.assert(argType.tag.load(.acquire) == .fakeArgType);
+
+    const nextI = argType.next.load(.acquire);
+    if (nextI != 0) transformType(self, self.global.nodes.getPtr(nextI));
+
+    const typeI = argType.data[1].load(.acquire);
+    std.debug.assert(typeI != 0);
+    transformType(self, self.global.nodes.getPtr(typeI));
+
+    if (argType.tag.cmpxchgStrong(.fakeArgType, .argType, .seq_cst, .monotonic) != null) {
+        std.debug.assert(argType.tag.load(.acquire) == .argType);
         return;
     }
 }
@@ -61,20 +79,44 @@ pub fn typeEqual(global: *const Global, actual: *const Parser.Node, expected: *c
     const actualTag = actual.tag.load(.acquire);
     const expectedTag = expected.tag.load(.acquire);
 
-    if (actualTag == .fakeType) std.log.debug("Actual: {}", .{actual});
-    if (expectedTag == .fakeType) std.log.debug("Expected: {}", .{expected});
-    assert(actualTag != .fakeType and expectedTag != .fakeType);
+    assert(actualTag != .fakeType and expectedTag != .fakeType and
+        actualTag != .fakeFuncType and expectedTag != .fakeFuncType and
+        actualTag != .fakeArgType and expectedTag != .fakeArgType);
 
     if (actualTag == .type and expectedTag == .type)
         return expected.data[1].load(.acquire) == actual.data[1].load(.acquire) and expected.data[0].load(.acquire) == actual.data[0].load(.acquire);
+
     if (actualTag == .funcType and expectedTag == .funcType) {
-        //Args
-        assert(actual.data[0].load(.acquire) == 0 and expected.data.@"0".load(.acquire) == 0);
-        return typeEqual(
+        const expectedArgsI = expected.data.@"0".load(.acquire);
+        const actualArgsI = actual.data.@"0".load(.acquire);
+
+        if (!typeEqual(
             global,
             global.nodes.getConstPtr(actual.data.@"1".load(.acquire)),
             global.nodes.getConstPtr(expected.data.@"1".load(.acquire)),
-        );
+        )) return false;
+
+        if (actualArgsI == expectedArgsI and actualArgsI == 0)
+            return true;
+
+        var actualArgs = global.nodes.getConstPtr(actualArgsI);
+        var expectedArgs = global.nodes.getConstPtr(expectedArgsI);
+
+        while (true) {
+            const actualArgType = global.nodes.getConstPtr(actualArgs.data[1].load(.acquire));
+            const expectedArgType = global.nodes.getConstPtr(expectedArgs.data[1].load(.acquire));
+
+            if (!typeEqual(global, actualArgType, expectedArgType))
+                return false;
+
+            const actualNext = actualArgs.next.load(.acquire);
+            const expectedNext = actualArgs.next.load(.acquire);
+
+            if (actualNext == 0 or expectedNext == 0) return actualNext == 0 and expectedNext == 0;
+
+            actualArgs = global.nodes.getConstPtr(actualNext);
+            expectedArgs = global.nodes.getConstPtr(expectedNext);
+        }
     }
 
     return false;

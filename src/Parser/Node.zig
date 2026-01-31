@@ -11,11 +11,11 @@ pub const Tag = enum(mod.NodeIndex) {
     fakeType, // indentifier in token
     type, // data[0] size in bits, data[1] Primitive if next != 0 can have multiple types
 
-    fakeFuncType, // data[0] argsType, data[1] type
+    fakeFuncType, // data[0] fakeArgsType, data[1] type
     funcType, // data[0] argsType, data[1] type
 
     fakeArgType, // letf bool (0-1) name in token index, if 0 the same as the fake type, right fakeType next next fakeArgType
-    ArgType, // letf bool (0-1)  name in token index, if 0 the same as the fake type, right fakeType next next fakeArgType
+    argType, // letf bool (0-1)  name in token index, if 0 the same as the fake type, right fakeType next next fakeArgType
 
     scope, // data[0] start, when next is zero of the children stop
 
