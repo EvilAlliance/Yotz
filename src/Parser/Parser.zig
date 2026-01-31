@@ -158,41 +158,33 @@ fn parseFuncProto(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (
 
 fn parseArgs(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (Allocator.Error || Error)!mod.NodeIndex {
     if (self.peek().@"0".tag == .closeParen) return 0;
-    try Report.expect(reports, self.peek()[0], &.{.iden});
-    _, var initI = self.pop();
-    try Report.expect(reports, self.peek()[0], &.{.colon});
-    _ = self.pop();
 
-    const argF = try self.tu.global.nodes.reserve(alloc);
-    argF.* = .{
-        .tag = .init(.arg),
-        .tokenIndex = .init(initI),
-        .data = .{ .init(0), .init(try self.parseType(alloc, reports)) },
-    };
+    const firstArg = try self.tu.global.nodes.reserve(alloc);
+    var currentArg = firstArg;
 
-    var arg = argF;
-
-    var peeked = self.peek().@"0";
-    while (peeked.tag == .coma and peeked.tag != .EOF) : (peeked = self.peek().@"0") {
-        assert(self.popIf(.coma) != null);
-
-        if (self.peek().@"0".tag == .closeParen) return 0;
+    while (true) {
         try Report.expect(reports, self.peek()[0], &.{.iden});
-        _, initI = self.pop();
+        _, const nameI = self.pop();
         try Report.expect(reports, self.peek()[0], &.{.colon});
         _ = self.pop();
 
-        const argNext = try self.tu.global.nodes.reserve(alloc);
-        argNext.* = .{
+        currentArg.* = .{
             .tag = .init(.arg),
-            .tokenIndex = .init(initI),
+            .tokenIndex = .init(nameI),
             .data = .{ .init(0), .init(try self.parseType(alloc, reports)) },
         };
 
-        arg.next.store(self.tu.global.nodes.indexOf(argNext), .release);
-        arg = argNext;
+        if (self.peek().@"0".tag != .coma) break;
+        _ = self.pop();
+
+        if (self.peek().@"0".tag == .closeParen) break;
+
+        const nextArg = try self.tu.global.nodes.reserve(alloc);
+        currentArg.next.store(self.tu.global.nodes.indexOf(nextArg), .release);
+        currentArg = nextArg;
     }
-    return self.tu.global.nodes.indexOf(argF);
+
+    return self.tu.global.nodes.indexOf(firstArg);
 }
 
 fn parseTypeFunction(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
@@ -216,67 +208,39 @@ fn parseTypeFunction(self: *@This(), alloc: Allocator, reports: ?*Report.Reports
 }
 
 fn parseTypeFunctionArgs(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (Allocator.Error || Error)!mod.NodeIndex {
-    var peeked0 = self.peek();
-    var peeked1 = self.peekMany(1).@"0";
+    if (self.peek().@"0".tag == .closeParen) return 0;
 
-    if (peeked0.@"0".tag == .closeParen) return 0;
+    const firstArg = try self.tu.global.nodes.reserve(alloc);
+    var currentArg = firstArg;
 
-    try Report.expect(reports, peeked0.@"0", &.{.iden});
+    while (true) {
+        const nameToken = self.peek();
+        try Report.expect(reports, nameToken.@"0", &.{.iden});
 
-    var hasName = peeked1.tag == .colon;
+        const hasName = self.peekMany(1).@"0".tag == .colon;
+        const typeIndex = if (hasName) blk: {
+            _ = self.pop(); // consume name
+            _ = self.pop(); // consume colon
+            break :blk try self.parseType(alloc, reports);
+        } else try self.parseType(alloc, reports);
 
-    var fakeType: mod.NodeIndex = 0;
-    if (hasName) {
-        _ = self.pop();
-        _ = self.pop();
-        fakeType = try self.parseType(alloc, reports);
-    } else {
-        fakeType = try self.parseType(alloc, reports);
-    }
-
-    const argF = try self.tu.global.nodes.reserve(alloc);
-    argF.* = .{
-        .tag = .init(.fakeArgType),
-        .tokenIndex = .init(peeked0.@"1"),
-        .data = .{ .init(@intFromBool(hasName)), .init(fakeType) },
-    };
-
-    var arg = argF;
-
-    var peeked = self.peek().@"0";
-    while (peeked.tag == .coma and peeked.tag != .EOF) : (peeked = self.peek().@"0") {
-        assert(self.popIf(.coma) != null);
-
-        peeked0 = self.peek();
-        peeked1 = self.peekMany(1).@"0";
-
-        if (peeked0.@"0".tag == .closeParen) break;
-
-        try Report.expect(reports, peeked0.@"0", &.{.iden});
-
-        hasName = peeked1.tag == .colon;
-
-        fakeType = 0;
-        if (hasName) {
-            _ = self.pop();
-            _ = self.pop();
-            fakeType = try self.parseType(alloc, reports);
-        } else {
-            fakeType = try self.parseType(alloc, reports);
-        }
-
-        const argNext = try self.tu.global.nodes.reserve(alloc);
-        argNext.* = .{
+        currentArg.* = .{
             .tag = .init(.fakeArgType),
-            .tokenIndex = .init(peeked0.@"1"),
-            .data = .{ .init(@intFromBool(hasName)), .init(fakeType) },
+            .tokenIndex = .init(nameToken.@"1"),
+            .data = .{ .init(@intFromBool(hasName)), .init(typeIndex) },
         };
 
-        arg.next.store(self.tu.global.nodes.indexOf(argNext), .release);
-        arg = argNext;
+        if (self.peek().@"0".tag != .coma) break;
+        _ = self.pop();
+
+        if (self.peek().@"0".tag == .closeParen) break;
+
+        const nextArg = try self.tu.global.nodes.reserve(alloc);
+        currentArg.next.store(self.tu.global.nodes.indexOf(nextArg), .release);
+        currentArg = nextArg;
     }
 
-    return self.tu.global.nodes.indexOf(argF);
+    return self.tu.global.nodes.indexOf(firstArg);
 }
 
 fn parseType(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
@@ -397,35 +361,38 @@ fn parseReturn(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std
 
 fn parseCall(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (Allocator.Error || Error)!?mod.NodeIndex {
     if (self.peek().@"0".tag != .iden or self.peekMany(1).@"0".tag != .openParen) return null;
-    var iden = self.pop().@"1";
+
+    const nameI = self.pop().@"1";
     _ = self.pop();
 
     try Report.expect(reports, self.peek().@"0", &.{.closeParen});
-    assert(self.popIf(.closeParen) != null);
+    _ = self.pop();
 
-    const callF = try self.tu.global.nodes.reserve(alloc);
-    callF.* = .{
+    const firstCall = try self.tu.global.nodes.reserve(alloc);
+    firstCall.* = .{
         .tag = .init(.call),
-        .tokenIndex = .init(iden),
+        .tokenIndex = .init(nameI),
     };
 
-    var call = callF;
+    var currentCall = firstCall;
+
+    // Handle chained calls like ()()()
     while (self.peek().@"0".tag == .openParen) {
-        iden = self.pop().@"1";
+        const parenI = self.pop().@"1";
 
         try Report.expect(reports, self.peek().@"0", &.{.closeParen});
-        assert(self.popIf(.closeParen) != null);
+        _ = self.pop();
 
         const nextCall = try self.tu.global.nodes.reserve(alloc);
         nextCall.* = .{
             .tag = .init(.call),
-            .tokenIndex = .init(iden),
+            .tokenIndex = .init(parenI),
         };
-        call.next.store(self.tu.global.nodes.indexOf(nextCall), .release);
-        call = nextCall;
+        currentCall.next.store(self.tu.global.nodes.indexOf(nextCall), .release);
+        currentCall = nextCall;
     }
 
-    return self.tu.global.nodes.indexOf(callF);
+    return self.tu.global.nodes.indexOf(firstCall);
 }
 
 fn parseExpression(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
