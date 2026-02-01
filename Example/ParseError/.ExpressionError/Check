@@ -2,16 +2,16 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 121
-main: () u8 : () u8 { 
+:b stdout 231
+main: () u8 #inferedFromExpression : () u8{ 
 }
-foo: () u8 : () u8 { 
+foo: () u8 #inferedFromExpression : () u8{ 
 }
-bar: () u8 : () u8 { 
+bar: () u8 #inferedFromExpression : () u8{ 
 }
-baz: () u8 : () u8 { 
+baz: () u8 #inferedFromExpression : () u8{ 
 }
-qux: () u8 : () u8 { 
+qux: () u8 #inferedFromExpression : () u8{ 
 }
 
 :b stderr 1535
@@ -46,9 +46,6 @@ qux :: () u8 {
     return 4 + };
                ^
 [ERROR]: Example/ParseError/ExpressionError.yt:24:1: Expected: "identifier" but found: '}' 
-}
-^
-
 }
 ^
 

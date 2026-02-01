@@ -2,12 +2,13 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 45
-main :: () u8 { 
+:b stdout 44
+main :: () u8{ 
     a :: 1;
     return a;
 }
 
 :b stderr 0
+
 
 

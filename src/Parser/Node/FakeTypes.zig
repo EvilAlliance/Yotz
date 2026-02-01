@@ -52,8 +52,17 @@ pub fn asFakeArgType(self: *Self) *Node.FakeFuncType {
     return self.as().asFakeArgType();
 }
 
-pub fn asConstFakeArgType(self: *const Self) *const Node.FakeFuncType {
+pub fn asConstFakeArgType(self: *const Self) *const Node.FakeArgType {
     return self.asConst().asConstFakeArgType();
+}
+
+pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64) std.mem.Allocator.Error!void {
+    switch (self.tag.load(.acquire)) {
+        .fakeType => try self.asConstFakeType().toString(global, alloc, cont, d),
+        .fakeFuncType => try self.asConstFakeFuncType().toString(global, alloc, cont, d),
+        .fakeArgType => try self.asConstFakeArgType().toString(global, alloc, cont, d),
+        else => unreachable,
+    }
 }
 
 const mod = @import("../mod.zig");

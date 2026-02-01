@@ -2,21 +2,19 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 181
-bar: () () u8 : () () u8 { 
-    return () u8 { 
-        return 8;
-    }
+:b stdout 261
+bar: () () u8 #inferedFromExpression : () () u8{ 
+    return () u8{ 
+    return 8;
 }
-foo: () u8 : () u8 { 
+}
+foo: () u8 #inferedFromExpression : () u8{ 
     return bar()();
 }
-main: () u8 : () u8 { 
-    b: () u8 = bar();
+main: () u8 #inferedFromExpression : () u8{ 
+    b: () u8 #inferedFromExpression = bar();
     return b();
 }
 
 :b stderr 0
-
-r 0
 

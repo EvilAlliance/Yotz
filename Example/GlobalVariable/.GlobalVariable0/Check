@@ -2,12 +2,11 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 67
+:b stdout 89
 a: u8 #inferedFromUse : 10;
-main: () u8 : () u8 { 
+main: () u8 #inferedFromExpression : () u8{ 
     return a;
 }
 
 :b stderr 0
-
 

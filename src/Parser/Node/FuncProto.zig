@@ -31,6 +31,46 @@ pub fn asConst(self: *const Self) *const Node {
     return @ptrCast(self);
 }
 
+pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64) std.mem.Allocator.Error!void {
+    try cont.append(alloc, '(');
+    const argIndex = self.args.load(.acquire);
+    if (argIndex != 0) {
+        var protoArg = global.nodes.getConstPtr(argIndex).asConstProtoArg();
+
+        try cont.appendSlice(alloc, protoArg.asConst().getText(global));
+        try cont.appendSlice(alloc, ": ");
+        try global.nodes.getPtr(protoArg.type.load(.acquire)).asFakeTypes().toString(global, alloc, cont, d);
+
+        while (protoArg.next.load(.acquire) != 0) {
+            protoArg = global.nodes.getConstPtr(protoArg.next.load(.acquire)).asConstProtoArg();
+
+            try cont.appendSlice(alloc, ", ");
+
+            try cont.appendSlice(alloc, protoArg.asConst().getText(global));
+            try cont.appendSlice(alloc, ": ");
+            try global.nodes.getPtr(protoArg.type.load(.acquire)).asFakeTypes().toString(global, alloc, cont, d);
+        }
+    }
+
+    try cont.appendSlice(alloc, ") ");
+
+    const retType = global.nodes.getConstPtr(self.retType.load(.acquire));
+    if (Node.isFakeTypes(retType.tag.load(.acquire))) {
+        try retType.asConstFakeTypes().toString(global, alloc, cont, 0);
+    } else if (Node.isTypes(retType.tag.load(.acquire))) {
+        try retType.asConstTypes().toString(global, alloc, cont, 0);
+    } else unreachable;
+
+    if (self.scope.load(.acquire) == 0) return;
+
+    const scopeOrStmt = global.nodes.getConstPtr(self.scope.load(.acquire));
+    if (!Node.isStatement(scopeOrStmt.tag.load(.acquire))) {
+        try scopeOrStmt.asConstScope().toString(global, alloc, cont, d);
+    } else {
+        try scopeOrStmt.asConstStatement().toString(global, alloc, cont, d);
+    }
+}
+
 const mod = @import("../mod.zig");
 const Node = @import("../Node.zig");
 

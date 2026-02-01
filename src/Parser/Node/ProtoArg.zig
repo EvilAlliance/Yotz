@@ -2,7 +2,7 @@ const Self = @This();
 
 tag: Value(Node.Tag) = .init(.protoArg),
 tokenIndex: Value(mod.TokenIndex) = .init(0),
-fakeType: Value(mod.NodeIndex) = .init(0),
+type: Value(mod.NodeIndex) = .init(0),
 right: Value(mod.NodeIndex) = .init(0),
 next: Value(mod.NodeIndex) = .init(0),
 flags: Value(Node.Flags) = .init(Node.Flags{}),
@@ -10,7 +10,7 @@ flags: Value(Node.Flags) = .init(Node.Flags{}),
 const protoArg = [_]Struct.FieldMap{
     .{ .b = "tag", .v = "tag" },
     .{ .b = "tokenIndex", .v = "tokenIndex" },
-    .{ .b = "left", .v = "fakeType" },
+    .{ .b = "left", .v = "type" },
     .{ .b = "right", .v = "right" },
     .{ .b = "next", .v = "next" },
     .{ .b = "flags", .v = "flags" },

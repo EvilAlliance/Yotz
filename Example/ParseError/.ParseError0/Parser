@@ -2,14 +2,14 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 97
-main :: () u8 { 
+:b stdout 94
+main :: () u8{ 
     return 1;
 }
-bar :: () u8 { 
+bar :: () u8{ 
     return 3;
 }
-baz :: () u8 { 
+baz :: () u8{ 
     return 4;
 }
 
@@ -29,6 +29,8 @@ test :: () {
 [ERROR]: Example/ParseError/ParseError0.yt:30:5: Expected: ":" but found: 'identifier' 
 qux u8 :: () {
     ^
+
+^
 
  ^
 

@@ -32,6 +32,30 @@ pub fn asConst(self: *const Self) *const Node {
     return @ptrCast(self);
 }
 
+pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64) std.mem.Allocator.Error!void {
+    var currentIndex = self.firstStmt.load(.acquire);
+
+    while (currentIndex != 0) {
+        const stmt = global.nodes.getPtr(currentIndex);
+
+        var i: u64 = 0;
+        while (i < d) : (i += 1) {
+            try cont.appendSlice(alloc, "  ");
+        }
+
+        try stmt.asStatement().toString(global, alloc, cont, d);
+
+        currentIndex = stmt.next.load(.acquire);
+    }
+
+    try self.asConst().toStringFlags(alloc, cont);
+
+    const nextIndex = self.next.load(.acquire);
+    if (nextIndex != 0) {
+        try global.nodes.getPtr(nextIndex).asConstRoot().toString(global, alloc, cont, d);
+    }
+}
+
 const mod = @import("../mod.zig");
 const Node = @import("../Node.zig");
 

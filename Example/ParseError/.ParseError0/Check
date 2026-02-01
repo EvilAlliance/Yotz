@@ -2,14 +2,14 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 115
-main: () u8 : () u8 { 
+:b stdout 181
+main: () u8 #inferedFromExpression : () u8{ 
     return 1;
 }
-bar: () u8 : () u8 { 
+bar: () u8 #inferedFromExpression : () u8{ 
     return 3;
 }
-baz: () u8 : () u8 { 
+baz: () u8 #inferedFromExpression : () u8{ 
     return 4;
 }
 
@@ -30,11 +30,7 @@ test :: () {
 qux u8 :: () {
     ^
 
-^
-
- () {
-           ^
-[ERROR]: Example/ParseError/ParseError0.yt:30:5: Expected: ":" but found: 'identifier' 
+0:5: Expected: ":" but found: 'identifier' 
 qux u8 :: () {
     ^
 

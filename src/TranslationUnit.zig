@@ -204,10 +204,12 @@ pub fn waitForWork(alloc: Allocator, global: *Global) Allocator.Error!struct { [
     }
 
     const index = 0;
+    var cont = std.ArrayList(u8).empty;
+    try global.nodes.getPtr(index).asEntry().toString(global, alloc, &cont, 0);
+    const res = try cont.toOwnedSlice(alloc);
+    if (global.subCommand == .Parser) return .{ res, 0 };
 
-    if (global.subCommand == .Parser) return .{ try global.toStringAst(alloc, global.nodes.get(index).right.load(.acquire)), 0 };
-
-    if (global.subCommand == .Typing) return .{ try global.toStringAst(alloc, global.nodes.get(index).right.load(.acquire)), 0 };
+    if (global.subCommand == .Typing) return .{ res, 0 };
 
     return .{ "", 1 };
 }

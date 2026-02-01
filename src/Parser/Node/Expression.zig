@@ -80,6 +80,88 @@ pub fn asConstCall(self: *const Self) *const Node.Call {
     return self.asConst().asConstCall();
 }
 
+pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64) std.mem.Allocator.Error!void {
+    switch (self.tag.load(.acquire)) {
+        .funcProto => try self.asConstFuncProto().toString(global, alloc, cont, d),
+        .addition, .subtraction, .multiplication, .division, .power => {
+            const binOp = self.asConstBinaryOp();
+            try cont.append(alloc, '(');
+
+            const leftIndex = binOp.left.load(.acquire);
+            try global.nodes.getPtr(leftIndex).asExpression().toString(global, alloc, cont, d);
+
+            try cont.append(alloc, ' ');
+            try cont.appendSlice(alloc, self.asConst().getTokenTag(global).toSymbol().?);
+            try cont.append(alloc, ' ');
+
+            const rightIndex = binOp.right.load(.acquire);
+            try global.nodes.getPtr(rightIndex).asExpression().toString(global, alloc, cont, d);
+
+            try cont.append(alloc, ')');
+        },
+        .neg => {
+            const unOp = self.asConstUnaryOp();
+            try cont.appendSlice(alloc, self.asConst().getTokenTag(global).toSymbol().?);
+            try cont.append(alloc, '(');
+            const leftIndex = unOp.left.load(.acquire);
+
+            try global.nodes.getPtr(leftIndex).asExpression().toString(global, alloc, cont, d);
+            try cont.append(alloc, ')');
+        },
+        .load => {
+            try cont.appendSlice(alloc, self.asConst().getText(global));
+        },
+        .call => {
+            const callNode = self.asConstCall();
+            try cont.appendSlice(alloc, self.asConst().getText(global));
+            try cont.append(alloc, '(');
+
+            var argIndex = callNode.firstArg.load(.acquire);
+            while (argIndex != 0) {
+                const arg = global.nodes.getConstPtr(argIndex).asConstCallArg();
+                const exprIndex = arg.expr.load(.acquire);
+                if (exprIndex != 0) {
+                    try global.nodes.getPtr(exprIndex).asExpression().toString(global, alloc, cont, d);
+                }
+
+                argIndex = arg.next.load(.acquire);
+                if (argIndex != 0) try cont.appendSlice(alloc, ", ");
+            }
+
+            try cont.append(alloc, ')');
+
+            var next = self.next.load(.acquire);
+            while (next != 0) {
+                const call = global.nodes.getConstPtr(next).asConstCall();
+
+                try cont.append(alloc, '(');
+
+                argIndex = call.firstArg.load(.acquire);
+                while (argIndex != 0) {
+                    const arg = global.nodes.getConstPtr(argIndex).asConstCallArg();
+                    const exprIndex = arg.expr.load(.acquire);
+                    if (exprIndex != 0) {
+                        try global.nodes.getPtr(exprIndex).asExpression().toString(global, alloc, cont, d);
+                    }
+
+                    argIndex = arg.next.load(.acquire);
+                    if (argIndex != 0) try cont.appendSlice(alloc, ", ");
+                }
+
+                try cont.append(alloc, ')');
+
+                next = call.next.load(.acquire);
+            }
+        },
+        .lit => {
+            try cont.appendSlice(alloc, self.asConst().getText(global));
+        },
+        else => unreachable,
+    }
+
+    try self.asConst().toStringFlags(alloc, cont);
+}
+
 const mod = @import("../mod.zig");
 const Node = @import("../Node.zig");
 

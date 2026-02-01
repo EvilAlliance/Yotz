@@ -173,7 +173,7 @@ fn parseArgs(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (Alloc
 
         const protoArg: Node.ProtoArg = .{
             .tokenIndex = .init(nameI),
-            .fakeType = .init(try self.parseType(alloc, reports)),
+            .type = .init(try self.parseType(alloc, reports)),
         };
         currentArg.* = protoArg.asConst().*;
 
@@ -349,7 +349,7 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator, reports: ?*Report.Reports
 fn parseReturn(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
     _, const retIndex = self.popIf(.ret) orelse unreachable;
 
-    const ret: Node.Ret = .{
+    const ret: Node.Return = .{
         .tokenIndex = .init(retIndex),
     };
     const nodeIndex = try self.tu.global.nodes.appendIndex(alloc, ret.asConst().*);
