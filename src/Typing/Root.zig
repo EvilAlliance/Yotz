@@ -19,10 +19,7 @@ fn record(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.No
         const stmt = self.global.nodes.getPtr(stmtI);
         defer stmtI = stmt.next.load(.acquire);
 
-        const tag = stmt.tag.load(.acquire);
-
-        assert(tag == .variable or tag == .constant);
-        Statement.recordVariable(self, alloc, stmt, reports) catch |err| switch (err) {
+        Statement.recordVariable(self, alloc, stmt.asVarConst(), reports) catch |err| switch (err) {
             Scope.Error.KeyAlreadyExists => {},
             else => return @errorCast(err),
         };

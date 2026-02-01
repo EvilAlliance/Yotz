@@ -32,6 +32,10 @@ pub fn asConst(self: *const Self) *const Node {
     return @ptrCast(self);
 }
 
+pub fn getText(self: *const Self, global: *Global) []const u8 {
+    return self.asConst().getText(global);
+}
+
 pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64) std.mem.Allocator.Error!void {
     try cont.appendSlice(alloc, self.asConst().getText(global));
 
