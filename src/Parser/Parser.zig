@@ -58,7 +58,7 @@ pub fn parseRoot(self: *@This(), alloc: Allocator, start: mod.TokenIndex, placeH
 
     const index = try self._parseRoot(alloc, reports);
 
-    if (placeHolder.data[1].cmpxchgStrong(0, index, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
+    if (placeHolder.right.cmpxchgStrong(0, index, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
 }
 
 fn _parseRoot(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error)!mod.NodeIndex {
@@ -101,7 +101,8 @@ fn _parseRoot(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.
         alloc,
         .{
             .tag = .init(.root),
-            .data = .{ .init(firstIndex), .init(0) },
+            .left = .init(firstIndex),
+            .right = .init(0),
         },
     );
 }
@@ -151,7 +152,11 @@ fn parseFuncProto(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (
 
     const p = try self.parseType(alloc, reports);
 
-    const nodeIndex = try self.tu.global.nodes.appendIndex(alloc, .{ .tag = .init(.funcProto), .data = .{ .init(args), .init(p) } });
+    const nodeIndex = try self.tu.global.nodes.appendIndex(alloc, .{
+        .tag = .init(.funcProto),
+        .left = .init(args),
+        .right = .init(p),
+    });
 
     return nodeIndex;
 }
@@ -171,7 +176,8 @@ fn parseArgs(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (Alloc
         currentArg.* = .{
             .tag = .init(.protoArg),
             .tokenIndex = .init(nameI),
-            .data = .{ .init(try self.parseType(alloc, reports)), .init(0) },
+            .left = .init(try self.parseType(alloc, reports)),
+            .right = .init(0),
         };
 
         if (self.peek().@"0".tag != .coma) break;
@@ -200,7 +206,8 @@ fn parseTypeFunction(self: *@This(), alloc: Allocator, reports: ?*Report.Reports
 
     const node = Node{
         .tag = .init(.fakeFuncType),
-        .data = .{ .init(args), .init(x) },
+        .left = .init(args),
+        .right = .init(x),
         .tokenIndex = .init(initI),
     };
 
@@ -227,7 +234,8 @@ fn parseTypeFunctionArgs(self: *@This(), alloc: Allocator, reports: ?*Report.Rep
         currentArg.* = .{
             .tag = .init(.fakeArgType),
             .tokenIndex = .init(nameToken.@"1"),
-            .data = .{ .init(@intFromBool(hasName)), .init(typeIndex) },
+            .left = .init(@intFromBool(hasName)),
+            .right = .init(typeIndex),
         };
 
         if (self.peek().@"0".tag != .coma) break;
@@ -287,7 +295,8 @@ fn parseScope(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.
 
     const nodeIndex = try self.tu.global.nodes.appendIndex(alloc, .{
         .tag = .init(.scope),
-        .data = .{ .init(firstIndex), .init(0) },
+        .left = .init(firstIndex),
+        .right = .init(0),
     });
 
     return nodeIndex;
@@ -323,7 +332,7 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator, reports: ?*Report.Reports
     const possibleType = self.peek()[0];
 
     if (possibleType.tag != .colon and possibleType.tag != .equal)
-        node.data[0].store(try self.parseType(alloc, reports), .release);
+        node.left.store(try self.parseType(alloc, reports), .release);
 
     const possibleExpr = self.peek()[0];
 
@@ -333,7 +342,7 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator, reports: ?*Report.Reports
 
         const expr = try self.parseExpression(alloc, reports);
 
-        node.data[1].store(expr, .release);
+        node.right.store(expr, .release);
     }
 
     _ = self.popIf(.semicolon);
@@ -352,7 +361,7 @@ fn parseReturn(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std
 
     const node = self.tu.global.nodes.getPtr(nodeIndex);
 
-    node.data[1].store(exp, .release);
+    node.right.store(exp, .release);
 
     _ = self.popIf(.semicolon);
 
@@ -374,7 +383,8 @@ fn parseCall(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (Alloc
     firstCall.* = .{
         .tag = .init(.call),
         .tokenIndex = .init(nameI),
-        .data = .{ .init(args), .init(0) },
+        .left = .init(args),
+        .right = .init(0),
     };
 
     var currentCall = firstCall;
@@ -392,7 +402,8 @@ fn parseCall(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (Alloc
         nextCall.* = .{
             .tag = .init(.call),
             .tokenIndex = .init(parenI),
-            .data = .{ .init(chainedArgs), .init(0) },
+            .left = .init(chainedArgs),
+            .right = .init(0),
         };
         currentCall.next.store(self.tu.global.nodes.indexOf(nextCall), .release);
         currentCall = nextCall;
@@ -414,7 +425,8 @@ fn parseCallArgs(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (A
         currentArg.* = .{
             .tag = .init(.callArg),
             .tokenIndex = .init(argTokenIndex),
-            .data = .{ .init(0), .init(expr) },
+            .left = .init(0),
+            .right = .init(expr),
         };
 
         if (self.peek().@"0".tag == .closeParen) break;
@@ -476,7 +488,8 @@ fn parseExpr(self: *@This(), alloc: Allocator, minPrecedence: u8, reports: ?*Rep
         leftIndex = try self.tu.global.nodes.appendIndex(alloc, Node{
             .tag = .init(tag),
             .tokenIndex = .init(opIndex),
-            .data = .{ .init(leftIndex), .init(right) },
+            .left = .init(leftIndex),
+            .right = .init(right),
         });
     }
 
@@ -513,7 +526,8 @@ fn parseTerm(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.m
                     else => unreachable,
                 }),
                 .tokenIndex = .init(opIndex),
-                .data = .{ .init(expr), .init(0) },
+                .left = .init(expr),
+                .right = .init(0),
             });
         },
         .openParen => {

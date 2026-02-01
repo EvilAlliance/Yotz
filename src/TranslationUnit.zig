@@ -124,7 +124,7 @@ fn _startRoot(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, pla
 
     if (self.global.subCommand == .Parser) return;
 
-    const rootIndex = placeHolder.data[1].load(.acquire);
+    const rootIndex = placeHolder.right.load(.acquire);
     try Typing.Root.typing(self, alloc, self.global.nodes.getPtr(rootIndex), reports);
 
     if (self.global.subCommand == .Typing) return;
@@ -170,15 +170,16 @@ pub fn startEntry(alloc: Allocator, arguments: *const ParseArgs.Arguments) std.m
 
     if (arguments.subCom != .Parser and arguments.subCom != .Lexer) {
         if (scope.get("main")) |main| {
-            const funcProto = global.nodes.getConstPtr(main.data[1].load(.acquire));
+            const funcProto = global.nodes.getConstPtr(main.right.load(.acquire));
             if (funcProto.tag.load(.acquire) != .funcProto) {
                 Report.missingMain(&reports);
             } else {
-                const type_ = global.nodes.getConstPtr(funcProto.data[1].load(.acquire));
+                const type_ = global.nodes.getConstPtr(funcProto.right.load(.acquire));
                 if (!Typing.Type.typeEqual(&global, type_, &.{
                     .tag = .init(.type),
                     .tokenIndex = .init(0),
-                    .data = .{ .init(8), .init(@intFromEnum(Parser.Node.Primitive.uint)) },
+                    .left = .init(8),
+                    .right = .init(@intFromEnum(Parser.Node.Primitive.uint)),
                     .next = .init(0),
                 })) Report.mustReturnU8(&reports, "main", type_);
             }
@@ -202,9 +203,9 @@ pub fn waitForWork(alloc: Allocator, global: *Global) Allocator.Error!struct { [
 
     const index = 0;
 
-    if (global.subCommand == .Parser) return .{ try global.toStringAst(alloc, global.nodes.get(index).data[1].load(.acquire)), 0 };
+    if (global.subCommand == .Parser) return .{ try global.toStringAst(alloc, global.nodes.get(index).right.load(.acquire)), 0 };
 
-    if (global.subCommand == .Typing) return .{ try global.toStringAst(alloc, global.nodes.get(index).data[1].load(.acquire)), 0 };
+    if (global.subCommand == .Typing) return .{ try global.toStringAst(alloc, global.nodes.get(index).right.load(.acquire)), 0 };
 
     return .{ "", 1 };
 }

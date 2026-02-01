@@ -12,10 +12,10 @@ pub fn transformType(self: *const TranslationUnit, type_: *Parser.Node) void {
 fn transformFuncType(self: *const TranslationUnit, funcType: *Parser.Node) void {
     std.debug.assert(funcType.tag.load(.acquire) == .fakeFuncType);
 
-    const argIndex = funcType.data[0].load(.acquire);
+    const argIndex = funcType.left.load(.acquire);
     if (argIndex != 0) transformType(self, self.global.nodes.getPtr(argIndex));
 
-    const retTypeIndex = funcType.data[1].load(.acquire);
+    const retTypeIndex = funcType.right.load(.acquire);
     std.debug.assert(retTypeIndex != 0);
     transformType(self, self.global.nodes.getPtr(retTypeIndex));
 
@@ -31,7 +31,7 @@ fn transformArgsType(self: *const TranslationUnit, argType: *Parser.Node) void {
     const nextI = argType.next.load(.acquire);
     if (nextI != 0) transformType(self, self.global.nodes.getPtr(nextI));
 
-    const typeI = argType.data[1].load(.acquire);
+    const typeI = argType.right.load(.acquire);
     std.debug.assert(typeI != 0);
     transformType(self, self.global.nodes.getPtr(typeI));
 
@@ -66,8 +66,8 @@ fn transformIdentiferType(self: *const TranslationUnit, type_: *Parser.Node) voi
 
     const typeInfo = std.meta.stringToEnum(TypeName, name[0..1]) orelse @panic("Aliases or struct arent supported yet");
 
-    type_.data.@"0".store(std.fmt.parseInt(u32, name[1..], 10) catch @panic("Aliases or struct arent supported yet"), .release);
-    type_.data.@"1".store(@intFromEnum(typeInfo.nodeKind()), .release);
+    type_.left.store(std.fmt.parseInt(u32, name[1..], 10) catch @panic("Aliases or struct arent supported yet"), .release);
+    type_.right.store(@intFromEnum(typeInfo.nodeKind()), .release);
 
     if (type_.tag.cmpxchgStrong(.fakeType, .type, .seq_cst, .monotonic) != null) {
         std.debug.assert(type_.tag.load(.acquire) == .type);
@@ -84,16 +84,16 @@ pub fn typeEqual(global: *const Global, actual: *const Parser.Node, expected: *c
         actualTag != .fakeArgType and expectedTag != .fakeArgType);
 
     if (actualTag == .type and expectedTag == .type)
-        return expected.data[1].load(.acquire) == actual.data[1].load(.acquire) and expected.data[0].load(.acquire) == actual.data[0].load(.acquire);
+        return expected.right.load(.acquire) == actual.right.load(.acquire) and expected.left.load(.acquire) == actual.left.load(.acquire);
 
     if (actualTag == .funcType and expectedTag == .funcType) {
-        const expectedArgsI = expected.data.@"0".load(.acquire);
-        const actualArgsI = actual.data.@"0".load(.acquire);
+        const expectedArgsI = expected.left.load(.acquire);
+        const actualArgsI = actual.left.load(.acquire);
 
         if (!typeEqual(
             global,
-            global.nodes.getConstPtr(actual.data.@"1".load(.acquire)),
-            global.nodes.getConstPtr(expected.data.@"1".load(.acquire)),
+            global.nodes.getConstPtr(actual.right.load(.acquire)),
+            global.nodes.getConstPtr(expected.right.load(.acquire)),
         )) return false;
 
         if (actualArgsI == expectedArgsI and actualArgsI == 0)
@@ -103,8 +103,8 @@ pub fn typeEqual(global: *const Global, actual: *const Parser.Node, expected: *c
         var expectedArgs = global.nodes.getConstPtr(expectedArgsI);
 
         while (true) {
-            const actualArgType = global.nodes.getConstPtr(actualArgs.data[1].load(.acquire));
-            const expectedArgType = global.nodes.getConstPtr(expectedArgs.data[1].load(.acquire));
+            const actualArgType = global.nodes.getConstPtr(actualArgs.right.load(.acquire));
+            const expectedArgType = global.nodes.getConstPtr(expectedArgs.right.load(.acquire));
 
             if (!typeEqual(global, actualArgType, expectedArgType))
                 return false;
@@ -123,7 +123,7 @@ pub fn typeEqual(global: *const Global, actual: *const Parser.Node, expected: *c
 }
 
 pub fn canTypeBeCoerced(actual: *const Parser.Node, expected: *const Parser.Node) bool {
-    return expected.data[1].load(.acquire) == actual.data[1].load(.acquire) and expected.data[0].load(.acquire) >= actual.data[0].load(.acquire);
+    return expected.right.load(.acquire) == actual.right.load(.acquire) and expected.left.load(.acquire) >= actual.left.load(.acquire);
 }
 
 const TranslationUnit = @import("../TranslationUnit.zig");

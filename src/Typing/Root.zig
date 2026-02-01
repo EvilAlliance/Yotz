@@ -12,9 +12,8 @@ pub fn typing(self: *const TranslationUnit, alloc: Allocator, root: *const Parse
 }
 
 fn record(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
-
-    var stmtI = root.data.@"0".load(.acquire);
-    const endIndex = root.data.@"1".load(.acquire);
+    var stmtI = root.left.load(.acquire);
+    const endIndex = root.right.load(.acquire);
 
     while (stmtI != endIndex) {
         const stmt = self.global.nodes.getPtr(stmtI);
@@ -31,9 +30,8 @@ fn record(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.No
 }
 
 fn check(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
-
-    var stmtI = root.data.@"0".load(.acquire);
-    const endIndex = root.data.@"1".load(.acquire);
+    var stmtI = root.left.load(.acquire);
+    const endIndex = root.right.load(.acquire);
 
     while (stmtI != endIndex) {
         const stmt = self.global.nodes.getPtr(stmtI);
@@ -50,9 +48,8 @@ fn check(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Nod
 }
 
 fn cycleCheck(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Node) Allocator.Error!void {
-
-    var stmtI = root.data.@"0".load(.acquire);
-    const endIndex = root.data.@"1".load(.acquire);
+    var stmtI = root.left.load(.acquire);
+    const endIndex = root.right.load(.acquire);
 
     while (stmtI != endIndex) {
         const stmt = self.global.nodes.getPtr(stmtI);

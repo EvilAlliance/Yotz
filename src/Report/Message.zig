@@ -40,7 +40,7 @@ const Error = struct {
                 loc.col,
                 functionName,
                 typeNode.typeToString(),
-                typeNode.data[0].load(.acquire),
+                typeNode.left.load(.acquire),
                 fileInfo.source[where.beg..where.end],
                 '^',
                 where.pad,
@@ -85,7 +85,7 @@ const Error = struct {
                 loc.row,
                 loc.col,
                 returnType.typeToString(),
-                returnType.data[0].load(.acquire),
+                returnType.left.load(.acquire),
                 fileInfo.source[where.beg..where.end],
                 '^',
                 where.pad,
@@ -120,9 +120,9 @@ const Error = struct {
                 loc.row,
                 loc.col,
                 actual.typeToString(),
-                actual.data[0].load(.acquire),
+                actual.left.load(.acquire),
                 expected.typeToString(),
-                expected.data[0].load(.acquire),
+                expected.left.load(.acquire),
                 fileInfo.source[where.beg..where.end],
                 '^',
                 where.pad,
@@ -211,9 +211,9 @@ const Error = struct {
                 loc.row,
                 loc.col,
                 typeNode1.typeToString(),
-                typeNode1.data[0].load(.acquire),
+                typeNode1.left.load(.acquire),
                 typeNode2.typeToString(),
-                typeNode2.data[0].load(.acquire),
+                typeNode2.left.load(.acquire),
                 self.global.tu.cont.source[where.beg..where.end],
                 '^',
                 where.pad,
@@ -231,9 +231,9 @@ const Error = struct {
                 loc.row,
                 loc.col,
                 actual.typeToString(),
-                actual.data[0].load(.acquire),
+                actual.left.load(.acquire),
                 expected.typeToString(),
-                expected.data[0].load(.acquire),
+                expected.left.load(.acquire),
                 fileInfo.source[where.beg..where.end],
                 '^',
                 where.pad,
@@ -265,7 +265,7 @@ const Error = struct {
         const loc = expr.getLocation(self.global);
         const fileInfo = self.global.files.get(loc.source);
 
-        const size = expectedType.data[0].load(.acquire);
+        const size = expectedType.left.load(.acquire);
         const max = std.math.pow(u64, 2, size) - 1;
         const where = placeSlice(loc, fileInfo.source);
         std.log.err(
@@ -387,7 +387,7 @@ const Info = struct {
                 inferedLoc.row,
                 inferedLoc.col,
                 typeNode.typeToString(),
-                typeNode.data[0].load(.acquire),
+                typeNode.left.load(.acquire),
                 fileInfo.source[where.beg..where.end],
                 '^',
                 where.pad,

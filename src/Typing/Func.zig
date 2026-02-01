@@ -1,13 +1,13 @@
 pub fn typing(self: *const TranslationUnit, alloc: Allocator, func: *const Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
     std.debug.assert(func.tag.load(.acquire) == .funcProto);
 
-    const tIndex = func.data[1].load(.acquire);
+    const tIndex = func.right.load(.acquire);
     Type.transformType(self, self.global.nodes.getPtr(tIndex));
 
     try self.scope.push(alloc);
     defer self.scope.pop(alloc);
 
-    const argsI = func.data.@"0".load(.acquire);
+    const argsI = func.left.load(.acquire);
     if (argsI != 0) try Statement.recordFunctionArgs(self, alloc, self.global.nodes.getPtr(argsI), reports);
 
     const stmtORscopeIndex = func.next.load(.acquire);
@@ -21,7 +21,7 @@ pub fn typing(self: *const TranslationUnit, alloc: Allocator, func: *const Parse
         self.global.observer.mutex.lock();
         defer self.global.observer.mutex.unlock();
         if (!self.global.readyTu.get(self.id).load(.acquire)) {
-            const i = if (stmtORscope.tag.load(.acquire) == .scope) stmtORscope.data[0].load(.acquire) else stmtORscopeIndex;
+            const i = if (stmtORscope.tag.load(.acquire) == .scope) stmtORscope.left.load(.acquire) else stmtORscopeIndex;
             try self.global.observer.pushUnlock(alloc, self.id, resumeScopeCheck, .{ try Util.dupe(alloc, try self.acquire(alloc)), alloc, i, type_, reports });
             return;
         }
@@ -40,7 +40,7 @@ fn checkScope(self: *const TranslationUnit, alloc: Allocator, scopeIndex: Parser
     const retTypeTag = retType.tag.load(.acquire);
     std.debug.assert(scope.tag.load(.acquire) == .scope and retTypeTag == .type or retTypeTag == .funcType);
 
-    const i = scope.data[0].load(.acquire);
+    const i = scope.left.load(.acquire);
 
     return try _checkScope(self, alloc, i, retType, reports);
 }
