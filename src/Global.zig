@@ -106,12 +106,12 @@ pub fn toStringAst(self: *@This(), alloc: std.mem.Allocator, rootIndex: Parser.N
     return cont.toOwnedSlice(alloc);
 }
 
-fn toStringFuncProto(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, node: *const Parser.Node) std.mem.Allocator.Error!void {
+fn toStringFuncProto(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, node: *const Parser.Node.FuncProto) std.mem.Allocator.Error!void {
     std.debug.assert(node.tag.load(.acquire) == .funcProto);
 
     // TODO : Put arguments
     try cont.append(alloc, '(');
-    const argIndex = node.left.load(.acquire);
+    const argIndex = node.args.load(.acquire);
     if (argIndex != 0) {
         var args = self.nodes.getConstPtr(argIndex);
 
@@ -132,14 +132,14 @@ fn toStringFuncProto(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayL
 
     try cont.appendSlice(alloc, ") ");
 
-    try self.toStringType(alloc, cont, d, self.nodes.getPtr(node.right.load(.acquire)));
+    try self.toStringType(alloc, cont, d, self.nodes.getPtr(node.retType.load(.acquire)));
 
     try cont.append(alloc, ' ');
 
-    const protoNext = node.next.load(.acquire);
-    if (self.nodes.get(protoNext).tag.load(.acquire) == .scope) return try self.toStringScope(alloc, cont, d, self.nodes.getPtr(protoNext));
+    const scopeOrStmt = node.scope.load(.acquire);
+    if (self.nodes.get(scopeOrStmt).tag.load(.acquire) == .scope) return try self.toStringScope(alloc, cont, d, self.nodes.getPtr(scopeOrStmt));
 
-    if (protoNext != 0) try self.toStringStatement(alloc, cont, d, self.nodes.getPtr(protoNext));
+    if (scopeOrStmt != 0) try self.toStringStatement(alloc, cont, d, self.nodes.getPtr(scopeOrStmt));
 }
 
 fn toStringType(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, node: *const Parser.Node) std.mem.Allocator.Error!void {
@@ -267,7 +267,7 @@ fn toStringVariable(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayLi
 
 fn toStringExpression(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, node: *const Parser.Node) std.mem.Allocator.Error!void {
     switch (node.tag.load(.acquire)) {
-        .funcProto => try self.toStringFuncProto(alloc, cont, d, node),
+        .funcProto => try self.toStringFuncProto(alloc, cont, d, node.asConstFuncProto()),
         .addition, .subtraction, .multiplication, .division, .power => {
             try cont.append(alloc, '(');
 

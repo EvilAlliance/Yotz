@@ -58,7 +58,7 @@ pub fn acquire(self: Self, alloc: Allocator) Allocator.Error!Self {
     };
 }
 
-pub fn startFunction(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: *Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
+pub fn startFunction(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: *Parser.Node.FuncProto, reports: ?*Report.Reports) Allocator.Error!void {
     std.debug.assert(self.tag == .Function);
 
     const callBack = struct {
@@ -72,7 +72,7 @@ pub fn startFunction(self: *const Self, alloc: Allocator, start: Parser.TokenInd
     try self.global.threadPool.spawn(callBack, .{ _startFunction, .{ self.*, alloc, start, placeHolder, reports } });
 }
 
-fn _startFunction(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: *Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
+fn _startFunction(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: *Parser.Node.FuncProto, reports: ?*Report.Reports) Allocator.Error!void {
     defer self.deinit(alloc);
 
     if (self.global.subCommand == .Lexer) unreachable;
@@ -170,11 +170,12 @@ pub fn startEntry(alloc: Allocator, arguments: *const ParseArgs.Arguments) std.m
 
     if (arguments.subCom != .Parser and arguments.subCom != .Lexer) {
         if (scope.get("main")) |main| {
-            const funcProto = global.nodes.getConstPtr(main.right.load(.acquire));
-            if (funcProto.tag.load(.acquire) != .funcProto) {
+            const funcProtoNode = global.nodes.getConstPtr(main.right.load(.acquire));
+            if (funcProtoNode.tag.load(.acquire) != .funcProto) {
                 Report.missingMain(&reports);
             } else {
-                const type_ = global.nodes.getConstPtr(funcProto.right.load(.acquire));
+                const funcProto = funcProtoNode.asConstFuncProto();
+                const type_ = global.nodes.getConstPtr(funcProto.retType.load(.acquire));
                 if (!Typing.Type.typeEqual(&global, type_, &.{
                     .tag = .init(.type),
                     .tokenIndex = .init(0),

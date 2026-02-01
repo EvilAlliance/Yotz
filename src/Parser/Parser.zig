@@ -45,12 +45,12 @@ fn popUnil(self: *@This(), tokenType: Lexer.Token.Type) void {
     }
 }
 
-pub fn parseFunction(self: *@This(), alloc: Allocator, start: mod.TokenIndex, placeHolder: *Parser.Node, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
+pub fn parseFunction(self: *@This(), alloc: Allocator, start: mod.TokenIndex, placeHolder: *Parser.Node.FuncProto, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
     self.index = start;
 
     const index = if (self.peek()[0].tag == .openBrace) try self.parseScope(alloc, reports) else try self.parseStatement(alloc, reports);
 
-    if (placeHolder.next.cmpxchgStrong(0, index, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
+    if (placeHolder.scope.cmpxchgStrong(0, index, .acq_rel, .monotonic) != null) @panic("This belongs to this thread and currently is not being passed to another thread");
 }
 
 pub fn parseRoot(self: *@This(), alloc: Allocator, start: mod.TokenIndex, placeHolder: *Parser.Node, reports: ?*Report.Reports) (std.mem.Allocator.Error)!void {
@@ -151,12 +151,12 @@ fn parseFuncProto(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (
     try Report.expect(reports, self.pop()[0], &.{.closeParen});
 
     const p = try self.parseType(alloc, reports);
+    const funcProto: Node.FuncProto = .{
+        .args = .init(args),
+        .retType = .init(p),
+    };
 
-    const nodeIndex = try self.tu.global.nodes.appendIndex(alloc, .{
-        .tag = .init(.funcProto),
-        .left = .init(args),
-        .right = .init(p),
-    });
+    const nodeIndex = try self.tu.global.nodes.appendIndex(alloc, funcProto.asConst().*);
 
     return nodeIndex;
 }
@@ -457,7 +457,7 @@ fn parseExpression(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) 
             _ = self.popIf(.semicolon);
         }
 
-        try (try self.tu.initFunc(alloc)).startFunction(alloc, start, self.tu.global.nodes.getPtr(index), reports);
+        try (try self.tu.initFunc(alloc)).startFunction(alloc, start, self.tu.global.nodes.getPtr(index).asFuncProto(), reports);
 
         return index;
     } else {

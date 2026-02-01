@@ -1,16 +1,16 @@
-pub fn typing(self: *const TranslationUnit, alloc: Allocator, func: *const Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
+pub fn typing(self: *const TranslationUnit, alloc: Allocator, func: *const Parser.Node.FuncProto, reports: ?*Report.Reports) Allocator.Error!void {
     std.debug.assert(func.tag.load(.acquire) == .funcProto);
 
-    const tIndex = func.right.load(.acquire);
+    const tIndex = func.retType.load(.acquire);
     Type.transformType(self, self.global.nodes.getPtr(tIndex));
 
     try self.scope.push(alloc);
     defer self.scope.pop(alloc);
 
-    const argsI = func.left.load(.acquire);
+    const argsI = func.args.load(.acquire);
     if (argsI != 0) try Statement.recordFunctionArgs(self, alloc, self.global.nodes.getPtr(argsI), reports);
 
-    const stmtORscopeIndex = func.next.load(.acquire);
+    const stmtORscopeIndex = func.scope.load(.acquire);
     const stmtORscope = self.global.nodes.get(stmtORscopeIndex);
 
     try self.scope.push(alloc);

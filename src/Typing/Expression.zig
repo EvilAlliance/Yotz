@@ -164,7 +164,8 @@ pub fn _inferType(self: *Self, alloc: Allocator, expr: *const Parser.Node, repor
             return if (typeIndex == 0) null else .{ .type = self.tu.global.nodes.getConstPtr(typeIndex), .place = expr };
         },
         .funcProto => {
-            const tIndex = expr.right.load(.acquire);
+            const funcProto = expr.asConstFuncProto();
+            const tIndex = funcProto.retType.load(.acquire);
             std.debug.assert(tIndex != 0);
 
             const t = self.tu.global.nodes.getPtr(tIndex);
@@ -177,7 +178,7 @@ pub fn _inferType(self: *Self, alloc: Allocator, expr: *const Parser.Node, repor
             std.debug.assert(tTag1 == .type or tTag1 == .funcType);
 
             var argTypeIndex: Parser.NodeIndex = 0;
-            const protoArgsIndex = expr.left.load(.acquire);
+            const protoArgsIndex = funcProto.args.load(.acquire);
 
             if (protoArgsIndex != 0) {
                 var protoArg = self.tu.global.nodes.getConstPtr(protoArgsIndex);
@@ -215,13 +216,13 @@ pub fn _inferType(self: *Self, alloc: Allocator, expr: *const Parser.Node, repor
 
             const i = try self.tu.global.nodes.appendIndex(alloc, Parser.Node{
                 .tag = .init(.funcType),
-                .tokenIndex = .init(expr.tokenIndex.load(.acquire)),
+                .tokenIndex = .init(funcProto.tokenIndex.load(.acquire)),
                 .left = .init(argTypeIndex),
                 .right = .init(tIndex),
                 .flags = .init(.{ .inferedFromExpression = true }),
             });
 
-            return .{ .type = self.tu.global.nodes.getConstPtr(i), .place = expr };
+            return .{ .type = self.tu.global.nodes.getConstPtr(i), .place = funcProto.asConst() };
         },
         .call => {
             const id = expr.getText(self.tu.global);
@@ -321,7 +322,7 @@ fn checkExpected(self: *Self, alloc: Allocator, expr: *Parser.Node, expectedType
     switch (exprTag) {
         .lit => try self.checkLitType(expr, expectedType, reports),
         .load => try self.checkVarType(alloc, expr, expectedType, reports),
-        .funcProto => try self.checkFuncProtoType(expr, expectedType, reports),
+        .funcProto => try self.checkFuncProtoType(expr.asConstFuncProto(), expectedType, reports),
         .call => try self.checkCallType(alloc, expr, expectedType, reports),
 
         .neg => {
@@ -402,8 +403,8 @@ fn checkCallType(self: *Self, alloc: Allocator, call_: *Parser.Node, expectedTyp
     return Report.incompatibleReturnType(reports, retType, expectedType, call, func);
 }
 
-fn checkFuncProtoType(self: *Self, funcProto: *const Parser.Node, expectedType: *const Parser.Node, reports: ?*Report.Reports) (Error)!void {
-    std.debug.assert(funcProto.tag.load(.acquire) == .funcProto);
+fn checkFuncProtoType(self: *Self, funcProtoNode: *const Parser.Node.FuncProto, expectedType: *const Parser.Node, reports: ?*Report.Reports) (Error)!void {
+    const funcProto = funcProtoNode.asConst();
 
     const funcRetTypeIndex = funcProto.right.load(.acquire);
 
@@ -425,7 +426,7 @@ fn checkFuncProtoType(self: *Self, funcProto: *const Parser.Node, expectedType: 
         return Report.incompatibleType(reports, retType, funcRetType, funcRetType, funcRetType);
     }
 
-    const argsI = funcProto.left.load(.acquire);
+    const argsI = funcProtoNode.args.load(.acquire);
     const typeArgsI = expectedType.left.load(.acquire);
 
     if (argsI == 0 and typeArgsI == 0) return;
