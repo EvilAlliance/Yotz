@@ -23,6 +23,8 @@ pub const Ret = @import("Node/Ret.zig");
 pub const Scope = @import("Node/Scope.zig");
 pub const ProtoArg = @import("Node/ProtoArg.zig");
 pub const CallArg = @import("Node/CallArg.zig");
+pub const Entry = @import("Node/Entry.zig");
+pub const Root = @import("Node/Root.zig");
 
 pub const Tag = enum(mod.NodeIndex) {
     // Mark begining and end
@@ -313,6 +315,26 @@ pub fn asCallArg(self: *Self) *CallArg {
 
 pub fn asConstCallArg(self: *const Self) *const CallArg {
     assert(self.tag.load(.acquire) == .callArg);
+    return @ptrCast(self);
+}
+
+pub fn asEntry(self: *Self) *Entry {
+    assert(self.tag.load(.acquire) == .entry);
+    return @ptrCast(self);
+}
+
+pub fn asConstEntry(self: *const Self) *const Entry {
+    assert(self.tag.load(.acquire) == .entry);
+    return @ptrCast(self);
+}
+
+pub fn asRoot(self: *Self) *Root {
+    assert(self.tag.load(.acquire) == .root);
+    return @ptrCast(self);
+}
+
+pub fn asConstRoot(self: *const Self) *const Root {
+    assert(self.tag.load(.acquire) == .root);
     return @ptrCast(self);
 }
 
