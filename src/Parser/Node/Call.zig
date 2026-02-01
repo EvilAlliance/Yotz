@@ -32,6 +32,10 @@ pub fn asConst(self: *const Self) *const Node {
     return @ptrCast(self);
 }
 
+pub inline fn getText(self: *const Self, global: *Global) []const u8 {
+    return self.asConst().getText(global);
+}
+
 const mod = @import("../mod.zig");
 const Node = @import("../Node.zig");
 
