@@ -52,7 +52,7 @@ pub fn checkVariable(self: *const TranslationUnit, alloc: Allocator, variable: *
         expr.reset();
     } else {
         const t = self.global.nodes.getPtr(typeIndex);
-        Type.transformType(self, t);
+        if (Parser.Node.isFakeTypes(t.tag.load(.acquire))) Type.transformType(self, t.asFakeTypes());
     }
 
     const typeIndex2 = variable.type.load(.acquire);

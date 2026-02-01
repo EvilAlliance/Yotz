@@ -2,7 +2,9 @@ pub fn typing(self: *const TranslationUnit, alloc: Allocator, func: *const Parse
     std.debug.assert(func.tag.load(.acquire) == .funcProto);
 
     const tIndex = func.retType.load(.acquire);
-    Type.transformType(self, self.global.nodes.getPtr(tIndex));
+    const t = self.global.nodes.getPtr(tIndex);
+    if (Parser.Node.isFakeTypes(t.tag.load(.acquire))) Type.transformType(self, t.asFakeTypes());
+    assert(Parser.Node.isTypes(t.tag.load(.acquire)));
 
     try self.scope.push(alloc);
     defer self.scope.pop(alloc);
@@ -112,3 +114,4 @@ const Util = @import("../Util.zig");
 const std = @import("std");
 
 const Allocator = std.mem.Allocator;
+const assert = std.debug.assert;

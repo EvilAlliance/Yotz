@@ -48,7 +48,7 @@ pub fn asConstFakeFuncType(self: *const Self) *const Node.FakeFuncType {
     return self.asConst().asConstFakeFuncType();
 }
 
-pub fn asFakeArgType(self: *Self) *Node.FakeFuncType {
+pub fn asFakeArgType(self: *Self) *Node.FakeArgType {
     return self.as().asFakeArgType();
 }
 

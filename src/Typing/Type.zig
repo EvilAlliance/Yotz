@@ -1,6 +1,8 @@
-pub fn transformType(self: *const TranslationUnit, type_: *Parser.Node) void {
-    const tag = type_.tag.load(.acquire);
-    switch (tag) {
+pub fn transformType(self: *const TranslationUnit, type_: *Parser.Node.FakeTypes) void {
+    // CLEAN: Here the race condition can still happen
+    if (Parser.Node.isTypes(type_.tag.load(.acquire))) return;
+
+    switch (type_.tag.load(.acquire)) {
         .fakeType => transformIdentiferType(self, type_.asFakeType()),
         .fakeFuncType => transformFuncType(self, type_.asFakeFuncType()),
         .fakeArgType => transformArgsType(self, type_.asFakeArgType()),
@@ -11,11 +13,11 @@ pub fn transformType(self: *const TranslationUnit, type_: *Parser.Node) void {
 
 fn transformFuncType(self: *const TranslationUnit, funcType: *Parser.Node.FakeFuncType) void {
     const argIndex = funcType.fakeArgsType.load(.acquire);
-    if (argIndex != 0) transformType(self, self.global.nodes.getPtr(argIndex));
+    if (argIndex != 0) transformType(self, self.global.nodes.getPtr(argIndex).asFakeTypes());
 
     const retTypeIndex = funcType.fakeRetType.load(.acquire);
     std.debug.assert(retTypeIndex != 0);
-    transformType(self, self.global.nodes.getPtr(retTypeIndex));
+    transformType(self, self.global.nodes.getPtr(retTypeIndex).asFakeTypes());
 
     if (funcType.tag.cmpxchgStrong(.fakeFuncType, .funcType, .seq_cst, .monotonic) != null) {
         std.debug.assert(funcType.tag.load(.acquire) == .funcType);
@@ -25,11 +27,11 @@ fn transformFuncType(self: *const TranslationUnit, funcType: *Parser.Node.FakeFu
 
 fn transformArgsType(self: *const TranslationUnit, argType: *Parser.Node.FakeArgType) void {
     const nextI = argType.next.load(.acquire);
-    if (nextI != 0) transformType(self, self.global.nodes.getPtr(nextI));
+    if (nextI != 0) transformType(self, self.global.nodes.getPtr(nextI).asFakeTypes());
 
     const typeI = argType.fakeType.load(.acquire);
     std.debug.assert(typeI != 0);
-    transformType(self, self.global.nodes.getPtr(typeI));
+    transformType(self, self.global.nodes.getPtr(typeI).asFakeTypes());
 
     if (argType.tag.cmpxchgStrong(.fakeArgType, .argType, .seq_cst, .monotonic) != null) {
         std.debug.assert(argType.tag.load(.acquire) == .argType);

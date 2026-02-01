@@ -167,13 +167,8 @@ pub fn _inferType(self: *Self, alloc: Allocator, expr: *const Parser.Node.Expres
             std.debug.assert(tIndex != 0);
 
             const t = self.tu.global.nodes.getPtr(tIndex);
-            const tTag = t.tag.load(.acquire);
-            if (tTag == .fakeFuncType or tTag == .fakeType) {
-                Type.transformType(self.tu, t);
-            }
-            const tTag1 = t.tag.load(.acquire);
-
-            std.debug.assert(tTag1 == .type or tTag1 == .funcType);
+            if (Parser.Node.isFakeTypes(t.tag.load(.acquire))) Type.transformType(self.tu, t.asFakeTypes());
+            std.debug.assert(Parser.Node.isTypes(t.tag.load(.acquire)));
 
             var argTypeIndex: Parser.NodeIndex = 0;
             const protoArgsIndex = funcProto.args.load(.acquire);
@@ -187,10 +182,8 @@ pub fn _inferType(self: *Self, alloc: Allocator, expr: *const Parser.Node.Expres
                     const argType = protoArg.left.load(.acquire);
                     const argTypeNode = self.tu.global.nodes.getPtr(argType);
 
-                    const argTypeTag = argTypeNode.tag.load(.acquire);
-                    if (argTypeTag == .fakeType or argTypeTag == .fakeFuncType) {
-                        Type.transformType(self.tu, argTypeNode);
-                    }
+                    if (Parser.Node.isFakeTypes(argTypeNode.tag.load(.acquire))) Type.transformType(self.tu, argTypeNode.asFakeTypes());
+                    assert(Parser.Node.isTypes(argTypeNode.tag.load(.acquire)));
 
                     currentArgType.* = .{
                         .tag = .init(.argType),
@@ -413,13 +406,10 @@ fn checkFuncProtoType(self: *Self, funcProtoNode: *const Parser.Node.FuncProto, 
 
     const retType = self.tu.global.nodes.getPtr(retTypeIndex);
     const funcRetType = self.tu.global.nodes.getPtr(funcRetTypeIndex);
-    var funcRetTypeTag = funcRetType.tag.load(.acquire);
 
     // NOTE: this is needed because it is possible that the typing of the function didnt do it yet
-    assert(funcRetTypeTag != .argType and funcRetTypeTag != .fakeArgType);
-    if (funcRetTypeTag == .fakeFuncType or funcRetTypeTag == .fakeType) Type.transformType(self.tu, funcRetType);
-    funcRetTypeTag = funcRetType.tag.load(.acquire);
-    assert(funcRetTypeTag == .funcType or funcRetTypeTag == .type);
+    if (Parser.Node.isFakeTypes(funcRetType.tag.load(.acquire))) Type.transformType(self.tu, funcRetType.asFakeTypes());
+    assert(Parser.Node.isTypes(funcRetType.tag.load(.acquire)));
 
     if (!Type.typeEqual(self.tu.global, funcRetType, retType)) {
         return Report.incompatibleType(reports, retType, funcRetType, funcRetType, funcRetType);
@@ -444,15 +434,11 @@ fn checkFuncProtoType(self: *Self, funcProtoNode: *const Parser.Node.FuncProto, 
         const protoArgType = self.tu.global.nodes.getPtr(protoArgTypeIndex);
         const typeArgType = self.tu.global.nodes.getPtr(typeArgTypeIndex);
 
-        const protoArgTypeTag = protoArgType.tag.load(.acquire);
-        if (protoArgTypeTag == .fakeType or protoArgTypeTag == .fakeFuncType) {
-            Type.transformType(self.tu, protoArgType);
-        }
+        if (Parser.Node.isFakeTypes(protoArgType.tag.load(.acquire))) Type.transformType(self.tu, protoArgType.asFakeTypes());
+        assert(Parser.Node.isTypes(protoArgType.tag.load(.acquire)));
 
-        const typeArgTypeTag = typeArgType.tag.load(.acquire);
-        if (typeArgTypeTag == .fakeType or typeArgTypeTag == .fakeFuncType) {
-            Type.transformType(self.tu, typeArgType);
-        }
+        if (Parser.Node.isFakeTypes(typeArgType.tag.load(.acquire))) Type.transformType(self.tu, typeArgType.asFakeTypes());
+        assert(Parser.Node.isTypes(typeArgType.tag.load(.acquire)));
 
         if (!Type.typeEqual(self.tu.global, protoArgType, typeArgType)) {
             return Report.incompatibleType(reports, typeArgType, protoArgType, protoArg, protoArg);

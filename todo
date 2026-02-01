@@ -463,6 +463,12 @@
         "title": "The program does not report where is the type incompatible exaclty, it could be inside the return value and this return a function which returns a function and the problem could be in many places",
         "desc": "",
         "time_created": "2026-01-31 21:03:03.416188825 -03:00:00"
+      },
+      {
+        "id": "pwDbSnQX",
+        "title": "At the moment the fake type is created we must transform it into a real type",
+        "desc": "A problem could appear when alias are introduce, but i do not think so",
+        "time_created": "2026-02-01 19:24:35.639228865 -03:00:00"
       }
     ]
   }
