@@ -4,8 +4,8 @@ ptr: *anyopaque,
 vtable: *const VTable,
 
 const VTable = struct {
-    put: *const fn (*anyopaque, alloc: Allocator, key: []const u8, variable: *Parser.Node) (Allocator.Error || mod.Error)!void,
-    get: *const fn (*anyopaque, key: []const u8) ?*Parser.Node,
+    put: *const fn (*anyopaque, alloc: Allocator, key: []const u8, variable: *Parser.Node.Declarator) (Allocator.Error || mod.Error)!void,
+    get: *const fn (*anyopaque, key: []const u8) ?*Parser.Node.Declarator,
 
     push: *const fn (*anyopaque, alloc: Allocator) Allocator.Error!void,
     pop: *const fn (*anyopaque, alloc: Allocator) void,
@@ -16,11 +16,11 @@ const VTable = struct {
     deinit: *const fn (*anyopaque, alloc: Allocator) void,
 };
 
-pub fn put(self: Self, alloc: Allocator, key: []const u8, value: *Parser.Node) (Allocator.Error || mod.Error)!void {
+pub fn put(self: Self, alloc: Allocator, key: []const u8, value: *Parser.Node.Declarator) (Allocator.Error || mod.Error)!void {
     try self.vtable.put(self.ptr, alloc, key, value);
 }
 
-pub fn get(self: Self, key: []const u8) ?*Parser.Node {
+pub fn get(self: Self, key: []const u8) ?*Parser.Node.Declarator {
     return self.vtable.get(self.ptr, key);
 }
 

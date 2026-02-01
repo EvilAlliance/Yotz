@@ -1,8 +1,8 @@
 pub fn recordVariable(self: *const TranslationUnit, alloc: Allocator, variable: *Parser.Node.VarConst, reports: ?*Report.Reports) (Allocator.Error || Scope.Error)!void {
-    self.scope.put(alloc, variable.getText(self.global), variable.as()) catch |err| switch (err) {
+    self.scope.put(alloc, variable.getText(self.global), variable.as().asDeclarator()) catch |err| switch (err) {
         Scope.Error.KeyAlreadyExists => {
             const original = self.scope.get(variable.getText(self.global)).?;
-            Report.redefinition(reports, variable.as(), original);
+            Report.redefinition(reports, variable.as(), original.as());
             return Scope.Error.KeyAlreadyExists;
         },
         else => return @errorCast(err),
@@ -12,10 +12,10 @@ pub fn recordVariable(self: *const TranslationUnit, alloc: Allocator, variable: 
 pub fn recordFunctionArgs(self: *const TranslationUnit, alloc: Allocator, args_: *Parser.Node.ProtoArg, reports: ?*Report.Reports) (Allocator.Error)!void {
     var args = args_;
     while (true) {
-        self.scope.put(alloc, args.getText(self.global), args.as()) catch |err| switch (err) {
+        self.scope.put(alloc, args.getText(self.global), args.as().asDeclarator()) catch |err| switch (err) {
             Scope.Error.KeyAlreadyExists => {
                 const original = self.scope.get(args.getText(self.global)).?;
-                Report.redefinition(reports, args.asConst(), original);
+                Report.redefinition(reports, args.asConst(), original.as());
             },
             else => return @errorCast(err),
         };

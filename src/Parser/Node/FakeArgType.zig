@@ -39,9 +39,9 @@ pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, co
     }
 
     try global.nodes.getConstPtr(self.fakeType.load(.acquire)).asConstFakeTypes().toString(global, alloc, cont, d);
-    
+
     try self.asConst().toStringFlags(alloc, cont);
-    
+
     const nextIndex = self.next.load(.acquire);
     if (nextIndex != 0) {
         try cont.appendSlice(alloc, ", ");

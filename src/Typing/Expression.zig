@@ -107,6 +107,9 @@ fn _traceVariable(self: *Self, alloc: Allocator, expr: *const Parser.Node.Expres
             defer self.pop();
 
             const variable = self.tu.scope.get(load.getText(self.tu.global)) orelse return;
+
+            if (variable.tag.load(.acquire) == .protoArg) return;
+
             try self.traceVariable(alloc, variable.asConstVarConst());
         },
         .neg => {
@@ -154,7 +157,7 @@ pub fn _inferType(self: *Self, alloc: Allocator, expr: *const Parser.Node.Expres
 
             const variable = self.tu.scope.get(id) orelse return Report.undefinedVariable(reports, expr.asConst());
 
-            const typeIndex = variable.left.load(.acquire);
+            const typeIndex = variable.type.load(.acquire);
 
             return if (typeIndex == 0) null else .{ .type = self.tu.global.nodes.getConstPtr(typeIndex).asConstTypes(), .place = expr };
         },
@@ -266,7 +269,7 @@ pub fn _inferType(self: *Self, alloc: Allocator, expr: *const Parser.Node.Expres
                     typeL.?.type.asConst(),
                     typeR.?.type.asConst(),
                     expr.asConst(),
-                    declared,
+                    declared.as(),
                 );
             }
         },
@@ -344,10 +347,10 @@ fn checkCallType(self: *Self, alloc: Allocator, call_: *Parser.Node.Call, expect
     var call = call_;
 
     const id = call.getText(self.tu.global);
-    const func = (self.tu.scope.get(id) orelse return Report.undefinedVariable(reports, call.asConst())).asVarConst();
+    const func = self.tu.scope.get(id) orelse return Report.undefinedVariable(reports, call.asConst());
 
     if (func.type.load(.acquire) == 0) {
-        assert(self.inferType(alloc, func, self.tu.global.nodes.getPtr(func.expr.load(.acquire)).asExpression(), reports) catch |err| std.debug.panic("Why would this fail, it should be valid {}", .{err}));
+        assert(self.inferType(alloc, func.asVarConst(), self.tu.global.nodes.getPtr(func.asVarConst().expr.load(.acquire)).asExpression(), reports) catch |err| std.debug.panic("Why would this fail, it should be valid {}", .{err}));
     }
 
     const funcType = self.tu.global.nodes.getConstPtr(func.type.load(.acquire));
@@ -448,12 +451,12 @@ fn checkFuncProtoType(self: *Self, funcProtoNode: *const Parser.Node.FuncProto, 
 fn checkVarType(self: *Self, alloc: Allocator, load: *Parser.Node.Load, type_: *const Parser.Node.Types, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
     const id = load.getText(self.tu.global);
 
-    const variable = (self.tu.scope.get(id) orelse return Report.undefinedVariable(reports, load.asConst())).asVarConst();
+    const variable = self.tu.scope.get(id) orelse return Report.undefinedVariable(reports, load.asConst());
 
     var typeIndex = variable.type.load(.acquire);
 
     if (typeIndex == 0)
-        return addInferType(self, alloc, .inferedFromUse, load.as().asExpression(), variable, type_);
+        return addInferType(self, alloc, .inferedFromUse, load.as().asExpression(), variable.asVarConst(), type_);
 
     const tag = variable.tag.load(.acquire);
 
@@ -470,7 +473,7 @@ fn checkVarType(self: *Self, alloc: Allocator, load: *Parser.Node.Load, type_: *
     }
 
     if (tag == .constant)
-        return addInferType(self, alloc, .inferedFromUse, load.as().asExpression(), variable, type_);
+        return addInferType(self, alloc, .inferedFromUse, load.as().asExpression(), variable.asVarConst(), type_);
 
     if (couldBeCoerce) {
         var x: ?Parser.Node.Flags = .{};

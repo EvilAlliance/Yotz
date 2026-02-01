@@ -26,6 +26,7 @@ pub const CallArg = @import("Node/CallArg.zig");
 pub const Entry = @import("Node/Entry.zig");
 pub const Root = @import("Node/Root.zig");
 pub const Statement = @import("Node/Statement.zig");
+pub const Declarator = @import("Node/Declarator.zig");
 
 pub const Tag = enum(mod.NodeIndex) {
     // Mark begining and end
@@ -368,6 +369,22 @@ pub fn asStatement(self: *Self) *Statement {
 pub fn asConstStatement(self: *const Self) *const Statement {
     const tag = self.tag.load(.acquire);
     assert(isStatement(tag));
+    return @ptrCast(self);
+}
+
+pub fn isDeclarator(tag: Tag) bool {
+    return Util.listContains(Tag, &.{ .variable, .constant, .protoArg }, tag);
+}
+
+pub fn asDeclarator(self: *Self) *Declarator {
+    const tag = self.tag.load(.acquire);
+    assert(isDeclarator(tag));
+    return @ptrCast(self);
+}
+
+pub fn asConstDeclarator(self: *const Self) *const Declarator {
+    const tag = self.tag.load(.acquire);
+    assert(isDeclarator(tag));
     return @ptrCast(self);
 }
 

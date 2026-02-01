@@ -36,7 +36,7 @@ pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, co
     _ = d;
     const x = self.asConst().getText(global);
     try cont.appendSlice(alloc, x);
-    
+
     try self.asConst().toStringFlags(alloc, cont);
 }
 

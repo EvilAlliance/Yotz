@@ -39,7 +39,7 @@ pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, co
     try cont.appendSlice(alloc, ") ");
 
     try global.nodes.getPtr(self.fakeRetType.load(.acquire)).asConstFakeTypes().toString(global, alloc, cont, d);
-    
+
     try self.asConst().toStringFlags(alloc, cont);
 }
 

@@ -39,7 +39,12 @@ pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, co
 
         try cont.appendSlice(alloc, protoArg.asConst().getText(global));
         try cont.appendSlice(alloc, ": ");
-        try global.nodes.getPtr(protoArg.type.load(.acquire)).asFakeTypes().toString(global, alloc, cont, d);
+        const type_ = global.nodes.getPtr(protoArg.type.load(.acquire));
+        if (Node.isFakeTypes(type_.tag.load(.acquire))) {
+            try type_.asFakeTypes().toString(global, alloc, cont, d);
+        } else if (Node.isTypes(type_.tag.load(.acquire))) {
+            try type_.asTypes().toString(global, alloc, cont, d);
+        } else unreachable;
 
         while (protoArg.next.load(.acquire) != 0) {
             protoArg = global.nodes.getConstPtr(protoArg.next.load(.acquire)).asConstProtoArg();
@@ -48,7 +53,11 @@ pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, co
 
             try cont.appendSlice(alloc, protoArg.asConst().getText(global));
             try cont.appendSlice(alloc, ": ");
-            try global.nodes.getPtr(protoArg.type.load(.acquire)).asFakeTypes().toString(global, alloc, cont, d);
+            if (Node.isFakeTypes(type_.tag.load(.acquire))) {
+                try type_.asFakeTypes().toString(global, alloc, cont, d);
+            } else if (Node.isTypes(type_.tag.load(.acquire))) {
+                try type_.asTypes().toString(global, alloc, cont, d);
+            } else unreachable;
         }
     }
 
@@ -65,7 +74,7 @@ pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, co
 
     const scopeOrStmt = global.nodes.getConstPtr(self.scope.load(.acquire));
     if (!Node.isStatement(scopeOrStmt.tag.load(.acquire))) {
-        try scopeOrStmt.asConstScope().toString(global, alloc, cont, d);
+        try scopeOrStmt.asConstScope().toString(global, alloc, cont, d + 4);
     } else {
         try scopeOrStmt.asConstStatement().toString(global, alloc, cont, d);
     }

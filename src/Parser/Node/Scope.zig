@@ -40,7 +40,7 @@ pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, co
     while (j != 0) {
         const node = global.nodes.getPtr(j);
 
-        for (0..d + 4) |_| {
+        for (0..d) |_| {
             try cont.append(alloc, ' ');
         }
         try node.asConstStatement().toString(global, alloc, cont, d);
@@ -48,7 +48,7 @@ pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, co
         j = node.next.load(.acquire);
     }
 
-    for (0..d) |_| {
+    for (0..d - 4) |_| {
         try cont.append(alloc, ' ');
     }
 
