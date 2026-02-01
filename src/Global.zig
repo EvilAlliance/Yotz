@@ -147,19 +147,31 @@ fn toStringType(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u
 
     while (true) {
         switch (current.tag.load(.acquire)) {
-            .fakeFuncType, .funcType => {
+            .fakeFuncType => {
+                const fakeFuncType = current.asConstFakeFuncType();
                 try cont.append(alloc, '(');
-                const argsIndex = current.left.load(.acquire);
+                const argsIndex = fakeFuncType.fakeArgsType.load(.acquire);
                 if (argsIndex != 0) try self.toStringType(alloc, cont, d, self.nodes.getPtr(argsIndex));
                 try cont.appendSlice(alloc, ") ");
 
-                current = self.nodes.getPtr(current.right.load(.acquire));
+                current = self.nodes.getPtr(fakeFuncType.retType.load(.acquire));
+                continue;
+            },
+            .funcType => {
+                const funcType = current.asConstFuncType();
+                try cont.append(alloc, '(');
+                const argsIndex = funcType.argsType.load(.acquire);
+                if (argsIndex != 0) try self.toStringType(alloc, cont, d, self.nodes.getPtr(argsIndex));
+                try cont.appendSlice(alloc, ") ");
+
+                current = self.nodes.getPtr(funcType.retType.load(.acquire));
                 continue;
             },
             .type => {
-                try cont.append(alloc, current.typeToString());
+                const type_ = current.asConstType();
+                try cont.append(alloc, type_.asConst().typeToString());
 
-                const size = try std.fmt.allocPrint(alloc, "{}", .{current.left.load(.acquire)});
+                const size = try std.fmt.allocPrint(alloc, "{}", .{type_.size.load(.acquire)});
                 try cont.appendSlice(alloc, size);
                 alloc.free(size);
             },
@@ -167,13 +179,23 @@ fn toStringType(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u
                 const x = current.getText(self);
                 try cont.appendSlice(alloc, x);
             },
-            .fakeArgType, .argType => {
-                if (current.left.load(.acquire) == 1) {
-                    try cont.appendSlice(alloc, current.getText(self));
+            .fakeArgType => {
+                const fakeArgType = current.asConstFakeArgType();
+                if (fakeArgType.isName.load(.acquire) == 1) {
+                    try cont.appendSlice(alloc, fakeArgType.asConst().getText(self));
                     try cont.appendSlice(alloc, ": ");
                 }
 
-                try self.toStringType(alloc, cont, d, self.nodes.getConstPtr(current.right.load(.acquire)));
+                try self.toStringType(alloc, cont, d, self.nodes.getConstPtr(fakeArgType.fakeType.load(.acquire)));
+            },
+            .argType => {
+                const argType = current.asConstArgType();
+                if (argType.isName.load(.acquire) == 1) {
+                    try cont.appendSlice(alloc, argType.asConst().getText(self));
+                    try cont.appendSlice(alloc, ": ");
+                }
+
+                try self.toStringType(alloc, cont, d, self.nodes.getConstPtr(argType.type_.load(.acquire)));
             },
             else => unreachable,
         }

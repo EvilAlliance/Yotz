@@ -11,6 +11,14 @@ pub const VarConst = @import("Node/VarConst.zig");
 pub const Literal = @import("Node/Literal.zig");
 pub const Load = @import("Node/Load.zig");
 pub const Call = @import("Node/Call.zig");
+pub const FakeType = @import("Node/FakeType.zig");
+pub const Type = @import("Node/Type.zig");
+pub const AllFakeTypes = @import("Node/AllFakeTypes.zig");
+pub const AllTypes = @import("Node/AllTypes.zig");
+pub const FuncType = @import("Node/FuncType.zig");
+pub const FakeFuncType = @import("Node/FakeFuncType.zig");
+pub const FakeArgType = @import("Node/FakeArgType.zig");
+pub const ArgType = @import("Node/ArgType.zig");
 
 pub const Tag = enum(mod.NodeIndex) {
     // Mark begining and end
@@ -177,6 +185,90 @@ pub fn asCall(self: *Self) *Call {
 
 pub fn asConstCall(self: *const Self) *const Call {
     assert(self.tag.load(.acquire) == .call);
+    return @ptrCast(self);
+}
+
+pub fn asFakeType(self: *Self) *FakeType {
+    assert(self.tag.load(.acquire) == .fakeType);
+    return @ptrCast(self);
+}
+
+pub fn asConstFakeType(self: *const Self) *const FakeType {
+    assert(self.tag.load(.acquire) == .fakeType);
+    return @ptrCast(self);
+}
+
+pub fn asType(self: *Self) *Type {
+    assert(self.tag.load(.acquire) == .type);
+    return @ptrCast(self);
+}
+
+pub fn asConstType(self: *const Self) *const Type {
+    assert(self.tag.load(.acquire) == .type);
+    return @ptrCast(self);
+}
+
+pub fn asAllFakeTypes(self: *Self) *AllFakeTypes {
+    const tag = self.tag.load(.acquire);
+    assert(Util.listContains(&.{ .fakeType, .fakeFuncType, .fakeArgType }, tag));
+    return @ptrCast(self);
+}
+
+pub fn asConstAllFakeTypes(self: *const Self) *const AllFakeTypes {
+    const tag = self.tag.load(.acquire);
+    assert(Util.listContains(&.{ .fakeType, .fakeFuncType, .fakeArgType }, tag));
+    return @ptrCast(self);
+}
+
+pub fn asAllTypes(self: *Self) *AllTypes {
+    const tag = self.tag.load(.acquire);
+    assert(Util.listContains(&.{ .type, .funcType, .argType }, tag));
+    return @ptrCast(self);
+}
+
+pub fn asConstAllTypes(self: *const Self) *const AllTypes {
+    const tag = self.tag.load(.acquire);
+    assert(Util.listContains(&.{ .type, .funcType, .argType }, tag));
+    return @ptrCast(self);
+}
+
+pub fn asFuncType(self: *Self) *FuncType {
+    assert(self.tag.load(.acquire) == .funcType);
+    return @ptrCast(self);
+}
+
+pub fn asConstFuncType(self: *const Self) *const FuncType {
+    assert(self.tag.load(.acquire) == .funcType);
+    return @ptrCast(self);
+}
+
+pub fn asFakeFuncType(self: *Self) *FakeFuncType {
+    assert(self.tag.load(.acquire) == .fakeFuncType);
+    return @ptrCast(self);
+}
+
+pub fn asConstFakeFuncType(self: *const Self) *const FakeFuncType {
+    assert(self.tag.load(.acquire) == .fakeFuncType);
+    return @ptrCast(self);
+}
+
+pub fn asFakeArgType(self: *Self) *FakeArgType {
+    assert(self.tag.load(.acquire) == .fakeArgType);
+    return @ptrCast(self);
+}
+
+pub fn asConstFakeArgType(self: *const Self) *const FakeArgType {
+    assert(self.tag.load(.acquire) == .fakeArgType);
+    return @ptrCast(self);
+}
+
+pub fn asArgType(self: *Self) *ArgType {
+    assert(self.tag.load(.acquire) == .argType);
+    return @ptrCast(self);
+}
+
+pub fn asConstArgType(self: *const Self) *const ArgType {
+    assert(self.tag.load(.acquire) == .argType);
     return @ptrCast(self);
 }
 

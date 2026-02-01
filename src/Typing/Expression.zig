@@ -235,12 +235,14 @@ pub fn _inferType(self: *Self, alloc: Allocator, expr: *const Parser.Node.Expres
             while (call.next.load(.acquire) != 0) {
                 if (funcType.tag.load(.acquire) != .funcType) return Report.expectedFunction(reports, call.asConst(), funcType);
 
-                funcType = self.tu.global.nodes.getConstPtr(funcType.right.load(.acquire));
+                const ft = funcType.asConstFuncType();
+                funcType = self.tu.global.nodes.getConstPtr(ft.retType.load(.acquire));
 
                 call = self.tu.global.nodes.getConstPtr(call.next.load(.acquire)).asConstCall();
             }
 
-            return .{ .type = self.tu.global.nodes.getConstPtr(funcType.right.load(.acquire)), .place = expr };
+            const ft = funcType.asConstFuncType();
+            return .{ .type = self.tu.global.nodes.getConstPtr(ft.retType.load(.acquire)), .place = expr };
         },
 
         .neg => {
@@ -541,8 +543,9 @@ fn addInferType(self: *Self, alloc: Allocator, comptime flag: std.meta.FieldEnum
 fn checkLitType(self: *Self, lit: *const Parser.Node.Literal, expectedType: *const Parser.Node, reports: ?*Report.Reports) (Error)!void {
     std.debug.assert(expectedType.tag.load(.acquire) == .type);
 
-    const primitive = expectedType.right.load(.acquire);
-    const size = expectedType.left.load(.acquire);
+    const expectedT = expectedType.asConstType();
+    const primitive = expectedT.primitive.load(.acquire);
+    const size = expectedT.size.load(.acquire);
 
     const text = lit.asConst().getText(self.tu.global);
     switch (@as(Parser.Node.Primitive, @enumFromInt(primitive))) {
