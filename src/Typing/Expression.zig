@@ -134,9 +134,6 @@ pub fn inferType(self: *Self, alloc: Allocator, variable: *Parser.Node.VarConst,
     try self.push(alloc, expr.asConst(), .inference);
     defer self.pop();
 
-    const exprTag = expr.tag.load(.acquire);
-    assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition, .call, .funcProto }, exprTag));
-
     const typeI = try self._inferType(alloc, expr, reports);
 
     if (typeI == null) return false;
@@ -205,13 +202,12 @@ pub fn _inferType(self: *Self, alloc: Allocator, expr: *const Parser.Node.Expres
                 argTypeIndex = self.tu.global.nodes.indexOf(firstArgType);
             }
 
-            const i = try self.tu.global.nodes.appendIndex(alloc, Parser.Node{
-                .tag = .init(.funcType),
+            const i = try self.tu.global.nodes.appendIndex(alloc, (Parser.Node.FuncType{
                 .tokenIndex = .init(funcProto.tokenIndex.load(.acquire)),
-                .left = .init(argTypeIndex),
-                .right = .init(tIndex),
+                .argsType = .init(argTypeIndex),
+                .retType = .init(tIndex),
                 .flags = .init(.{ .inferedFromExpression = true }),
-            });
+            }).asConst().*);
 
             return .{ .type = self.tu.global.nodes.getConstPtr(i).asConstTypes(), .place = funcProto.asConst().asConstExpression() };
         },
@@ -296,11 +292,6 @@ pub fn _inferType(self: *Self, alloc: Allocator, expr: *const Parser.Node.Expres
 pub fn checkType(self: *Self, alloc: Allocator, expr: *Parser.Node.Expression, expectedType: *const Parser.Node.Types, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
     try self.push(alloc, expr.asConst(), .check);
     defer self.pop();
-
-    const typeTag = expectedType.tag.load(.acquire);
-    const exprTag = expr.tag.load(.acquire);
-    assert(typeTag == .type or typeTag == .funcType);
-    assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition, .call, .funcProto }, exprTag));
 
     try self.checkExpected(alloc, expr, expectedType, reports);
 }
