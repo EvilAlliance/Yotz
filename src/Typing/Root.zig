@@ -40,7 +40,7 @@ fn check(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Nod
         const tag = stmt.tag.load(.acquire);
 
         assert(tag == .variable or tag == .constant);
-        Statement.checkVariable(self, alloc, stmt, reports) catch |err| switch (err) {
+        Statement.checkVariable(self, alloc, stmt.asVarConst(), reports) catch |err| switch (err) {
             Expression.Error.TooBig, Expression.Error.IncompatibleType, Expression.Error.UndefVar => continue,
             else => return @errorCast(err),
         };
@@ -58,7 +58,7 @@ fn cycleCheck(self: *const TranslationUnit, alloc: Allocator, root: *const Parse
         const tag = stmt.tag.load(.acquire);
 
         assert(tag == .variable or tag == .constant);
-        try Statement.traceVariable(self, alloc, stmt);
+        try Statement.traceVariable(self, alloc, stmt.asConstVarConst());
     }
 }
 

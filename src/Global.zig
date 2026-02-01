@@ -94,7 +94,7 @@ pub fn toStringAst(self: *@This(), alloc: std.mem.Allocator, rootIndex: Parser.N
 
     var i = root.left.load(.acquire);
     while (i != 0) : (i = self.nodes.get(i).next.load(.acquire)) {
-        try self.toStringVariable(alloc, &cont, 0, self.nodes.getPtr(i));
+        try self.toStringVariable(alloc, &cont, 0, self.nodes.getPtr(i).asVarConst());
 
         if (self.nodes.get(self.nodes.get(i).right.load(.acquire)).tag.load(.acquire) != .funcProto) {
             try cont.appendSlice(alloc, ";\n");
@@ -223,10 +223,10 @@ fn toStringStatement(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayL
     switch (stmt.tag.load(.acquire)) {
         .ret => {
             try cont.appendSlice(alloc, "return ");
-            if (exprIndex != 0) try self.toStringExpression(alloc, cont, d, self.nodes.getPtr(exprIndex));
+            if (exprIndex != 0) try self.toStringExpression(alloc, cont, d, self.nodes.getPtr(exprIndex).asExpression());
         },
         .variable, .constant => {
-            try self.toStringVariable(alloc, cont, d, stmt);
+            try self.toStringVariable(alloc, cont, d, stmt.asConstVarConst());
         },
         else => std.debug.panic("What node is this {}", .{stmt}),
     }
@@ -238,12 +238,10 @@ fn toStringStatement(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayL
     try cont.appendSlice(alloc, "\n");
 }
 
-fn toStringVariable(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, variable: *const Parser.Node) std.mem.Allocator.Error!void {
-    std.debug.assert(variable.tag.load(.acquire) == .constant or variable.tag.load(.acquire) == .variable);
+fn toStringVariable(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, variable: *const Parser.Node.VarConst) std.mem.Allocator.Error!void {
+    try cont.appendSlice(alloc, variable.asConst().getText(self));
 
-    try cont.appendSlice(alloc, variable.getText(self));
-
-    const variableLeft = variable.left.load(.acquire);
+    const variableLeft = variable.type.load(.acquire);
     if (variableLeft == 0)
         try cont.append(alloc, ' ');
 
@@ -254,56 +252,59 @@ fn toStringVariable(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayLi
         try cont.append(alloc, ' ');
     }
 
-    if (variable.right.load(.acquire) != 0) {
+    if (variable.expr.load(.acquire) != 0) {
         switch (variable.tag.load(.acquire)) {
             .constant => try cont.appendSlice(alloc, ": "),
             .variable => try cont.appendSlice(alloc, "= "),
             else => unreachable,
         }
-        const expr = variable.right.load(.acquire);
-        if (expr != 0) try self.toStringExpression(alloc, cont, d, self.nodes.getPtr(expr));
+        const expr = variable.expr.load(.acquire);
+        if (expr != 0) try self.toStringExpression(alloc, cont, d, self.nodes.getPtr(expr).asExpression());
     }
 }
 
-fn toStringExpression(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, node: *const Parser.Node) std.mem.Allocator.Error!void {
+fn toStringExpression(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, node: *const Parser.Node.Expression) std.mem.Allocator.Error!void {
     switch (node.tag.load(.acquire)) {
         .funcProto => try self.toStringFuncProto(alloc, cont, d, node.asConstFuncProto()),
         .addition, .subtraction, .multiplication, .division, .power => {
+            const binOp = node.asConstBinaryOp();
             try cont.append(alloc, '(');
 
-            const leftIndex = node.left.load(.acquire);
-            try self.toStringExpression(alloc, cont, d, self.nodes.getPtr(leftIndex));
+            const leftIndex = binOp.left.load(.acquire);
+            try self.toStringExpression(alloc, cont, d, self.nodes.getPtr(leftIndex).asExpression());
 
             try cont.append(alloc, ' ');
-            try cont.appendSlice(alloc, node.getTokenTag(self).toSymbol().?);
+            try cont.appendSlice(alloc, node.asConst().getTokenTag(self).toSymbol().?);
             try cont.append(alloc, ' ');
 
-            const rightIndex = node.right.load(.acquire);
-            try self.toStringExpression(alloc, cont, d, self.nodes.getPtr(rightIndex));
+            const rightIndex = binOp.right.load(.acquire);
+            try self.toStringExpression(alloc, cont, d, self.nodes.getPtr(rightIndex).asExpression());
 
             try cont.append(alloc, ')');
         },
         .neg => {
-            try cont.appendSlice(alloc, node.getTokenTag(self).toSymbol().?);
+            const unOp = node.asConstUnaryOp();
+            try cont.appendSlice(alloc, node.asConst().getTokenTag(self).toSymbol().?);
             try cont.append(alloc, '(');
-            const leftIndex = node.left.load(.acquire);
+            const leftIndex = unOp.left.load(.acquire);
 
-            try self.toStringExpression(alloc, cont, d, self.nodes.getPtr(leftIndex));
+            try self.toStringExpression(alloc, cont, d, self.nodes.getPtr(leftIndex).asExpression());
             try cont.append(alloc, ')');
         },
         .load => {
-            try cont.appendSlice(alloc, node.getText(self));
+            try cont.appendSlice(alloc, node.asConst().getText(self));
         },
         .call => {
-            try cont.appendSlice(alloc, node.getText(self));
+            const callNode = node.asConstCall();
+            try cont.appendSlice(alloc, node.asConst().getText(self));
             try cont.append(alloc, '(');
 
-            var argIndex = node.left.load(.acquire);
+            var argIndex = callNode.firstArg.load(.acquire);
             while (argIndex != 0) {
                 const arg = self.nodes.getConstPtr(argIndex);
                 const exprIndex = arg.right.load(.acquire);
                 if (exprIndex != 0) {
-                    try self.toStringExpression(alloc, cont, d, self.nodes.getPtr(exprIndex));
+                    try self.toStringExpression(alloc, cont, d, self.nodes.getPtr(exprIndex).asExpression());
                 }
 
                 argIndex = arg.next.load(.acquire);
@@ -323,7 +324,7 @@ fn toStringExpression(self: *@This(), alloc: std.mem.Allocator, cont: *std.Array
                     const arg = self.nodes.getConstPtr(argIndex);
                     const exprIndex = arg.right.load(.acquire);
                     if (exprIndex != 0) {
-                        try self.toStringExpression(alloc, cont, d, self.nodes.getPtr(exprIndex));
+                        try self.toStringExpression(alloc, cont, d, self.nodes.getPtr(exprIndex).asExpression());
                     }
 
                     argIndex = arg.next.load(.acquire);
@@ -336,7 +337,7 @@ fn toStringExpression(self: *@This(), alloc: std.mem.Allocator, cont: *std.Array
             }
         },
         .lit => {
-            try cont.appendSlice(alloc, node.getText(self));
+            try cont.appendSlice(alloc, node.asConst().getText(self));
         },
         else => unreachable,
     }

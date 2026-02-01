@@ -1,9 +1,16 @@
 const Self = @This();
 
-pub const COMMONTYPE: []const []const u8 = &.{ "tag", "tokenIndex" };
-pub const COMMONDEFAULT: []const []const u8 = &.{"tokenIndex"};
+pub const COMMONTYPE: []const []const u8 = &.{ "tag", "tokenIndex", "flags" };
+pub const COMMONDEFAULT: []const []const u8 = &.{ "tokenIndex", "flags" };
 
 pub const FuncProto = @import("Node/FuncProto.zig");
+pub const Expression = @import("Node/Expression.zig");
+pub const BinaryOp = @import("Node/BinaryOp.zig");
+pub const UnaryOp = @import("Node/UnaryOp.zig");
+pub const VarConst = @import("Node/VarConst.zig");
+pub const Literal = @import("Node/Literal.zig");
+pub const Load = @import("Node/Load.zig");
+pub const Call = @import("Node/Call.zig");
 
 pub const Tag = enum(mod.NodeIndex) {
     // Mark begining and end
@@ -97,6 +104,82 @@ pub fn asConstFuncProto(self: *const Self) *const FuncProto {
     return @ptrCast(self);
 }
 
+pub fn asExpression(self: *Self) *Expression {
+    const tag = self.tag.load(.acquire);
+    assert(Util.listContains(Tag, &.{ .addition, .subtraction, .multiplication, .division, .power, .neg, .load, .lit, .funcProto, .call }, tag));
+    return @ptrCast(self);
+}
+
+pub fn asConstExpression(self: *const Self) *const Expression {
+    const tag = self.tag.load(.acquire);
+    assert(Util.listContains(Tag, &.{ .addition, .subtraction, .multiplication, .division, .power, .neg, .load, .lit, .funcProto, .call }, tag));
+    return @ptrCast(self);
+}
+
+pub fn asBinaryOp(self: *Self) *BinaryOp {
+    const tag = self.tag.load(.acquire);
+    assert(Util.listContains(Tag, &.{ .addition, .subtraction, .multiplication, .division, .power }, tag));
+    return @ptrCast(self);
+}
+
+pub fn asConstBinaryOp(self: *const Self) *const BinaryOp {
+    const tag = self.tag.load(.acquire);
+    assert(Util.listContains(Tag, &.{ .addition, .subtraction, .multiplication, .division, .power }, tag));
+    return @ptrCast(self);
+}
+
+pub fn asUnaryOp(self: *Self) *UnaryOp {
+    assert(self.tag.load(.acquire) == .neg);
+    return @ptrCast(self);
+}
+
+pub fn asConstUnaryOp(self: *const Self) *const UnaryOp {
+    assert(self.tag.load(.acquire) == .neg);
+    return @ptrCast(self);
+}
+
+pub fn asVarConst(self: *Self) *VarConst {
+    const tag = self.tag.load(.acquire);
+    assert(tag == .variable or tag == .constant);
+    return @ptrCast(self);
+}
+
+pub fn asConstVarConst(self: *const Self) *const VarConst {
+    const tag = self.tag.load(.acquire);
+    assert(tag == .variable or tag == .constant);
+    return @ptrCast(self);
+}
+
+pub fn asLiteral(self: *Self) *Literal {
+    assert(self.tag.load(.acquire) == .lit);
+    return @ptrCast(self);
+}
+
+pub fn asConstLiteral(self: *const Self) *const Literal {
+    assert(self.tag.load(.acquire) == .lit);
+    return @ptrCast(self);
+}
+
+pub fn asLoad(self: *Self) *Load {
+    assert(self.tag.load(.acquire) == .load);
+    return @ptrCast(self);
+}
+
+pub fn asConstLoad(self: *const Self) *const Load {
+    assert(self.tag.load(.acquire) == .load);
+    return @ptrCast(self);
+}
+
+pub fn asCall(self: *Self) *Call {
+    assert(self.tag.load(.acquire) == .call);
+    return @ptrCast(self);
+}
+
+pub fn asConstCall(self: *const Self) *const Call {
+    assert(self.tag.load(.acquire) == .call);
+    return @ptrCast(self);
+}
+
 pub fn typeToString(self: @This()) u8 {
     return @as(u8, switch (@as(mod.Node.Primitive, @enumFromInt(self.right.load(.acquire)))) {
         .sint => 's',
@@ -109,6 +192,7 @@ const mod = @import("mod.zig");
 
 const Lexer = @import("../Lexer/mod.zig");
 const Global = @import("../Global.zig");
+const Util = @import("../Util.zig");
 
 const std = @import("std");
 const assert = std.debug.assert;

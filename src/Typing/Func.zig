@@ -74,7 +74,7 @@ fn checkStatements(self: *const TranslationUnit, alloc: Allocator, stmt: *Parser
     switch (tag) {
         .ret => try Statement.checkReturn(self, alloc, stmt, retType, reports),
         .variable, .constant => {
-            Statement.checkVariable(self, alloc, stmt, reports) catch |err| {
+            Statement.checkVariable(self, alloc, stmt.asVarConst(), reports) catch |err| {
                 try Statement.recordVariable(self, alloc, stmt, reports);
                 return err;
             };
