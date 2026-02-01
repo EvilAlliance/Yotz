@@ -2,12 +2,12 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 206
+:b stdout 210
 main: () u8 #inferedFromExpression : () u8{ 
 }
 foo: () u8 #inferedFromExpression : () u8{ 
     bar: () u8 #inferedFromExpression : () u8{ 
-}
+    }
     return 20;
 }
 outer: () u8 #inferedFromExpression : () u8{ 

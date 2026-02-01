@@ -2,12 +2,12 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 90
+:b stdout 94
 main :: () u8{ 
 }
 foo :: () u8{ 
     bar :: () u8{ 
-}
+    }
     return 20;
 }
 outer :: () u8{ 
@@ -24,7 +24,7 @@ outer :: () u8{
     middle :: ) u8 {
               ^
 
-     ^
+ ^
 
    ^
 

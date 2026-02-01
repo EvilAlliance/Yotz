@@ -2,11 +2,11 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 142
+:b stdout 150
 bar :: () () u8{ 
     return () u8{ 
-    return 8;
-}
+        return 8;
+    }
 }
 foo :: () u8{ 
     return bar()();
@@ -18,7 +18,7 @@ main :: () u8{
 
 :b stderr 0
 
-b stderr 0
+ 0
 
 r 0
 
