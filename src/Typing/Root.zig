@@ -1,4 +1,4 @@
-pub fn typing(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
+pub fn typing(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Node.Root, reports: ?*Report.Reports) Allocator.Error!void {
     try record(self, alloc, root, reports);
 
     assert(self.global.readyTu.getPtr(self.id).cmpxchgStrong(false, true, .acq_rel, .monotonic) == null);
@@ -11,9 +11,9 @@ pub fn typing(self: *const TranslationUnit, alloc: Allocator, root: *const Parse
     try cycleCheck(self, alloc, root);
 }
 
-fn record(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
-    var stmtI = root.left.load(.acquire);
-    const endIndex = root.right.load(.acquire);
+fn record(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Node.Root, reports: ?*Report.Reports) Allocator.Error!void {
+    var stmtI = root.firstStmt.load(.acquire);
+    const endIndex = root.endStmt.load(.acquire);
 
     while (stmtI != endIndex) {
         const stmt = self.global.nodes.getPtr(stmtI);
@@ -29,9 +29,9 @@ fn record(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.No
     }
 }
 
-fn check(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
-    var stmtI = root.left.load(.acquire);
-    const endIndex = root.right.load(.acquire);
+fn check(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Node.Root, reports: ?*Report.Reports) Allocator.Error!void {
+    var stmtI = root.firstStmt.load(.acquire);
+    const endIndex = root.endStmt.load(.acquire);
 
     while (stmtI != endIndex) {
         const stmt = self.global.nodes.getPtr(stmtI);
@@ -47,9 +47,9 @@ fn check(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Nod
     }
 }
 
-fn cycleCheck(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Node) Allocator.Error!void {
-    var stmtI = root.left.load(.acquire);
-    const endIndex = root.right.load(.acquire);
+fn cycleCheck(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Node.Root) Allocator.Error!void {
+    var stmtI = root.firstStmt.load(.acquire);
+    const endIndex = root.endStmt.load(.acquire);
 
     while (stmtI != endIndex) {
         const stmt = self.global.nodes.getPtr(stmtI);

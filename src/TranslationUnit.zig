@@ -125,7 +125,7 @@ fn _startRoot(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, pla
     if (self.global.subCommand == .Parser) return;
 
     const rootIndex = placeHolder.firstRoot.load(.acquire);
-    try Typing.Root.typing(self, alloc, self.global.nodes.getPtr(rootIndex), reports);
+    try Typing.Root.typing(self, alloc, self.global.nodes.getPtr(rootIndex).asRoot(), reports);
 
     if (self.global.subCommand == .Typing) return;
 
