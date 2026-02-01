@@ -4,6 +4,12 @@ pub fn typing(self: *const TranslationUnit, alloc: Allocator, func: *const Parse
     const tIndex = func.data[1].load(.acquire);
     Type.transformType(self, self.global.nodes.getPtr(tIndex));
 
+    try self.scope.push(alloc);
+    defer self.scope.pop(alloc);
+
+    const argsI = func.data.@"0".load(.acquire);
+    if (argsI != 0) try Statement.recordFunctionArgs(self, alloc, self.global.nodes.getPtr(argsI), reports);
+
     const stmtORscopeIndex = func.next.load(.acquire);
     const stmtORscope = self.global.nodes.get(stmtORscopeIndex);
 

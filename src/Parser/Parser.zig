@@ -169,9 +169,9 @@ fn parseArgs(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (Alloc
         _ = self.pop();
 
         currentArg.* = .{
-            .tag = .init(.arg),
+            .tag = .init(.protoArg),
             .tokenIndex = .init(nameI),
-            .data = .{ .init(0), .init(try self.parseType(alloc, reports)) },
+            .data = .{ .init(try self.parseType(alloc, reports)), .init(0) },
         };
 
         if (self.peek().@"0".tag != .coma) break;
@@ -412,7 +412,7 @@ fn parseCallArgs(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (A
         const expr = try self.parseExpression(alloc, reports);
 
         currentArg.* = .{
-            .tag = .init(.arg),
+            .tag = .init(.callArg),
             .tokenIndex = .init(argTokenIndex),
             .data = .{ .init(0), .init(expr) },
         };
@@ -420,7 +420,7 @@ fn parseCallArgs(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (A
         if (self.peek().@"0".tag == .closeParen) break;
 
         try Report.expect(reports, self.peek().@"0", &.{.coma});
-        _ = self.pop(); // consume comma
+        _ = self.pop();
 
         if (self.peek().@"0".tag == .closeParen) break;
 

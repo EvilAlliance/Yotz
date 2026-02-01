@@ -176,10 +176,46 @@ pub fn _inferType(self: *Self, alloc: Allocator, expr: *const Parser.Node, repor
 
             std.debug.assert(tTag1 == .type or tTag1 == .funcType);
 
+            var argTypeIndex: Parser.NodeIndex = 0;
+            const protoArgsIndex = expr.data[0].load(.acquire);
+
+            if (protoArgsIndex != 0) {
+                var protoArg = self.tu.global.nodes.getConstPtr(protoArgsIndex);
+                const firstArgType = try self.tu.global.nodes.reserve(alloc);
+                var currentArgType = firstArgType;
+
+                while (true) {
+                    const argType = protoArg.data[0].load(.acquire);
+                    const argTypeNode = self.tu.global.nodes.getPtr(argType);
+
+                    const argTypeTag = argTypeNode.tag.load(.acquire);
+                    if (argTypeTag == .fakeType or argTypeTag == .fakeFuncType) {
+                        Type.transformType(self.tu, argTypeNode);
+                    }
+
+                    currentArgType.* = .{
+                        .tag = .init(.argType),
+                        .tokenIndex = .init(protoArg.tokenIndex.load(.acquire)),
+                        .data = .{ .init(0), .init(argType) },
+                    };
+
+                    const nextProtoArgIndex = protoArg.next.load(.acquire);
+                    if (nextProtoArgIndex == 0) break;
+
+                    protoArg = self.tu.global.nodes.getConstPtr(nextProtoArgIndex);
+
+                    const nextArgType = try self.tu.global.nodes.reserve(alloc);
+                    currentArgType.next.store(self.tu.global.nodes.indexOf(nextArgType), .release);
+                    currentArgType = nextArgType;
+                }
+
+                argTypeIndex = self.tu.global.nodes.indexOf(firstArgType);
+            }
+
             const i = try self.tu.global.nodes.appendIndex(alloc, Parser.Node{
                 .tag = .init(.funcType),
                 .tokenIndex = .init(expr.tokenIndex.load(.acquire)),
-                .data = .{ .init(0), .init(tIndex) },
+                .data = .{ .init(argTypeIndex), .init(tIndex) },
                 .flags = .init(.{ .inferedFromExpression = true }),
             });
 
@@ -366,12 +402,10 @@ fn checkCallType(self: *Self, alloc: Allocator, call_: *Parser.Node, expectedTyp
 
 fn checkFuncProtoType(self: *Self, funcProto: *const Parser.Node, expectedType: *const Parser.Node, reports: ?*Report.Reports) (Error)!void {
     std.debug.assert(funcProto.tag.load(.acquire) == .funcProto);
-    std.debug.assert(funcProto.data[0].load(.acquire) == 0);
 
     const funcRetTypeIndex = funcProto.data[1].load(.acquire);
 
     std.debug.assert(expectedType.tag.load(.acquire) == .funcType);
-    std.debug.assert(expectedType.data[0].load(.acquire) == 0);
 
     const retTypeIndex = expectedType.data[1].load(.acquire);
 
@@ -393,9 +427,46 @@ fn checkFuncProtoType(self: *Self, funcProto: *const Parser.Node, expectedType: 
     const typeArgsI = expectedType.data.@"0".load(.acquire);
 
     if (argsI == 0 and typeArgsI == 0) return;
-    if (argsI == 0 or typeArgsI == 0) {}
 
-    while (true) {}
+    if (argsI == 0 or typeArgsI == 0) {
+        return Report.incompatibleType(reports, funcProto, expectedType, funcProto, funcProto);
+    }
+
+    var protoArg = self.tu.global.nodes.getConstPtr(argsI);
+    var typeArg = self.tu.global.nodes.getConstPtr(typeArgsI);
+
+    while (true) {
+        const protoArgTypeIndex = protoArg.data[0].load(.acquire);
+        const typeArgTypeIndex = typeArg.data[1].load(.acquire);
+
+        const protoArgType = self.tu.global.nodes.getPtr(protoArgTypeIndex);
+        const typeArgType = self.tu.global.nodes.getPtr(typeArgTypeIndex);
+
+        const protoArgTypeTag = protoArgType.tag.load(.acquire);
+        if (protoArgTypeTag == .fakeType or protoArgTypeTag == .fakeFuncType) {
+            Type.transformType(self.tu, protoArgType);
+        }
+
+        const typeArgTypeTag = typeArgType.tag.load(.acquire);
+        if (typeArgTypeTag == .fakeType or typeArgTypeTag == .fakeFuncType) {
+            Type.transformType(self.tu, typeArgType);
+        }
+
+        if (!Type.typeEqual(self.tu.global, protoArgType, typeArgType)) {
+            return Report.incompatibleType(reports, typeArgType, protoArgType, protoArg, protoArg);
+        }
+
+        const protoNextIndex = protoArg.next.load(.acquire);
+        const typeNextIndex = typeArg.next.load(.acquire);
+
+        if (protoNextIndex == 0 and typeNextIndex == 0) break;
+        if (protoNextIndex == 0 or typeNextIndex == 0) {
+            return Report.incompatibleType(reports, expectedType, funcProto, funcProto, funcProto);
+        }
+
+        protoArg = self.tu.global.nodes.getConstPtr(protoNextIndex);
+        typeArg = self.tu.global.nodes.getConstPtr(typeNextIndex);
+    }
 }
 
 fn checkVarType(self: *Self, alloc: Allocator, leaf: *Parser.Node, type_: *const Parser.Node, reports: ?*Report.Reports) (Allocator.Error || Error)!void {

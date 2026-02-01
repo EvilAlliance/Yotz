@@ -9,6 +9,23 @@ pub fn recordVariable(self: *const TranslationUnit, alloc: Allocator, variable: 
     };
 }
 
+pub fn recordFunctionArgs(self: *const TranslationUnit, alloc: Allocator, args_: *Parser.Node, reports: ?*Report.Reports) (Allocator.Error)!void {
+    var args = args_;
+    while (true) {
+        self.scope.put(alloc, args.getText(self.global), args) catch |err| switch (err) {
+            Scope.Error.KeyAlreadyExists => {
+                const original = self.scope.get(args.getText(self.global)).?;
+                Report.redefinition(reports, args, original);
+            },
+            else => return @errorCast(err),
+        };
+
+        const argsI = args.next.load(.acquire);
+        if (argsI == 0) break;
+        args = self.global.nodes.getPtr(argsI);
+    }
+}
+
 pub fn traceVariable(self: *const TranslationUnit, alloc: Allocator, variable: *const Parser.Node) Allocator.Error!void {
     const expressionIndex = variable.data.@"1".load(.acquire);
     const expressionNode = self.global.nodes.get(expressionIndex);

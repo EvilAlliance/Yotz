@@ -6,7 +6,7 @@ pub const Tag = enum(mod.NodeIndex) {
     empty,
 
     funcProto, // data[0] args data[1] retutn type next scope
-    arg, // right fakeType or Type next arg
+    protoArg, // left fakeType or Type next arg
 
     fakeType, // indentifier in token
     type, // data[0] size in bits, data[1] Primitive if next != 0 can have multiple types
@@ -23,6 +23,7 @@ pub const Tag = enum(mod.NodeIndex) {
     variable, // left type, right expr
     constant, // left type, right expr
     call, // left first arg (linked list), next can hold another call executed before
+    callArg, // rigth expr or Type next arg
 
     //expresion
     addition,

@@ -13,7 +13,7 @@ foo :: (a: u8) u8 {
 baz :: (a: u8) u8 {
     b := bar();
 
-    return a(a, a);
+    return b(a, a);
 }
 
 main :: () u8 {

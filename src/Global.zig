@@ -117,7 +117,7 @@ fn toStringFuncProto(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayL
 
         try cont.appendSlice(alloc, args.getText(self));
         try cont.appendSlice(alloc, ": ");
-        try self.toStringType(alloc, cont, d, self.nodes.getPtr(args.data[1].load(.acquire)));
+        try self.toStringType(alloc, cont, d, self.nodes.getPtr(args.data[0].load(.acquire)));
 
         while (args.next.load(.acquire) != 0) {
             args = self.nodes.getConstPtr(args.next.load(.acquire));
@@ -126,7 +126,7 @@ fn toStringFuncProto(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayL
 
             try cont.appendSlice(alloc, args.getText(self));
             try cont.appendSlice(alloc, ": ");
-            try self.toStringType(alloc, cont, d, self.nodes.getPtr(args.data[1].load(.acquire)));
+            try self.toStringType(alloc, cont, d, self.nodes.getPtr(args.data[0].load(.acquire)));
         }
     }
 
@@ -139,7 +139,7 @@ fn toStringFuncProto(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayL
     const protoNext = node.next.load(.acquire);
     if (self.nodes.get(protoNext).tag.load(.acquire) == .scope) return try self.toStringScope(alloc, cont, d, self.nodes.getPtr(protoNext));
 
-    try self.toStringStatement(alloc, cont, d, self.nodes.getPtr(protoNext));
+    if (protoNext != 0) try self.toStringStatement(alloc, cont, d, self.nodes.getPtr(protoNext));
 }
 
 fn toStringType(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, node: *const Parser.Node) std.mem.Allocator.Error!void {
@@ -167,7 +167,7 @@ fn toStringType(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u
                 const x = current.getText(self);
                 try cont.appendSlice(alloc, x);
             },
-            .fakeArgType => {
+            .fakeArgType, .argType => {
                 if (current.data.@"0".load(.acquire) == 1) {
                     try cont.appendSlice(alloc, current.getText(self));
                     try cont.appendSlice(alloc, ": ");
@@ -297,7 +297,7 @@ fn toStringExpression(self: *@This(), alloc: std.mem.Allocator, cont: *std.Array
         .call => {
             try cont.appendSlice(alloc, node.getText(self));
             try cont.append(alloc, '(');
-            
+
             var argIndex = node.data.@"0".load(.acquire);
             while (argIndex != 0) {
                 const arg = self.nodes.getConstPtr(argIndex);
@@ -305,11 +305,11 @@ fn toStringExpression(self: *@This(), alloc: std.mem.Allocator, cont: *std.Array
                 if (exprIndex != 0) {
                     try self.toStringExpression(alloc, cont, d, self.nodes.getPtr(exprIndex));
                 }
-                
+
                 argIndex = arg.next.load(.acquire);
                 if (argIndex != 0) try cont.appendSlice(alloc, ", ");
             }
-            
+
             try cont.append(alloc, ')');
 
             var next = node.next.load(.acquire);
@@ -317,7 +317,7 @@ fn toStringExpression(self: *@This(), alloc: std.mem.Allocator, cont: *std.Array
                 const call = self.nodes.getConstPtr(next);
 
                 try cont.append(alloc, '(');
-                
+
                 argIndex = call.data.@"0".load(.acquire);
                 while (argIndex != 0) {
                     const arg = self.nodes.getConstPtr(argIndex);
@@ -325,11 +325,11 @@ fn toStringExpression(self: *@This(), alloc: std.mem.Allocator, cont: *std.Array
                     if (exprIndex != 0) {
                         try self.toStringExpression(alloc, cont, d, self.nodes.getPtr(exprIndex));
                     }
-                    
+
                     argIndex = arg.next.load(.acquire);
                     if (argIndex != 0) try cont.appendSlice(alloc, ", ");
                 }
-                
+
                 try cont.append(alloc, ')');
 
                 next = call.next.load(.acquire);

@@ -457,6 +457,12 @@
         "time_created": "2026-01-30 15:18:18.733861188 -03:00:00",
         "time_started": "2026-01-30 19:18:58.219954027 -03:00:00",
         "time_completed": "2026-01-30 19:18:58.550866737 -03:00:00"
+      },
+      {
+        "id": "sR9aELsf",
+        "title": "The program does not report where is the type incompatible exaclty, it could be inside the return value and this return a function which returns a function and the problem could be in many places",
+        "desc": "",
+        "time_created": "2026-01-31 21:03:03.416188825 -03:00:00"
       }
     ]
   }
