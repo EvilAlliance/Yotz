@@ -40,6 +40,22 @@ pub fn asConstType(self: *const Self) *const Node.Type {
     return self.asConst().asConstType();
 }
 
+pub fn asFuncType(self: *Self) *Node.FuncType {
+    return self.as().asFuncType();
+}
+
+pub fn asConstFuncType(self: *const Self) *const Node.FuncType {
+    return self.asConst().asConstFuncType();
+}
+
+pub fn asArgType(self: *Self) *Node.ArgType {
+    return self.as().asArgType();
+}
+
+pub fn asConstArgType(self: *const Self) *const Node.ArgType {
+    return self.asConst().asConstArgType();
+}
+
 const mod = @import("../mod.zig");
 const Node = @import("../Node.zig");
 

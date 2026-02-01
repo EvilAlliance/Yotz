@@ -1,17 +1,17 @@
 const Self = @This();
 
-tag: Value(Node.Tag),
+tag: Value(Node.Tag) = .init(.callArg),
 tokenIndex: Value(mod.TokenIndex) = .init(0),
 left: Value(mod.NodeIndex) = .init(0),
-right: Value(mod.NodeIndex) = .init(0),
+expr: Value(mod.NodeIndex) = .init(0),
 next: Value(mod.NodeIndex) = .init(0),
 flags: Value(Node.Flags) = .init(Node.Flags{}),
 
-const allFakeTypes = [_]Struct.FieldMap{
+const callArg = [_]Struct.FieldMap{
     .{ .b = "tag", .v = "tag" },
     .{ .b = "tokenIndex", .v = "tokenIndex" },
     .{ .b = "left", .v = "left" },
-    .{ .b = "right", .v = "right" },
+    .{ .b = "right", .v = "expr" },
     .{ .b = "next", .v = "next" },
     .{ .b = "flags", .v = "flags" },
 };
@@ -19,7 +19,7 @@ const allFakeTypes = [_]Struct.FieldMap{
 comptime {
     if (@sizeOf(Node) != @sizeOf(Self)) @compileError("Must be same size");
 
-    Struct.assertSameOffsetsFromMap(Node, Self, &allFakeTypes);
+    Struct.assertSameOffsetsFromMap(Node, Self, &callArg);
     Struct.assertCommonFieldTypes(Node, Self, Node.COMMONTYPE);
     Struct.assertCommonFieldDefaults(Node, Self, Node.COMMONDEFAULT);
 }
@@ -30,30 +30,6 @@ pub fn as(self: *Self) *Node {
 
 pub fn asConst(self: *const Self) *const Node {
     return @ptrCast(self);
-}
-
-pub fn asFakeType(self: *Self) *Node.FakeType {
-    return self.as().asFakeType();
-}
-
-pub fn asConstFakeType(self: *const Self) *const Node.FakeType {
-    return self.asConst().asConstFakeType();
-}
-
-pub fn asFakeFuncType(self: *Self) *Node.FakeFuncType {
-    return self.as().asFakeFuncType();
-}
-
-pub fn asConstFakeFuncType(self: *const Self) *const Node.FakeFuncType {
-    return self.asConst().asConstFakeFuncType();
-}
-
-pub fn asFakeArgType(self: *Self) *Node.FakeFuncType {
-    return self.as().asFakeArgType();
-}
-
-pub fn asConstFakeArgType(self: *const Self) *const Node.FakeFuncType {
-    return self.asConst().asConstFakeArgType();
 }
 
 const mod = @import("../mod.zig");
