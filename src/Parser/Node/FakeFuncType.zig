@@ -3,7 +3,7 @@ const Self = @This();
 tag: Value(Node.Tag) = .init(.fakeFuncType),
 tokenIndex: Value(mod.TokenIndex) = .init(0),
 fakeArgsType: Value(mod.NodeIndex) = .init(0),
-retType: Value(mod.NodeIndex) = .init(0),
+fakeRetType: Value(mod.NodeIndex) = .init(0),
 next: Value(mod.NodeIndex) = .init(0),
 flags: Value(Node.Flags) = .init(Node.Flags{}),
 
@@ -11,7 +11,7 @@ const fakeFuncType = [_]Struct.FieldMap{
     .{ .b = "tag", .v = "tag" },
     .{ .b = "tokenIndex", .v = "tokenIndex" },
     .{ .b = "left", .v = "fakeArgsType" },
-    .{ .b = "right", .v = "retType" },
+    .{ .b = "right", .v = "fakeRetType" },
     .{ .b = "next", .v = "next" },
     .{ .b = "flags", .v = "flags" },
 };

@@ -154,7 +154,7 @@ fn toStringType(self: *@This(), alloc: std.mem.Allocator, cont: *std.ArrayList(u
                 if (argsIndex != 0) try self.toStringType(alloc, cont, d, self.nodes.getPtr(argsIndex));
                 try cont.appendSlice(alloc, ") ");
 
-                current = self.nodes.getPtr(fakeFuncType.retType.load(.acquire));
+                current = self.nodes.getPtr(fakeFuncType.fakeRetType.load(.acquire));
                 continue;
             },
             .funcType => {

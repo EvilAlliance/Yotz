@@ -13,7 +13,7 @@ fn transformFuncType(self: *const TranslationUnit, funcType: *Parser.Node.FakeFu
     const argIndex = funcType.fakeArgsType.load(.acquire);
     if (argIndex != 0) transformType(self, self.global.nodes.getPtr(argIndex));
 
-    const retTypeIndex = funcType.retType.load(.acquire);
+    const retTypeIndex = funcType.fakeRetType.load(.acquire);
     std.debug.assert(retTypeIndex != 0);
     transformType(self, self.global.nodes.getPtr(retTypeIndex));
 

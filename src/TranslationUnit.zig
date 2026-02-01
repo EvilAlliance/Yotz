@@ -100,7 +100,7 @@ fn _startFunction(self: *const Self, alloc: Allocator, start: Parser.TokenIndex,
     // if (parser.errors.items.len > 0) return .{ "", 1 };
 }
 
-pub fn startRoot(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: *Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
+pub fn startRoot(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: *Parser.Node.Entry, reports: ?*Report.Reports) Allocator.Error!void {
     std.debug.assert(self.tag == .Root);
 
     const callBack = struct {
@@ -114,7 +114,7 @@ pub fn startRoot(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, 
     try self.global.threadPool.spawn(callBack, .{ _startRoot, .{ self.*, alloc, start, placeHolder, reports } });
 }
 
-fn _startRoot(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: *Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
+fn _startRoot(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: *Parser.Node.Entry, reports: ?*Report.Reports) Allocator.Error!void {
     if (self.global.subCommand == .Lexer) unreachable;
     defer self.deinit(alloc);
 
@@ -124,7 +124,7 @@ fn _startRoot(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, pla
 
     if (self.global.subCommand == .Parser) return;
 
-    const rootIndex = placeHolder.right.load(.acquire);
+    const rootIndex = placeHolder.firstRoot.load(.acquire);
     try Typing.Root.typing(self, alloc, self.global.nodes.getPtr(rootIndex), reports);
 
     if (self.global.subCommand == .Typing) return;
@@ -161,9 +161,10 @@ pub fn startEntry(alloc: Allocator, arguments: *const ParseArgs.Arguments) std.m
         const tu = try initRoot(alloc, &global);
         scope = try tu.scope.deepClone(alloc);
 
-        const index = try global.nodes.appendIndex(alloc, Parser.Node{ .tag = .init(.entry) });
+        const entry = try global.nodes.reserve(alloc);
+        entry.* = (Parser.Node.Entry{}).asConst().*;
 
-        try tu.startRoot(alloc, 0, global.nodes.getPtr(index), &reports);
+        try tu.startRoot(alloc, 0, entry.asEntry(), &reports);
     }
 
     const ret = try waitForWork(alloc, &global);
