@@ -1,5 +1,5 @@
 pub fn transformType(self: *const TranslationUnit, type_: *Parser.Node.FakeTypes) void {
-    // CLEAN: Here the race condition can still happen
+    // CLEAN: Here the race condition can still happen because at the time is being done multiple can accass
     if (Parser.Node.isTypes(type_.tag.load(.acquire))) return;
 
     switch (type_.tag.load(.acquire)) {
@@ -72,7 +72,7 @@ fn transformIdentiferType(self: *const TranslationUnit, type_: *Parser.Node.Fake
     }
 }
 
-pub fn typeEqual(global: *const Global, actual: *const Parser.Node, expected: *const Parser.Node) bool {
+pub fn typeEqual(global: *const Global, actual: *const Parser.Node.Types, expected: *const Parser.Node.Types) bool {
     const actualTag = actual.tag.load(.acquire);
     const expectedTag = expected.tag.load(.acquire);
 
@@ -95,8 +95,8 @@ pub fn typeEqual(global: *const Global, actual: *const Parser.Node, expected: *c
 
         if (!typeEqual(
             global,
-            global.nodes.getConstPtr(actualFunc.retType.load(.acquire)),
-            global.nodes.getConstPtr(expectedFunc.retType.load(.acquire)),
+            global.nodes.getConstPtr(actualFunc.retType.load(.acquire)).asConstTypes(),
+            global.nodes.getConstPtr(expectedFunc.retType.load(.acquire)).asConstTypes(),
         )) return false;
 
         if (actualArgsI == expectedArgsI and actualArgsI == 0)
@@ -109,7 +109,7 @@ pub fn typeEqual(global: *const Global, actual: *const Parser.Node, expected: *c
             const actualArgType = global.nodes.getConstPtr(actualArgs.type_.load(.acquire));
             const expectedArgType = global.nodes.getConstPtr(expectedArgs.type_.load(.acquire));
 
-            if (!typeEqual(global, actualArgType, expectedArgType))
+            if (!typeEqual(global, actualArgType.asConstTypes(), expectedArgType.asConstTypes()))
                 return false;
 
             const actualNext = actualArgs.next.load(.acquire);
@@ -125,7 +125,7 @@ pub fn typeEqual(global: *const Global, actual: *const Parser.Node, expected: *c
     return false;
 }
 
-pub fn canTypeBeCoerced(actual: *const Parser.Node, expected: *const Parser.Node) bool {
+pub fn canTypeBeCoerced(actual: *const Parser.Node.Types, expected: *const Parser.Node.Types) bool {
     const actualType = actual.asConstType();
     const expectedType = expected.asConstType();
     return expectedType.primitive.load(.acquire) == actualType.primitive.load(.acquire) and expectedType.size.load(.acquire) >= actualType.size.load(.acquire);

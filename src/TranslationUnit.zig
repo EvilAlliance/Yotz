@@ -177,13 +177,13 @@ pub fn startEntry(alloc: Allocator, arguments: *const ParseArgs.Arguments) std.m
             } else {
                 const funcProto = funcProtoNode.asConstFuncProto();
                 const type_ = global.nodes.getConstPtr(funcProto.retType.load(.acquire));
-                if (!Typing.Type.typeEqual(&global, type_, &.{
+                if (!Typing.Type.typeEqual(&global, type_.asConstTypes(), (Parser.Node{
                     .tag = .init(.type),
                     .tokenIndex = .init(0),
                     .left = .init(8),
                     .right = .init(@intFromEnum(Parser.Node.Primitive.uint)),
                     .next = .init(0),
-                })) Report.mustReturnU8(&reports, "main", type_);
+                }).asConstTypes())) Report.mustReturnU8(&reports, "main", type_);
             }
         } else Report.missingMain(&reports);
     }

@@ -59,10 +59,10 @@ pub fn checkVariable(self: *const TranslationUnit, alloc: Allocator, variable: *
     std.debug.assert(typeIndex2 != 0);
     const exprI = variable.expr.load(.acquire);
 
-    try expr.checkType(alloc, self.global.nodes.getPtr(exprI).asExpression(), self.global.nodes.getConstPtr(typeIndex2), reports);
+    try expr.checkType(alloc, self.global.nodes.getPtr(exprI).asExpression(), self.global.nodes.getConstPtr(typeIndex2).asConstTypes(), reports);
 }
 
-pub fn checkReturn(self: *const TranslationUnit, alloc: Allocator, stmt: *const Parser.Node, type_: *const Parser.Node, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
+pub fn checkReturn(self: *const TranslationUnit, alloc: Allocator, stmt: *const Parser.Node, type_: *const Parser.Node.Types, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
     var expr = try Expression.init(alloc, self);
     defer expr.deinit(alloc);
     try expr.checkType(alloc, self.global.nodes.getPtr(stmt.right.load(.acquire)).asExpression(), type_, reports);

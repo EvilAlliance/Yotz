@@ -1,6 +1,6 @@
 const Self = @This();
 pub const FileInfo = struct { path: []const u8, source: [:0]const u8 };
-pub const Args = struct { *TranslationUnit, Allocator, Parser.NodeIndex, *const Parser.Node, ?*Report.Reports };
+pub const Args = struct { *TranslationUnit, Allocator, Parser.NodeIndex, *const Parser.Node.Types, ?*Report.Reports };
 
 threadPool: Thread.Pool = undefined,
 observer: Observer.Multiple(usize, Args, struct {
