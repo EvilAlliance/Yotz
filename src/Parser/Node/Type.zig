@@ -45,8 +45,10 @@ pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, co
 
     try self.asConst().toStringFlags(alloc, cont);
 
-    if (self.next.load(.acquire) != 0)
+    if (self.next.load(.acquire) != 0) {
+        try cont.appendSlice(alloc, ", ");
         try global.nodes.getConstPtr(self.next.load(.acquire)).asConstTypes().toString(global, alloc, cont, d);
+    }
 }
 
 const mod = @import("../mod.zig");
