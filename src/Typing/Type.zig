@@ -1,23 +1,29 @@
-pub fn transformType(self: *const TranslationUnit, type_: *Parser.Node.FakeTypes) void {
-    // CLEAN: Here the race condition can still happen because at the time is being done multiple can accass
-    if (Parser.Node.isTypes(type_.tag.load(.acquire))) return;
-
+pub fn transformType(global: *Global, type_: *Parser.Node.FakeTypes) void {
     switch (type_.tag.load(.acquire)) {
-        .fakeType => transformIdentiferType(self, type_.asFakeType()),
-        .fakeFuncType => transformFuncType(self, type_.asFakeFuncType()),
-        .fakeArgType => transformArgsType(self, type_.asFakeArgType()),
+        .fakeType => transformIdentiferType(global, type_.asFakeType()),
+        .fakeFuncType => transformFuncType(global, type_.asFakeFuncType()),
+        .fakeArgType => transformArgsType(global, type_.asFakeArgType()),
         .type, .funcType, .argType => {},
         else => unreachable,
     }
 }
 
-fn transformFuncType(self: *const TranslationUnit, funcType: *Parser.Node.FakeFuncType) void {
+fn transformFuncType(global: *Global, funcType: *Parser.Node.FakeFuncType) void {
     const argIndex = funcType.fakeArgsType.load(.acquire);
-    if (argIndex != 0) transformType(self, self.global.nodes.getPtr(argIndex).asFakeTypes());
+    if (argIndex != 0) {
+        const args = global.nodes.getPtr(argIndex);
+        if (Parser.Node.isFakeTypes(args.tag.load(.acquire)))
+            transformType(global, args.asFakeTypes())
+        else
+            assert(Parser.Node.isTypes(args.tag.load(.acquire)));
+    }
 
     const retTypeIndex = funcType.fakeRetType.load(.acquire);
-    std.debug.assert(retTypeIndex != 0);
-    transformType(self, self.global.nodes.getPtr(retTypeIndex).asFakeTypes());
+    const retType = global.nodes.getPtr(retTypeIndex);
+    if (Parser.Node.isFakeTypes(retType.tag.load(.acquire)))
+        transformType(global, retType.asFakeTypes())
+    else
+        assert(Parser.Node.isTypes(retType.tag.load(.acquire)));
 
     if (funcType.tag.cmpxchgStrong(.fakeFuncType, .funcType, .seq_cst, .monotonic) != null) {
         std.debug.assert(funcType.tag.load(.acquire) == .funcType);
@@ -25,13 +31,23 @@ fn transformFuncType(self: *const TranslationUnit, funcType: *Parser.Node.FakeFu
     }
 }
 
-fn transformArgsType(self: *const TranslationUnit, argType: *Parser.Node.FakeArgType) void {
+fn transformArgsType(global: *Global, argType: *Parser.Node.FakeArgType) void {
     const nextI = argType.next.load(.acquire);
-    if (nextI != 0) transformType(self, self.global.nodes.getPtr(nextI).asFakeTypes());
+    if (nextI != 0) {
+        const args = global.nodes.getPtr(nextI);
+        if (Parser.Node.isFakeTypes(args.tag.load(.acquire)))
+            transformType(global, args.asFakeTypes())
+        else
+            assert(Parser.Node.isTypes(args.tag.load(.acquire)));
+    }
 
     const typeI = argType.fakeType.load(.acquire);
-    std.debug.assert(typeI != 0);
-    transformType(self, self.global.nodes.getPtr(typeI).asFakeTypes());
+    const type_ = global.nodes.getPtr(typeI);
+
+    if (Parser.Node.isFakeTypes(type_.tag.load(.acquire)))
+        transformType(global, type_.asFakeTypes())
+    else
+        assert(Parser.Node.isTypes(type_.tag.load(.acquire)));
 
     if (argType.tag.cmpxchgStrong(.fakeArgType, .argType, .seq_cst, .monotonic) != null) {
         std.debug.assert(argType.tag.load(.acquire) == .argType);
@@ -40,7 +56,7 @@ fn transformArgsType(self: *const TranslationUnit, argType: *Parser.Node.FakeArg
 }
 
 // NOTE: Maybe good idea to create a new node, if the panic is triggered and cannot check if the correctness is still okey
-fn transformIdentiferType(self: *const TranslationUnit, type_: *Parser.Node.FakeType) void {
+fn transformIdentiferType(self: *Global, type_: *Parser.Node.FakeType) void {
     const TypeName = enum {
         u,
         s,
@@ -58,7 +74,7 @@ fn transformIdentiferType(self: *const TranslationUnit, type_: *Parser.Node.Fake
     const tag = type_.tag.load(.acquire);
     if (tag == .type) return;
 
-    const name = type_.asConst().getText(self.global);
+    const name = type_.asConst().getText(self);
     if (name.len > 3) @panic("Aliases or struct arent supported yet");
 
     const typeInfo = std.meta.stringToEnum(TypeName, name[0..1]) orelse @panic("Aliases or struct arent supported yet");

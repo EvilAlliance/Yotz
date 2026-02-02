@@ -468,7 +468,8 @@
         "id": "pwDbSnQX",
         "title": "At the moment the fake type is created we must transform it into a real type",
         "desc": "A problem could appear when alias are introduce, but i do not think so",
-        "time_created": "2026-02-01 19:24:35.639228865 -03:00:00"
+        "time_created": "2026-02-01 19:24:35.639228865 -03:00:00",
+        "time_completed": "2026-02-01 22:49:20.747983687 -03:00:00"
       },
       {
         "id": "Jm8BSqSe",

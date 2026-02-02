@@ -250,14 +250,19 @@ fn parseTypeFunctionArgs(self: *@This(), alloc: Allocator, reports: ?*Report.Rep
 
 fn parseType(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
     try Report.expect(reports, self.peek()[0], &.{ .openParen, .iden });
+    var index: mod.NodeIndex = 0;
     if (self.peek()[0].tag == .openParen) {
-        return try self.parseTypeFunction(alloc, reports);
+        index = try self.parseTypeFunction(alloc, reports);
     } else {
         _, const tokenIndex = self.pop();
-        return try self.tu.global.nodes.appendIndex(alloc, (Node.FakeType{
+        index = try self.tu.global.nodes.appendIndex(alloc, (Node.FakeType{
             .tokenIndex = .init(tokenIndex),
         }).asConst().*);
     }
+
+    Typing.Type.transformType(self.tu.global, self.tu.global.nodes.getPtr(index).asFakeTypes());
+
+    return index;
 }
 
 fn parseScope(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
@@ -551,6 +556,7 @@ const Util = @import("../Util.zig");
 const Lexer = @import("../Lexer/mod.zig");
 const Report = @import("../Report/mod.zig");
 const TranslationUnit = @import("../TranslationUnit.zig");
+const Typing = @import("../Typing/mod.zig");
 
 const std = @import("std");
 const assert = std.debug.assert;

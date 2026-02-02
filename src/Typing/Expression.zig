@@ -166,10 +166,6 @@ pub fn _inferType(self: *Self, alloc: Allocator, expr: *const Parser.Node.Expres
             const tIndex = funcProto.retType.load(.acquire);
             std.debug.assert(tIndex != 0);
 
-            const t = self.tu.global.nodes.getPtr(tIndex);
-            if (Parser.Node.isFakeTypes(t.tag.load(.acquire))) Type.transformType(self.tu, t.asFakeTypes());
-            std.debug.assert(Parser.Node.isTypes(t.tag.load(.acquire)));
-
             var argTypeIndex: Parser.NodeIndex = 0;
             const protoArgsIndex = funcProto.args.load(.acquire);
 
@@ -180,10 +176,6 @@ pub fn _inferType(self: *Self, alloc: Allocator, expr: *const Parser.Node.Expres
 
                 while (true) {
                     const argType = protoArg.left.load(.acquire);
-                    const argTypeNode = self.tu.global.nodes.getPtr(argType);
-
-                    if (Parser.Node.isFakeTypes(argTypeNode.tag.load(.acquire))) Type.transformType(self.tu, argTypeNode.asFakeTypes());
-                    assert(Parser.Node.isTypes(argTypeNode.tag.load(.acquire)));
 
                     currentArgType.* = .{
                         .tag = .init(.argType),
@@ -398,10 +390,6 @@ fn checkFuncProtoType(self: *Self, funcProtoNode: *const Parser.Node.FuncProto, 
     const retType = self.tu.global.nodes.getPtr(retTypeIndex);
     const funcRetType = self.tu.global.nodes.getPtr(funcRetTypeIndex);
 
-    // NOTE: this is needed because it is possible that the typing of the function didnt do it yet
-    if (Parser.Node.isFakeTypes(funcRetType.tag.load(.acquire))) Type.transformType(self.tu, funcRetType.asFakeTypes());
-    assert(Parser.Node.isTypes(funcRetType.tag.load(.acquire)));
-
     if (!Type.typeEqual(self.tu.global, funcRetType.asTypes(), retType.asTypes())) {
         return Report.incompatibleType(reports, retType, funcRetType, funcRetType, funcRetType);
     }
@@ -424,12 +412,6 @@ fn checkFuncProtoType(self: *Self, funcProtoNode: *const Parser.Node.FuncProto, 
 
         const protoArgType = self.tu.global.nodes.getPtr(protoArgTypeIndex);
         const typeArgType = self.tu.global.nodes.getPtr(typeArgTypeIndex);
-
-        if (Parser.Node.isFakeTypes(protoArgType.tag.load(.acquire))) Type.transformType(self.tu, protoArgType.asFakeTypes());
-        assert(Parser.Node.isTypes(protoArgType.tag.load(.acquire)));
-
-        if (Parser.Node.isFakeTypes(typeArgType.tag.load(.acquire))) Type.transformType(self.tu, typeArgType.asFakeTypes());
-        assert(Parser.Node.isTypes(typeArgType.tag.load(.acquire)));
 
         if (!Type.typeEqual(self.tu.global, protoArgType.asTypes(), typeArgType.asTypes())) {
             return Report.incompatibleType(reports, typeArgType, protoArgType, protoArg, protoArg);

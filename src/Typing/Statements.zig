@@ -50,9 +50,6 @@ pub fn checkVariable(self: *const TranslationUnit, alloc: Allocator, variable: *
     if (typeIndex == 0) {
         if (!try expr.inferType(alloc, variable, self.global.nodes.getConstPtr(variable.expr.load(.acquire)).asConstExpression(), reports)) return;
         expr.reset();
-    } else {
-        const t = self.global.nodes.getPtr(typeIndex);
-        if (Parser.Node.isFakeTypes(t.tag.load(.acquire))) Type.transformType(self, t.asFakeTypes());
     }
 
     const typeIndex2 = variable.type.load(.acquire);
