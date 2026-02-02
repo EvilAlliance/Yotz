@@ -418,7 +418,8 @@
         "id": "woga8xoY",
         "title": "Make it impossible to stablish a variable with name of a primitive",
         "desc": "",
-        "time_created": "2026-01-30 09:44:08.324733672 -03:00:00"
+        "time_created": "2026-01-30 09:44:08.324733672 -03:00:00",
+        "time_completed": "2026-02-02 12:09:14.553991226 -03:00:00"
       },
       {
         "id": "4bWmAEAL",
