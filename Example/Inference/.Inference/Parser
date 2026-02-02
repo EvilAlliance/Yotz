@@ -2,8 +2,8 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 94
-main :: () u8{ 
+:b stdout 95
+main :: () u8 { 
     a :: 10;
     b: u16 = 30;
     c := ((a + b) + 30);
@@ -11,6 +11,5 @@ main :: () u8{
 }
 
 :b stderr 0
-
 
 

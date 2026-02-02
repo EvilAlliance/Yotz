@@ -2,17 +2,17 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 125
-foo: () u8 #inferedFromExpression : () u8{ 
+:b stdout 127
+foo: () u8 #inferedFromExpression : () u8 { 
     return 8;
 }
-main: () u8 #inferedFromExpression : () u8{ 
+main: () u8 #inferedFromExpression : () u8 { 
     return foo();
 }
 
 :b stderr 0
 
-yt:1:1: foo is declared here 
+:1:1: foo is declared here 
 foo :: () u8 {
 ^
 [ERROR]: Example/CallFuncion/CallFunction0.yt:6:12: Expected a function but got a different type 

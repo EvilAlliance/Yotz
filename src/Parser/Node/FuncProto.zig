@@ -73,10 +73,11 @@ pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, co
     if (self.scope.load(.acquire) == 0) return;
 
     const scopeOrStmt = global.nodes.getConstPtr(self.scope.load(.acquire));
+    try cont.append(alloc, ' ');
     if (!Node.isStatement(scopeOrStmt.tag.load(.acquire))) {
         try scopeOrStmt.asConstScope().toString(global, alloc, cont, d + 4);
     } else {
-        try scopeOrStmt.asConstStatement().toString(global, alloc, cont, d);
+        try scopeOrStmt.asConstStatement().toString(global, alloc, cont, d, false);
     }
 }
 

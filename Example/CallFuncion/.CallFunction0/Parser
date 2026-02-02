@@ -2,17 +2,15 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 67
-foo :: () u8{ 
+:b stdout 69
+foo :: () u8 { 
     return 8;
 }
-main :: () u8{ 
+main :: () u8 { 
     return foo();
 }
 
 :b stderr 0
-
-
 
 
 

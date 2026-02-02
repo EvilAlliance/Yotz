@@ -2,22 +2,22 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 336
-main: () u8 #inferedFromExpression : () u8{ 
+:b stdout 340
+main: () u8 #inferedFromExpression : () u8 { 
     x: s8 = 5;
     y: u8 = x;
     return y;
 }
-foo: () u8 #inferedFromExpression : () u8{ 
+foo: () u8 #inferedFromExpression : () u8 { 
     a: u8 = 5;
     b: s8 = 10;
     c := (a + b);
     return c;
 }
-bar: () u8 #inferedFromExpression : () u8{ 
+bar: () u8 #inferedFromExpression : () u8 { 
     return x;
 }
-baz: () u8 #inferedFromExpression : () u8{ 
+baz: () u8 #inferedFromExpression : () u8 { 
     x: s8 = 42;
     return x;
 }
@@ -45,7 +45,7 @@ baz: () u8 #inferedFromExpression : () u8{
     return x;  // Error: cannot return s8 where u8 expected
            ^
 
-heckError0.yt:24:12: Type s8, is incompatible with u8 
+Error0.yt:24:12: Type s8, is incompatible with u8 
     return x;  // Error: cannot return s8 where u8 expected
            ^
 

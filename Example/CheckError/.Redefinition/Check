@@ -2,16 +2,16 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 251
-main: () u8 #inferedFromExpression : () u8{ 
+:b stdout 254
+main: () u8 #inferedFromExpression : () u8 { 
     x: u8 = 5;
     x: u8 = 10;
     return x;
 }
-bar: () u8 #inferedFromExpression : () u8{ 
+bar: () u8 #inferedFromExpression : () u8 { 
     return 0;
 }
-bar: () u8 #inferedFromExpression : () u8{ 
+bar: () u8 #inferedFromExpression : () u8 { 
     return 1;
 }
 globalVar: u8 = 5;

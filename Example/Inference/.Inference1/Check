@@ -2,8 +2,8 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 164
-main: () u8 #inferedFromExpression : () u8{ 
+:b stdout 165
+main: () u8 #inferedFromExpression : () u8 { 
     a :: 1000;
     b: u8 #inferedFromUse, u16 #inferedFromUse : 10;
     c :: (a + 10);

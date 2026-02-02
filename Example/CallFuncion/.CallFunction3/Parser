@@ -2,24 +2,22 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 162
-bar :: () () u8{ 
-    return () u8{ 
+:b stdout 166
+bar :: () () u8 { 
+    return () u8 { 
         return 8;
     }
 }
-foo :: () u8{ 
+foo :: () u8 { 
     a := bar()();
     return a;
 }
-main :: () u8{ 
+main :: () u8 { 
     b := bar();
     return b();
 }
 
 :b stderr 0
-
- 0
 
 r 0
 

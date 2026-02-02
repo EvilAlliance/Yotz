@@ -2,14 +2,14 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 240
-foo: () u8 #inferedFromExpression : () u8{ 
+:b stdout 243
+foo: () u8 #inferedFromExpression : () u8 { 
     return 8;
 }
-bar: () u16 #inferedFromExpression : () u16{ 
+bar: () u16 #inferedFromExpression : () u16 { 
     return 8;
 }
-main: () u8 #inferedFromExpression : () u8{ 
+main: () u8 #inferedFromExpression : () u8 { 
     a: u16 = foo() #implicitCast;
     b: u8 = bar();
     return foo();

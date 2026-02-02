@@ -48,7 +48,7 @@ pub fn asConstVarConst(self: *const Self) *const Node.VarConst {
     return self.asConst().asConstVarConst();
 }
 
-pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64) std.mem.Allocator.Error!void {
+pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, enter: bool) std.mem.Allocator.Error!void {
     const exprIndex = self.right.load(.acquire);
 
     switch (self.tag.load(.acquire)) {
@@ -58,10 +58,10 @@ pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, co
     }
 
     if (global.nodes.get(exprIndex).tag.load(.acquire) != .funcProto) {
-        try cont.appendSlice(alloc, ";");
+        if (enter) try cont.appendSlice(alloc, ";");
     }
 
-    try cont.appendSlice(alloc, "\n");
+    if (enter) try cont.appendSlice(alloc, "\n");
 }
 
 const mod = @import("../mod.zig");

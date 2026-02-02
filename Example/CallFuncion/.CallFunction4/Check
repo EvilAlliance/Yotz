@@ -2,13 +2,13 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 189
-foo: () (u8) u8 #inferedFromExpression : () (u8) u8{ 
-    return (a: u8) u8{ 
+:b stdout 192
+foo: () (u8) u8 #inferedFromExpression : () (u8) u8 { 
+    return (a: u8) u8 { 
         return a;
     }
 }
-main: () u8 #inferedFromExpression : () u8{ 
+main: () u8 #inferedFromExpression : () u8 { 
     a: u16 = 10;
     return foo()(a);
 }

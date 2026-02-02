@@ -2,15 +2,15 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 210
-main: () u8 #inferedFromExpression : () u8{ 
+:b stdout 214
+main: () u8 #inferedFromExpression : () u8 { 
 }
-foo: () u8 #inferedFromExpression : () u8{ 
-    bar: () u8 #inferedFromExpression : () u8{ 
+foo: () u8 #inferedFromExpression : () u8 { 
+    bar: () u8 #inferedFromExpression : () u8 { 
     }
     return 20;
 }
-outer: () u8 #inferedFromExpression : () u8{ 
+outer: () u8 #inferedFromExpression : () u8 { 
 }
 
 :b stderr 868

@@ -43,7 +43,7 @@ pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, co
             try cont.appendSlice(alloc, "  ");
         }
 
-        try stmt.asStatement().toString(global, alloc, cont, d);
+        try stmt.asStatement().toString(global, alloc, cont, d, true);
 
         currentIndex = stmt.next.load(.acquire);
     }

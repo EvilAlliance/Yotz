@@ -2,29 +2,27 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 220
-main :: () u8{ 
+:b stdout 224
+main :: () u8 { 
     x: s8 = 5;
     y: u8 = x;
     return y;
 }
-foo :: () u8{ 
+foo :: () u8 { 
     a: u8 = 5;
     b: s8 = 10;
     c := (a + b);
     return c;
 }
-bar :: () u8{ 
+bar :: () u8 { 
     return x;
 }
-baz :: () u8{ 
+baz :: () u8 { 
     x: s8 = 42;
     return x;
 }
 
 :b stderr 0
-
- 0
 
  0
 

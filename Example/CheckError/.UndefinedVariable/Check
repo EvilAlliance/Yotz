@@ -2,15 +2,15 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 247
-main: () u8 #inferedFromExpression : () u8{ 
+:b stdout 250
+main: () u8 #inferedFromExpression : () u8 { 
     return x;
 }
-foo: () u8 #inferedFromExpression : () u8{ 
+foo: () u8 #inferedFromExpression : () u8 { 
     y: u8 = (z + 5);
     return y;
 }
-bar: () u8 #inferedFromExpression : () u8{ 
+bar: () u8 #inferedFromExpression : () u8 { 
     a: u8 = 10;
     b := (a + undefinedVar);
     return b;
@@ -27,7 +27,7 @@ bar: () u8 #inferedFromExpression : () u8{
     b := a + undefinedVar;  // Error: undefined variable 'undefinedVar'
              ^
 
-wn identifier 'undefinedVar' 
+identifier 'undefinedVar' 
     b := a + undefinedVar;  // Error: undefined variable 'undefinedVar'
              ^
 

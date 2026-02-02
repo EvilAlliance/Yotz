@@ -2,14 +2,14 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 181
-main: () u8 #inferedFromExpression : () u8{ 
+:b stdout 184
+main: () u8 #inferedFromExpression : () u8 { 
     return 1;
 }
-bar: () u8 #inferedFromExpression : () u8{ 
+bar: () u8 #inferedFromExpression : () u8 { 
     return 3;
 }
-baz: () u8 #inferedFromExpression : () u8{ 
+baz: () u8 #inferedFromExpression : () u8 { 
     return 4;
 }
 
@@ -30,7 +30,7 @@ test :: () {
 qux u8 :: () {
     ^
 
-0:5: Expected: ":" but found: 'identifier' 
+: Expected: ":" but found: 'identifier' 
 qux u8 :: () {
     ^
 

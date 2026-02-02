@@ -43,7 +43,7 @@ pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, co
         for (0..d) |_| {
             try cont.append(alloc, ' ');
         }
-        try node.asConstStatement().toString(global, alloc, cont, d);
+        try node.asConstStatement().toString(global, alloc, cont, d, true);
 
         j = node.next.load(.acquire);
     }

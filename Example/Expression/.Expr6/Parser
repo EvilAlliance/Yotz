@@ -2,12 +2,11 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 50
-main :: () u8{ 
+:b stdout 51
+main :: () u8 { 
     return ((4 * (6 - 5)) / 8);
 }
 
 :b stderr 0
-
 
 
