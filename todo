@@ -477,7 +477,9 @@
         "id": "Jm8BSqSe",
         "title": "Improve way we detect that main has the correct type",
         "desc": "",
-        "time_created": "2026-02-01 19:28:44.367538814 -03:00:00"
+        "time_created": "2026-02-01 19:28:44.367538814 -03:00:00",
+        "time_started": "2026-02-01 23:17:58.400044466 -03:00:00",
+        "time_completed": "2026-02-01 23:17:58.560080738 -03:00:00"
       }
     ]
   }

@@ -171,19 +171,29 @@ pub fn startEntry(alloc: Allocator, arguments: *const ParseArgs.Arguments) std.m
 
     if (arguments.subCom != .Parser and arguments.subCom != .Lexer) {
         if (scope.get("main")) |main| {
-            const funcProtoNode = global.nodes.getConstPtr(main.right.load(.acquire));
-            if (funcProtoNode.tag.load(.acquire) != .funcProto) {
+            const funcTypeNode = global.nodes.getConstPtr(main.type.load(.acquire));
+            if (funcTypeNode.tag.load(.acquire) != .funcType) {
                 Report.missingMain(&reports);
             } else {
-                const funcProto = funcProtoNode.asConstFuncProto();
-                const type_ = global.nodes.getConstPtr(funcProto.retType.load(.acquire));
-                if (!Typing.Type.typeEqual(&global, type_.asConstTypes(), (Parser.Node{
+                const funcType = funcTypeNode.asConstFuncType();
+                const expectedU8Type = Parser.Node{
                     .tag = .init(.type),
                     .tokenIndex = .init(0),
                     .left = .init(8),
                     .right = .init(@intFromEnum(Parser.Node.Primitive.uint)),
                     .next = .init(0),
-                }).asConstTypes())) Report.mustReturnU8(&reports, "main", type_);
+                };
+
+                const mainName = main.asConstVarConst().getText(&global);
+
+                if (funcType.argsType.load(.acquire) != 0) {
+                    Report.mainExpect0Args(&reports, main);
+                } else {
+                    const retType = global.nodes.getConstPtr(funcType.retType.load(.acquire));
+                    if (!Typing.Type.typeEqual(&global, retType.asConstTypes(), expectedU8Type.asConstTypes())) {
+                        Report.mustReturnU8(&reports, mainName, funcTypeNode);
+                    }
+                }
             }
         } else Report.missingMain(&reports);
     }

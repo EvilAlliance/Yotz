@@ -48,6 +48,24 @@ const Error = struct {
         );
     }
 
+    pub inline fn funcExpect0Args(self: @This(), functionName: *const Parser.Node.Declarator) void {
+        const loc = functionName.asConst().getLocation(self.global);
+        const fileInfo = self.global.files.get(loc.source);
+        const where = placeSlice(loc, fileInfo.source);
+        std.log.err(
+            "{s}:{}:{}: {s} must have 0 arguments\n{s}\n{[5]c: >[6]}",
+            .{
+                fileInfo.path,
+                loc.row,
+                loc.col,
+                functionName.getText(self.global),
+                fileInfo.source[where.beg..where.end],
+                '^',
+                where.pad,
+            },
+        );
+    }
+
     pub inline fn variableMustBeFunction(self: @This(), functionName: []const u8, variableI: Parser.NodeIndex) void {
         const loc = self.global.getNodeLocation(variableI);
         const where = placeSlice(loc, self.global.cont.source);
