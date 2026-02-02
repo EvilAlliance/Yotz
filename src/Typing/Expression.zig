@@ -335,7 +335,7 @@ fn checkExpected(self: *Self, alloc: Allocator, expr: *Parser.Node.Expression, e
     }
 }
 
-fn checkCallType(self: *Self, alloc: Allocator, call_: *Parser.Node.Call, expectedType: *const Parser.Node.Types, reports: ?*Report.Reports) (Error)!void {
+fn checkCallType(self: *Self, alloc: Allocator, call_: *Parser.Node.Call, expectedType: *const Parser.Node.Types, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
     var call = call_;
 
     const id = call.getText(self.tu.global);
@@ -347,19 +347,33 @@ fn checkCallType(self: *Self, alloc: Allocator, call_: *Parser.Node.Call, expect
 
     const funcType = self.tu.global.nodes.getConstPtr(func.type.load(.acquire));
 
-    if (funcType.tag.load(.acquire) != .funcType) {
-        return Report.expectedFunction(reports, call.asConst(), func.asConst());
-    }
+    var retType = funcType.asConstTypes();
 
-    var retType = self.tu.global.nodes.getConstPtr(funcType.right.load(.acquire)).asConstTypes();
-
-    while (call.as().next.load(.acquire) != 0) {
+    while (true) {
         if (retType.tag.load(.acquire) != .funcType) return Report.expectedFunction(reports, call.as(), retType.asConst());
+        const retFuncType = retType.asConstFuncType();
 
-        retType = self.tu.global.nodes.getConstPtr(retType.right.load(.acquire)).asConstTypes();
+        var argTypeI = retFuncType.argsType.load(.acquire);
+        var argI = call.firstArg.load(.acquire);
+        while (argTypeI != 0 and argI != 0) {
+            const arg = self.tu.global.nodes.getConstPtr(argI).asConstCallArg();
+            const argType = self.tu.global.nodes.getConstPtr(argTypeI).asConstArgType();
 
-        call = self.tu.global.nodes.getPtr(call.as().next.load(.acquire)).asCall();
-        assert(call.as().tag.load(.acquire) == .call);
+            try self.checkType(
+                alloc,
+                self.tu.global.nodes.getPtr(arg.expr.load(.acquire)).asExpression(),
+                self.tu.global.nodes.getConstPtr(argType.type_.load(.acquire)).asConstTypes(),
+                reports,
+            );
+
+            argTypeI = argType.next.load(.acquire);
+            argI = arg.next.load(.acquire);
+        }
+        retType = self.tu.global.nodes.getConstPtr(retFuncType.retType.load(.acquire)).asConstTypes();
+
+        const nextCall = call.next.load(.acquire);
+        if (nextCall == 0) break;
+        call = self.tu.global.nodes.getPtr(nextCall).asCall();
     }
 
     if (Type.typeEqual(self.tu.global, retType, expectedType)) return;

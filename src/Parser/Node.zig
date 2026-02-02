@@ -96,7 +96,7 @@ pub fn asConstFuncProto(self: *const Self) *const FuncProto {
 }
 
 pub fn isExpression(tag: Tag) bool {
-    return Util.listContains(Tag, &.{ .addition, .subtraction, .multiplication, .division, .power, .neg, .load, .lit, .funcProto, .call }, tag);
+    return Util.listContains(Tag, &.{ .addition, .subtraction, .multiplication, .division, .power, .neg, .load, .lit, .funcProto, .call, .funcProto }, tag);
 }
 
 pub fn asExpression(self: *Self) *Expression {

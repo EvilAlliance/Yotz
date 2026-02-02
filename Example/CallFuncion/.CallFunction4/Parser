@@ -1,0 +1,17 @@
+:i argc 0
+:b stdin 0
+
+:i returncode 0
+:b stdout 126
+foo :: () (u8) u8{ 
+    return (a: u8) u8{ 
+        return a;
+    }
+}
+main :: () u8{ 
+    a: u16 = 10;
+    return foo()(a);
+}
+
+:b stderr 0
+

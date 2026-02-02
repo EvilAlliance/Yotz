@@ -34,9 +34,6 @@ fn check(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Nod
         const stmt = self.global.nodes.getPtr(stmtI);
         defer stmtI = stmt.next.load(.acquire);
 
-        const tag = stmt.tag.load(.acquire);
-
-        assert(tag == .variable or tag == .constant);
         Statement.checkVariable(self, alloc, stmt.asVarConst(), reports) catch |err| switch (err) {
             Expression.Error.TooBig, Expression.Error.IncompatibleType, Expression.Error.UndefVar => continue,
             else => return @errorCast(err),

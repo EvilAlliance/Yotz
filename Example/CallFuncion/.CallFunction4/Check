@@ -1,0 +1,23 @@
+:i argc 0
+:b stdin 0
+
+:i returncode 0
+:b stdout 189
+foo: () (u8) u8 #inferedFromExpression : () (u8) u8{ 
+    return (a: u8) u8{ 
+        return a;
+    }
+}
+main: () u8 #inferedFromExpression : () u8{ 
+    a: u16 = 10;
+    return foo()(a);
+}
+
+:b stderr 219
+[INFO]: Example/CallFuncion/CallFunction4.yt:8:5: a is declared here 
+    a :u16= 10;
+    ^
+[ERROR]: Example/CallFuncion/CallFunction4.yt:9:18: Type u16, is incompatible with u8 
+    return foo()(a);
+                 ^
+

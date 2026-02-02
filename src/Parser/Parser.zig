@@ -36,11 +36,9 @@ fn pop(self: *@This()) struct { Lexer.Token, mod.TokenIndex } {
     return tuple;
 }
 
-fn popUnil(self: *@This(), tokenType: Lexer.Token.Type) void {
-    _ = self.pop();
-
+fn popUnil(self: *@This(), tokenType: []const Lexer.Token.Type) void {
     var peeked = self.peek()[0].tag;
-    while (peeked != tokenType and peeked != .EOF) : (peeked = self.peek()[0].tag) {
+    while (!Util.listContains(Lexer.Token.Type, tokenType, peeked) and peeked != .EOF) : (peeked = self.peek()[0].tag) {
         _ = self.pop();
     }
 }
@@ -71,7 +69,7 @@ fn _parseRoot(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.
         Report.expect(reports, t, &.{.iden}) catch |err|
             switch (err) {
                 Error.UnexpectedToken => {
-                    self.popUnil(.iden);
+                    self.popUnil(&.{.iden});
                     continue;
                 },
             };
@@ -81,7 +79,7 @@ fn _parseRoot(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.
             else => std.debug.panic("Found {}", .{t}),
         } catch |err| switch (err) {
             error.UnexpectedToken => {
-                self.popUnil(.iden);
+                self.popUnil(&.{.iden});
                 continue;
             },
             error.OutOfMemory => return error.OutOfMemory,
@@ -113,11 +111,9 @@ fn isFunction(self: *const @This()) bool {
 
     const idenI = i;
     const colonI = i + 1;
-    const typeI = i + 2;
 
     if (self.peekMany(idenI)[0].tag != .iden or
-        self.peekMany(colonI)[0].tag != .colon or
-        self.peekMany(typeI)[0].tag != .iden) return false;
+        self.peekMany(colonI)[0].tag != .colon) return false;
 
     return true;
 }
@@ -275,7 +271,7 @@ fn parseScope(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.
     while (peeked != .closeBrace and peeked != .EOF) : (peeked = self.peek()[0].tag) {
         const nodeIndex = self.parseStatement(alloc, reports) catch |err| switch (err) {
             error.UnexpectedToken => {
-                self.popUnil(.semicolon);
+                self.popUnil(&.{.semicolon});
                 _ = self.popIf(.semicolon);
                 continue;
             },
@@ -453,7 +449,7 @@ fn parseExpression(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) 
         if (self.peek().@"0".tag == .openBrace) {
             self.skipBlock();
         } else {
-            self.popUnil(.semicolon);
+            self.popUnil(&.{ .semicolon, .coma });
             _ = self.popIf(.semicolon);
         }
 
