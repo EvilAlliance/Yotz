@@ -55,6 +55,31 @@ fn transformArgsType(global: *Global, argType: *Parser.Node.FakeArgType) void {
     }
 }
 
+pub fn isIdenType(self: *Global, type_: *const Parser.Node.Declarator) bool {
+    const TypeName = enum {
+        u,
+        s,
+        f,
+
+        pub fn nodeKind(s: @This()) Parser.Node.Primitive {
+            return switch (s) {
+                .s => .sint,
+                .u => .uint,
+                .f => .float,
+            };
+        }
+    };
+
+    const name = type_.asConst().getText(self);
+    if (name.len > 3) return false;
+
+    _ = std.meta.stringToEnum(TypeName, name[0..1]) orelse return false;
+
+    const res = std.fmt.parseInt(u32, name[1..], 10) catch return false;
+
+    return res <= 64;
+}
+
 // NOTE: Maybe good idea to create a new node, if the panic is triggered and cannot check if the correctness is still okey
 fn transformIdentiferType(self: *Global, type_: *Parser.Node.FakeType) void {
     const TypeName = enum {
@@ -79,7 +104,10 @@ fn transformIdentiferType(self: *Global, type_: *Parser.Node.FakeType) void {
 
     const typeInfo = std.meta.stringToEnum(TypeName, name[0..1]) orelse @panic("Aliases or struct arent supported yet");
 
-    type_.left.store(std.fmt.parseInt(u32, name[1..], 10) catch @panic("Aliases or struct arent supported yet"), .release);
+    const res = std.fmt.parseInt(u32, name[1..], 10) catch @panic("Aliases or struct arent supported yet");
+    if (res > 64) @panic("Aliases or Struct arent supported yet");
+
+    type_.left.store(res, .release);
     type_.right.store(@intFromEnum(typeInfo.nodeKind()), .release);
 
     if (type_.tag.cmpxchgStrong(.fakeType, .type, .seq_cst, .monotonic) != null) {

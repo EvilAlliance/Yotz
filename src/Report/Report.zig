@@ -15,6 +15,7 @@ message: union(enum) {
     unreachableStatement: mod.UnreachableStatement,
     expectedFunction: mod.ExpectedFunction,
     incompatibleReturnType: mod.IncompatibleReturnType,
+    reservedIdentifier: mod.ReservedIdentifier,
 },
 
 pub fn display(self: *const Self, message: mod.Message) void {
@@ -33,6 +34,7 @@ pub fn display(self: *const Self, message: mod.Message) void {
         .unreachableStatement => |us| us.display(message),
         .expectedFunction => |ef| ef.display(message),
         .incompatibleReturnType => |irt| irt.display(message),
+        .reservedIdentifier => |ri| ri.display(message),
     }
 }
 
@@ -224,6 +226,20 @@ pub fn incompatibleReturnType(reports: ?*mod.Reports, actualReturnType: *const P
     }
 
     return Typing.Expression.Error.IncompatibleType;
+}
+
+pub fn reservedIdentifier(reports: ?*mod.Reports, where: *const Parser.Node.Declarator) Typing.Statement.Error {
+    if (reports) |rs| {
+        rs.appendBounded(.{
+            .message = .{
+                .reservedIdentifier = .{
+                    .where = where,
+                },
+            },
+        }) catch {};
+    }
+
+    return Typing.Statement.Error.ReserveIdentifier;
 }
 
 const mod = @import("mod.zig");

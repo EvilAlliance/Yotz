@@ -21,6 +21,7 @@ fn record(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.No
 
         Statement.recordVariable(self, alloc, stmt.asVarConst(), reports) catch |err| switch (err) {
             Scope.Error.KeyAlreadyExists => {},
+            Statement.Error.ReserveIdentifier => {},
             else => return @errorCast(err),
         };
     }

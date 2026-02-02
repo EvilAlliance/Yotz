@@ -166,6 +166,24 @@ const Error = struct {
         );
     }
 
+    pub inline fn identifierIsReserved(self: @This(), declarator: *const Parser.Node.Declarator) void {
+        const loc = declarator.asConst().getLocation(self.global);
+        const fileInfo = self.global.files.get(loc.source);
+        const where = placeSlice(loc, fileInfo.source);
+        std.log.err(
+            "{s}:{}:{}: Identifier '{s}' is reserved and cannot be used as a variable name \n{s}\n{[5]c: >[6]}",
+            .{
+                fileInfo.path,
+                loc.row,
+                loc.col,
+                declarator.getText(self.global),
+                fileInfo.source[where.beg..where.end],
+                '^',
+                where.pad,
+            },
+        );
+    }
+
     pub inline fn unknownIdentifier(self: @This(), unknownNode: *const Parser.Node) void {
         const loc = unknownNode.getLocation(self.global);
         const fileInfo = self.global.files.get(loc.source);

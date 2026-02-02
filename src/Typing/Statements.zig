@@ -1,4 +1,10 @@
-pub fn recordVariable(self: *const TranslationUnit, alloc: Allocator, variable: *Parser.Node.VarConst, reports: ?*Report.Reports) (Allocator.Error || Scope.Error)!void {
+pub const Error = error{
+    ReserveIdentifier,
+};
+
+pub fn recordVariable(self: *const TranslationUnit, alloc: Allocator, variable: *Parser.Node.VarConst, reports: ?*Report.Reports) (Allocator.Error || Scope.Error || Error)!void {
+    if (Type.isIdenType(self.global, variable.as().asDeclarator()))
+        return Report.reservedIdentifier(reports, variable.as().asDeclarator());
     self.scope.put(alloc, variable.getText(self.global), variable.as().asDeclarator()) catch |err| switch (err) {
         Scope.Error.KeyAlreadyExists => {
             const original = self.scope.get(variable.getText(self.global)).?;

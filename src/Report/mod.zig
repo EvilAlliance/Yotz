@@ -17,6 +17,7 @@ pub const missingReturn = Report.missingReturn;
 pub const unreachableStatement = Report.unreachableStatement;
 pub const expectedFunction = Report.expectedFunction;
 pub const incompatibleReturnType = Report.incompatibleReturnType;
+pub const reservedIdentifier = Report.reservedIdentifier;
 
 pub const Reports = ArrayListThreadSafe(Report);
 
@@ -34,6 +35,7 @@ pub const MissingReturn = @import("MissingReturn.zig");
 pub const UnreachableStatement = @import("UnreachableStatement.zig");
 pub const ExpectedFunction = @import("ExpectedFunction.zig");
 pub const IncompatibleReturnType = @import("IncompatibleReturnType.zig");
+pub const ReservedIdentifier = @import("ReservedIdentifier.zig");
 
 const Bucketarray = @import("../Util/BucketArray.zig").BucketArray;
 const ArrayListThreadSafe = @import("../Util/ArrayListThreadSafe.zig").ArrayListThreadSafe;
