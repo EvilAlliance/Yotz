@@ -10,6 +10,7 @@ message: union(enum) {
     definedLater: mod.DefinedLater,
     dependencyCycle: mod.DependencyCycle,
     mustReturnU8: mod.MustReturnU8,
+    mainExpect0Args: mod.MainExpect0Args,
     missingReturn: mod.MissingReturn,
     unreachableStatement: mod.UnreachableStatement,
     expectedFunction: mod.ExpectedFunction,
@@ -27,6 +28,7 @@ pub fn display(self: *const Self, message: mod.Message) void {
         .definedLater => |dl| dl.display(message),
         .dependencyCycle => |dc| dc.display(message),
         .mustReturnU8 => |mru| mru.display(message),
+        .mainExpect0Args => |mea| mea.display(message),
         .missingReturn => |mr| mr.display(message),
         .unreachableStatement => |us| us.display(message),
         .expectedFunction => |ef| ef.display(message),
@@ -150,6 +152,18 @@ pub fn mustReturnU8(reports: ?*mod.Reports, name: []const u8, type_: *const Pars
                 .mustReturnU8 = .{
                     .functionName = name,
                     .type_ = type_,
+                },
+            },
+        }) catch {};
+    }
+}
+
+pub fn mainExpect0Args(reports: ?*mod.Reports, name: *const Parser.Node.Declarator) void {
+    if (reports) |rs| {
+        rs.appendBounded(.{
+            .message = .{
+                .mainExpect0Args = .{
+                    .functionName = name,
                 },
             },
         }) catch {};

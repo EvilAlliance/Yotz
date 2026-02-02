@@ -58,7 +58,7 @@ pub fn acquire(self: Self, alloc: Allocator) Allocator.Error!Self {
     };
 }
 
-pub fn startFunction(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: *Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
+pub fn startFunction(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: *Parser.Node.FuncProto, reports: ?*Report.Reports) Allocator.Error!void {
     std.debug.assert(self.tag == .Function);
 
     const callBack = struct {
@@ -72,7 +72,7 @@ pub fn startFunction(self: *const Self, alloc: Allocator, start: Parser.TokenInd
     try self.global.threadPool.spawn(callBack, .{ _startFunction, .{ self.*, alloc, start, placeHolder, reports } });
 }
 
-fn _startFunction(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: *Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
+fn _startFunction(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: *Parser.Node.FuncProto, reports: ?*Report.Reports) Allocator.Error!void {
     defer self.deinit(alloc);
 
     if (self.global.subCommand == .Lexer) unreachable;
@@ -100,7 +100,7 @@ fn _startFunction(self: *const Self, alloc: Allocator, start: Parser.TokenIndex,
     // if (parser.errors.items.len > 0) return .{ "", 1 };
 }
 
-pub fn startRoot(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: *Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
+pub fn startRoot(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: *Parser.Node.Entry, reports: ?*Report.Reports) Allocator.Error!void {
     std.debug.assert(self.tag == .Root);
 
     const callBack = struct {
@@ -114,7 +114,7 @@ pub fn startRoot(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, 
     try self.global.threadPool.spawn(callBack, .{ _startRoot, .{ self.*, alloc, start, placeHolder, reports } });
 }
 
-fn _startRoot(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: *Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
+fn _startRoot(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: *Parser.Node.Entry, reports: ?*Report.Reports) Allocator.Error!void {
     if (self.global.subCommand == .Lexer) unreachable;
     defer self.deinit(alloc);
 
@@ -124,8 +124,8 @@ fn _startRoot(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, pla
 
     if (self.global.subCommand == .Parser) return;
 
-    const rootIndex = placeHolder.data[1].load(.acquire);
-    try Typing.Root.typing(self, alloc, self.global.nodes.getPtr(rootIndex), reports);
+    const rootIndex = placeHolder.firstRoot.load(.acquire);
+    try Typing.Root.typing(self, alloc, self.global.nodes.getPtr(rootIndex).asRoot(), reports);
 
     if (self.global.subCommand == .Typing) return;
 
@@ -161,26 +161,39 @@ pub fn startEntry(alloc: Allocator, arguments: *const ParseArgs.Arguments) std.m
         const tu = try initRoot(alloc, &global);
         scope = try tu.scope.deepClone(alloc);
 
-        const index = try global.nodes.appendIndex(alloc, Parser.Node{ .tag = .init(.entry) });
+        const entry = try global.nodes.reserve(alloc);
+        entry.* = (Parser.Node.Entry{}).asConst().*;
 
-        try tu.startRoot(alloc, 0, global.nodes.getPtr(index), &reports);
+        try tu.startRoot(alloc, 0, entry.asEntry(), &reports);
     }
 
     const ret = try waitForWork(alloc, &global);
 
     if (arguments.subCom != .Parser and arguments.subCom != .Lexer) {
         if (scope.get("main")) |main| {
-            const funcProto = global.nodes.getConstPtr(main.data[1].load(.acquire));
-            if (funcProto.tag.load(.acquire) != .funcProto) {
+            const funcTypeNode = global.nodes.getConstPtr(main.type.load(.acquire));
+            if (funcTypeNode.tag.load(.acquire) != .funcType) {
                 Report.missingMain(&reports);
             } else {
-                const type_ = global.nodes.getConstPtr(funcProto.data[1].load(.acquire));
-                if (!Typing.Type.typeEqual(&global, type_, &.{
+                const funcType = funcTypeNode.asConstFuncType();
+                const expectedU8Type = Parser.Node{
                     .tag = .init(.type),
                     .tokenIndex = .init(0),
-                    .data = .{ .init(8), .init(@intFromEnum(Parser.Node.Primitive.uint)) },
+                    .left = .init(8),
+                    .right = .init(@intFromEnum(Parser.Node.Primitive.uint)),
                     .next = .init(0),
-                })) Report.mustReturnU8(&reports, "main", type_);
+                };
+
+                const mainName = main.asConstVarConst().getText(&global);
+
+                if (funcType.argsType.load(.acquire) != 0) {
+                    Report.mainExpect0Args(&reports, main);
+                } else {
+                    const retType = global.nodes.getConstPtr(funcType.retType.load(.acquire));
+                    if (!Typing.Type.typeEqual(&global, retType.asConstTypes(), expectedU8Type.asConstTypes())) {
+                        Report.mustReturnU8(&reports, mainName, funcTypeNode);
+                    }
+                }
             }
         } else Report.missingMain(&reports);
     }
@@ -201,10 +214,12 @@ pub fn waitForWork(alloc: Allocator, global: *Global) Allocator.Error!struct { [
     }
 
     const index = 0;
+    var cont = std.ArrayList(u8).empty;
+    try global.nodes.getPtr(index).asEntry().toString(global, alloc, &cont, 0);
+    const res = try cont.toOwnedSlice(alloc);
+    if (global.subCommand == .Parser) return .{ res, 0 };
 
-    if (global.subCommand == .Parser) return .{ try global.toStringAst(alloc, global.nodes.get(index).data[1].load(.acquire)), 0 };
-
-    if (global.subCommand == .Typing) return .{ try global.toStringAst(alloc, global.nodes.get(index).data[1].load(.acquire)), 0 };
+    if (global.subCommand == .Typing) return .{ res, 0 };
 
     return .{ "", 1 };
 }

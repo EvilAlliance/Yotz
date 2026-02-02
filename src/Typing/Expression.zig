@@ -90,28 +90,32 @@ fn push(self: *Self, alloc: Allocator, variable: *const Parser.Node, reason: Rea
 fn pop(self: *Self) void {
     _ = self.hasCycle.pop();
 }
-pub fn traceVariable(self: *Self, alloc: Allocator, variable: *const Parser.Node) Allocator.Error!void {
-    try self.push(alloc, variable, .cycleGlobalTracing);
+pub fn traceVariable(self: *Self, alloc: Allocator, variable: *const Parser.Node.VarConst) Allocator.Error!void {
+    try self.push(alloc, variable.asConst(), .cycleGlobalTracing);
     defer self.pop();
 
-    const exprI = variable.data.@"1".load(.acquire);
+    const exprI = variable.expr.load(.acquire);
 
-    try self._traceVariable(alloc, self.tu.global.nodes.getConstPtr(exprI));
+    try self._traceVariable(alloc, self.tu.global.nodes.getConstPtr(exprI).asConstExpression());
 }
 
-fn _traceVariable(self: *Self, alloc: Allocator, expr: *const Parser.Node) Allocator.Error!void {
+fn _traceVariable(self: *Self, alloc: Allocator, expr: *const Parser.Node.Expression) Allocator.Error!void {
     switch (expr.tag.load(.acquire)) {
         .load => {
-            try self.push(alloc, expr, .cycleGlobalTracing);
+            const load = expr.asConstLoad();
+            try self.push(alloc, load.asConst(), .cycleGlobalTracing);
             defer self.pop();
 
-            const variable = self.tu.scope.get(expr.getText(self.tu.global)) orelse return;
-            try self.traceVariable(alloc, variable);
+            const variable = self.tu.scope.get(load.getText(self.tu.global)) orelse return;
+
+            if (variable.tag.load(.acquire) == .protoArg) return;
+
+            try self.traceVariable(alloc, variable.asConstVarConst());
         },
         .neg => {
-            const left = expr.data[0].load(.acquire);
+            const left = expr.left.load(.acquire);
 
-            try self.traceVariable(alloc, self.tu.global.nodes.getPtr(left));
+            try self._traceVariable(alloc, self.tu.global.nodes.getPtr(left).asConstExpression());
         },
         .addition,
         .subtraction,
@@ -119,25 +123,19 @@ fn _traceVariable(self: *Self, alloc: Allocator, expr: *const Parser.Node) Alloc
         .division,
         .power,
         => {
-            const left = expr.data[0].load(.acquire);
-            const right = expr.data[1].load(.acquire);
+            const left = expr.left.load(.acquire);
+            const right = expr.right.load(.acquire);
 
-            try self.traceVariable(alloc, self.tu.global.nodes.getPtr(left));
-            try self.traceVariable(alloc, self.tu.global.nodes.getPtr(right));
+            try self._traceVariable(alloc, self.tu.global.nodes.getPtr(left).asConstExpression());
+            try self._traceVariable(alloc, self.tu.global.nodes.getPtr(right).asConstExpression());
         },
         else => {},
     }
 }
 
-pub fn inferType(self: *Self, alloc: Allocator, variable: *Parser.Node, expr: *const Parser.Node, reports: ?*Report.Reports) (Allocator.Error || Error)!bool {
-    try self.push(alloc, expr, .inference);
+pub fn inferType(self: *Self, alloc: Allocator, variable: *Parser.Node.VarConst, expr: *const Parser.Node.Expression, reports: ?*Report.Reports) (Allocator.Error || Error)!bool {
+    try self.push(alloc, expr.asConst(), .inference);
     defer self.pop();
-
-    const exprTag = expr.tag.load(.acquire);
-    assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition, .call, .funcProto }, exprTag));
-
-    const variableToInferTag = variable.tag.load(.acquire);
-    assert(Util.listContains(Parser.Node.Tag, &.{ .variable, .constant }, variableToInferTag));
 
     const typeI = try self._inferType(alloc, expr, reports);
 
@@ -148,70 +146,94 @@ pub fn inferType(self: *Self, alloc: Allocator, variable: *Parser.Node, expr: *c
     return true;
 }
 
-pub fn _inferType(self: *Self, alloc: Allocator, expr: *const Parser.Node, reports: ?*Report.Reports) (Allocator.Error || Error)!?struct { type: *const Parser.Node, place: *const Parser.Node } {
+pub fn _inferType(self: *Self, alloc: Allocator, expr: *const Parser.Node.Expression, reports: ?*Report.Reports) (Allocator.Error || Error)!?struct { type: *const Parser.Node.Types, place: *const Parser.Node.Expression } {
     const exprTag = expr.tag.load(.acquire);
 
     switch (exprTag) {
         .lit => return null,
         .load => {
-            const leaf = expr;
-            const id = leaf.getText(self.tu.global);
+            const load = expr.asConstLoad();
+            const id = load.getText(self.tu.global);
 
-            const variable = self.tu.scope.get(id) orelse return Report.undefinedVariable(reports, expr);
+            const variable = self.tu.scope.get(id) orelse return Report.undefinedVariable(reports, expr.asConst());
 
-            const typeIndex = variable.data.@"0".load(.acquire);
+            const typeIndex = variable.type.load(.acquire);
 
-            return if (typeIndex == 0) null else .{ .type = self.tu.global.nodes.getConstPtr(typeIndex), .place = expr };
+            return if (typeIndex == 0) null else .{ .type = self.tu.global.nodes.getConstPtr(typeIndex).asConstTypes(), .place = expr };
         },
         .funcProto => {
-            const tIndex = expr.data[1].load(.acquire);
+            const funcProto = expr.asConstFuncProto();
+            const tIndex = funcProto.retType.load(.acquire);
             std.debug.assert(tIndex != 0);
 
-            const t = self.tu.global.nodes.getPtr(tIndex);
-            const tTag = t.tag.load(.acquire);
-            if (tTag == .fakeFuncType or tTag == .fakeType) {
-                Type.transformType(self.tu, t);
+            var argTypeIndex: Parser.NodeIndex = 0;
+            const protoArgsIndex = funcProto.args.load(.acquire);
+
+            if (protoArgsIndex != 0) {
+                var protoArg = self.tu.global.nodes.getConstPtr(protoArgsIndex);
+                const firstArgType = try self.tu.global.nodes.reserve(alloc);
+                var currentArgType = firstArgType;
+
+                while (true) {
+                    const argType = protoArg.left.load(.acquire);
+
+                    currentArgType.* = .{
+                        .tag = .init(.argType),
+                        .tokenIndex = .init(protoArg.tokenIndex.load(.acquire)),
+                        .left = .init(0),
+                        .right = .init(argType),
+                    };
+
+                    const nextProtoArgIndex = protoArg.next.load(.acquire);
+                    if (nextProtoArgIndex == 0) break;
+
+                    protoArg = self.tu.global.nodes.getConstPtr(nextProtoArgIndex);
+
+                    const nextArgType = try self.tu.global.nodes.reserve(alloc);
+                    currentArgType.next.store(self.tu.global.nodes.indexOf(nextArgType), .release);
+                    currentArgType = nextArgType;
+                }
+
+                argTypeIndex = self.tu.global.nodes.indexOf(firstArgType);
             }
-            const tTag1 = t.tag.load(.acquire);
 
-            std.debug.assert(tTag1 == .type or tTag1 == .funcType);
-
-            const i = try self.tu.global.nodes.appendIndex(alloc, Parser.Node{
-                .tag = .init(.funcType),
-                .tokenIndex = .init(expr.tokenIndex.load(.acquire)),
-                .data = .{ .init(0), .init(tIndex) },
+            const i = try self.tu.global.nodes.appendIndex(alloc, (Parser.Node.FuncType{
+                .tokenIndex = .init(funcProto.tokenIndex.load(.acquire)),
+                .argsType = .init(argTypeIndex),
+                .retType = .init(tIndex),
                 .flags = .init(.{ .inferedFromExpression = true }),
-            });
+            }).asConst().*);
 
-            return .{ .type = self.tu.global.nodes.getConstPtr(i), .place = expr };
+            return .{ .type = self.tu.global.nodes.getConstPtr(i).asConstTypes(), .place = funcProto.asConst().asConstExpression() };
         },
         .call => {
-            const id = expr.getText(self.tu.global);
-            const func = self.tu.scope.get(id) orelse return Report.undefinedVariable(reports, expr);
+            var call = expr.asConstCall();
+            const id = call.getText(self.tu.global);
+            const func = (self.tu.scope.get(id) orelse return Report.undefinedVariable(reports, call.asConst())).asVarConst();
 
-            if (func.data.@"0".load(.acquire) == 0) {
-                assert(self.inferType(alloc, func, self.tu.global.nodes.getPtr(func.data.@"1".load(.acquire)), reports) catch |err| std.debug.panic("Why would this fail, it should be valid {}", .{err}));
+            if (func.type.load(.acquire) == 0) {
+                assert(self.inferType(alloc, func, self.tu.global.nodes.getPtr(func.expr.load(.acquire)).asExpression(), reports) catch |err| std.debug.panic("Why would this fail, it should be valid {}", .{err}));
             }
 
-            var funcType = self.tu.global.nodes.getConstPtr(func.data.@"0".load(.acquire));
-            var call = expr;
-
+            var funcType = self.tu.global.nodes.getConstPtr(func.type.load(.acquire));
             while (call.next.load(.acquire) != 0) {
-                if (funcType.tag.load(.acquire) != .funcType) return Report.expectedFunction(reports, call, funcType);
+                if (funcType.tag.load(.acquire) != .funcType) return Report.expectedFunction(reports, call.asConst(), funcType);
 
-                funcType = self.tu.global.nodes.getConstPtr(funcType.data.@"1".load(.acquire));
+                const ft = funcType.asConstFuncType();
+                funcType = self.tu.global.nodes.getConstPtr(ft.retType.load(.acquire));
 
-                call = self.tu.global.nodes.getPtr(call.next.load(.acquire));
-                assert(call.tag.load(.acquire) == .call);
+                call = self.tu.global.nodes.getConstPtr(call.next.load(.acquire)).asConstCall();
             }
 
-            return .{ .type = self.tu.global.nodes.getConstPtr(funcType.data.@"1".load(.acquire)), .place = expr };
+            const ft = funcType.asConstFuncType();
+            return .{ .type = self.tu.global.nodes.getConstPtr(ft.retType.load(.acquire)).asConstTypes(), .place = expr };
         },
 
         .neg => {
-            const left = expr.data[0].load(.acquire);
+            const unOp = expr.asConstUnaryOp();
+            const left = unOp.left.load(.acquire);
 
-            return self._inferType(alloc, self.tu.global.nodes.getConstPtr(left), reports);
+            return self._inferType(alloc, self.tu.global.nodes.getConstPtr(left).asConstExpression(), reports);
         },
 
         .addition,
@@ -220,11 +242,11 @@ pub fn _inferType(self: *Self, alloc: Allocator, expr: *const Parser.Node, repor
         .division,
         .power,
         => {
-            const left = expr.data[0].load(.acquire);
-            const right = expr.data[1].load(.acquire);
+            const left = expr.left.load(.acquire);
+            const right = expr.right.load(.acquire);
 
-            const typeL = try self._inferType(alloc, self.tu.global.nodes.getConstPtr(left), reports);
-            const typeR = try self._inferType(alloc, self.tu.global.nodes.getConstPtr(right), reports);
+            const typeL = try self._inferType(alloc, self.tu.global.nodes.getConstPtr(left).asConstExpression(), reports);
+            const typeR = try self._inferType(alloc, self.tu.global.nodes.getConstPtr(right).asConstExpression(), reports);
 
             if (typeL == null and typeR == null) return null;
             if (typeL == null or typeR == null) return if (typeL == null) typeR else typeL;
@@ -233,18 +255,18 @@ pub fn _inferType(self: *Self, alloc: Allocator, expr: *const Parser.Node, repor
                 if (Type.canTypeBeCoerced(typeL.?.type, typeR.?.type)) return typeR;
                 if (Type.canTypeBeCoerced(typeR.?.type, typeL.?.type)) return typeL;
 
-                const declared = self.tu.scope.get(typeR.?.place.getText(self.tu.global)).?;
+                const declared = self.tu.scope.get(typeR.?.place.asConst().getText(self.tu.global)).?;
                 return Report.incompatibleType(
                     reports,
-                    typeL.?.type,
-                    typeR.?.type,
-                    expr,
-                    declared,
+                    typeL.?.type.asConst(),
+                    typeR.?.type.asConst(),
+                    expr.asConst(),
+                    declared.as(),
                 );
             }
         },
         else => {
-            const loc = expr.getLocation(self.tu.global);
+            const loc = expr.asConst().getLocation(self.tu.global);
             const fileInfo = self.tu.global.files.get(loc.source);
             const where = Report.Message.placeSlice(loc, fileInfo.source);
             std.debug.panic("{s}:{}:{}: Node not supported here: {}\n{s}\n{[5]c: >[6]}", .{
@@ -262,34 +284,26 @@ pub fn _inferType(self: *Self, alloc: Allocator, expr: *const Parser.Node, repor
     unreachable;
 }
 
-pub fn checkType(self: *Self, alloc: Allocator, expr: *Parser.Node, expectedType: *const Parser.Node, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
-    try self.push(alloc, expr, .check);
+pub fn checkType(self: *Self, alloc: Allocator, expr: *Parser.Node.Expression, expectedType: *const Parser.Node.Types, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
+    try self.push(alloc, expr.asConst(), .check);
     defer self.pop();
-
-    const typeTag = expectedType.tag.load(.acquire);
-    const exprTag = expr.tag.load(.acquire);
-    assert(typeTag == .type or typeTag == .funcType);
-    assert(Util.listContains(Parser.Node.Tag, &.{ .lit, .load, .neg, .power, .division, .multiplication, .subtraction, .addition, .call, .funcProto }, exprTag));
 
     try self.checkExpected(alloc, expr, expectedType, reports);
 }
 
-fn checkExpected(self: *Self, alloc: Allocator, expr: *Parser.Node, expectedType: *const Parser.Node, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
-    const expectedTypeTag = expectedType.tag.load(.acquire);
-    assert(expectedTypeTag == .type or expectedTypeTag == .funcType);
-
+fn checkExpected(self: *Self, alloc: Allocator, expr: *Parser.Node.Expression, expectedType: *const Parser.Node.Types, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
     const exprTag = expr.tag.load(.acquire);
 
     switch (exprTag) {
-        .lit => try self.checkLitType(expr, expectedType, reports),
-        .load => try self.checkVarType(alloc, expr, expectedType, reports),
-        .funcProto => try self.checkFuncProtoType(expr, expectedType, reports),
-        .call => try self.checkCallType(alloc, expr, expectedType, reports),
+        .lit => try self.checkLitType(expr.asConstLiteral(), expectedType, reports),
+        .load => try self.checkVarType(alloc, expr.asLoad(), expectedType, reports),
+        .funcProto => try self.checkFuncProtoType(expr.asConstFuncProto(), expectedType, reports),
+        .call => try self.checkCallType(alloc, expr.asCall(), expectedType, reports),
 
         .neg => {
-            const left = expr.data[0].load(.acquire);
+            const left = expr.left.load(.acquire);
 
-            try self.checkExpected(alloc, self.tu.global.nodes.getPtr(left), expectedType, reports);
+            try self.checkExpected(alloc, self.tu.global.nodes.getPtr(left).asExpression(), expectedType, reports);
         },
 
         .addition,
@@ -298,14 +312,14 @@ fn checkExpected(self: *Self, alloc: Allocator, expr: *Parser.Node, expectedType
         .division,
         .power,
         => {
-            const left = expr.data[0].load(.acquire);
-            const right = expr.data[1].load(.acquire);
+            const left = expr.left.load(.acquire);
+            const right = expr.right.load(.acquire);
 
-            try self.checkExpected(alloc, self.tu.global.nodes.getPtr(left), expectedType, reports);
-            try self.checkExpected(alloc, self.tu.global.nodes.getPtr(right), expectedType, reports);
+            try self.checkExpected(alloc, self.tu.global.nodes.getPtr(left).asExpression(), expectedType, reports);
+            try self.checkExpected(alloc, self.tu.global.nodes.getPtr(right).asExpression(), expectedType, reports);
         },
         else => {
-            const loc = expr.getLocation(self.tu.global);
+            const loc = expr.asConst().getLocation(self.tu.global);
             const fileInfo = self.tu.global.files.get(loc.source);
             const where = Report.Message.placeSlice(loc, fileInfo.source);
             std.debug.panic("{s}:{}:{}: Node not supported here: {}\n{s}\n{[5]c: >[6]}", .{
@@ -321,93 +335,133 @@ fn checkExpected(self: *Self, alloc: Allocator, expr: *Parser.Node, expectedType
     }
 }
 
-fn checkCallType(self: *Self, alloc: Allocator, call_: *Parser.Node, expectedType: *const Parser.Node, reports: ?*Report.Reports) (Error)!void {
+fn checkCallType(self: *Self, alloc: Allocator, call_: *Parser.Node.Call, expectedType: *const Parser.Node.Types, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
     var call = call_;
 
     const id = call.getText(self.tu.global);
-    const func = self.tu.scope.get(id) orelse return Report.undefinedVariable(reports, call);
+    const func = self.tu.scope.get(id) orelse return Report.undefinedVariable(reports, call.asConst());
 
-    if (func.data.@"0".load(.acquire) == 0) {
-        assert(self.inferType(alloc, func, self.tu.global.nodes.getPtr(func.data.@"1".load(.acquire)), reports) catch |err| std.debug.panic("Why would this fail, it should be valid {}", .{err}));
+    if (func.type.load(.acquire) == 0) {
+        assert(self.inferType(alloc, func.asVarConst(), self.tu.global.nodes.getPtr(func.asVarConst().expr.load(.acquire)).asExpression(), reports) catch |err| std.debug.panic("Why would this fail, it should be valid {}", .{err}));
     }
 
-    const funcType = self.tu.global.nodes.getConstPtr(func.data.@"0".load(.acquire));
+    const funcType = self.tu.global.nodes.getConstPtr(func.type.load(.acquire));
 
-    if (funcType.tag.load(.acquire) != .funcType) {
-        return Report.expectedFunction(reports, call, func);
-    }
+    var retType = funcType.asConstTypes();
 
-    var retType = self.tu.global.nodes.getConstPtr(funcType.data.@"1".load(.acquire));
+    while (true) {
+        if (retType.tag.load(.acquire) != .funcType) return Report.expectedFunction(reports, call.as(), retType.asConst());
+        const retFuncType = retType.asConstFuncType();
 
-    while (call.next.load(.acquire) != 0) {
-        if (retType.tag.load(.acquire) != .funcType) return Report.expectedFunction(reports, call, retType);
+        var argTypeI = retFuncType.argsType.load(.acquire);
+        var argI = call.firstArg.load(.acquire);
+        while (argTypeI != 0 and argI != 0) {
+            const arg = self.tu.global.nodes.getConstPtr(argI).asConstCallArg();
+            const argType = self.tu.global.nodes.getConstPtr(argTypeI).asConstArgType();
 
-        retType = self.tu.global.nodes.getConstPtr(retType.data.@"1".load(.acquire));
+            try self.checkType(
+                alloc,
+                self.tu.global.nodes.getPtr(arg.expr.load(.acquire)).asExpression(),
+                self.tu.global.nodes.getConstPtr(argType.type_.load(.acquire)).asConstTypes(),
+                reports,
+            );
 
-        call = self.tu.global.nodes.getPtr(call.next.load(.acquire));
-        assert(call.tag.load(.acquire) == .call);
+            argTypeI = argType.next.load(.acquire);
+            argI = arg.next.load(.acquire);
+        }
+        retType = self.tu.global.nodes.getConstPtr(retFuncType.retType.load(.acquire)).asConstTypes();
+
+        const nextCall = call.next.load(.acquire);
+        if (nextCall == 0) break;
+        call = self.tu.global.nodes.getPtr(nextCall).asCall();
     }
 
     if (Type.typeEqual(self.tu.global, retType, expectedType)) return;
     if (Type.canTypeBeCoerced(retType, expectedType)) {
         var x: ?Parser.Node.Flags = .{};
         while (x) |_| {
-            const pastFlags = call.flags.load(.acquire);
+            const pastFlags = call.as().flags.load(.acquire);
             var flags = pastFlags;
             flags.implicitCast = true;
 
-            x = call.flags.cmpxchgWeak(pastFlags, flags, .acquire, .monotonic);
+            x = call.as().flags.cmpxchgWeak(pastFlags, flags, .acquire, .monotonic);
         }
         return;
     }
 
-    return Report.incompatibleReturnType(reports, retType, expectedType, call, func);
+    return Report.incompatibleReturnType(reports, retType.asConst(), expectedType.asConst(), call.asConst(), func.asConst());
 }
 
-fn checkFuncProtoType(self: *Self, funcProto: *const Parser.Node, expectedType: *const Parser.Node, reports: ?*Report.Reports) (Error)!void {
-    std.debug.assert(funcProto.tag.load(.acquire) == .funcProto);
-    std.debug.assert(funcProto.data[0].load(.acquire) == 0);
+fn checkFuncProtoType(self: *Self, funcProtoNode: *const Parser.Node.FuncProto, expectedType: *const Parser.Node.Types, reports: ?*Report.Reports) (Error)!void {
+    const funcProto = funcProtoNode.asConst();
 
-    const funcRetTypeIndex = funcProto.data[1].load(.acquire);
+    const funcRetTypeIndex = funcProto.right.load(.acquire);
 
     std.debug.assert(expectedType.tag.load(.acquire) == .funcType);
-    std.debug.assert(expectedType.data[0].load(.acquire) == 0);
 
-    const retTypeIndex = expectedType.data[1].load(.acquire);
+    const retTypeIndex = expectedType.right.load(.acquire);
 
     const retType = self.tu.global.nodes.getPtr(retTypeIndex);
     const funcRetType = self.tu.global.nodes.getPtr(funcRetTypeIndex);
-    var funcRetTypeTag = funcRetType.tag.load(.acquire);
 
-    // NOTE: this is needed because it is possible that the typing of the function didnt do it yet
-    if (funcRetTypeTag == .funcType or funcRetTypeTag == .fakeType) Type.transformType(self.tu, funcRetType);
-
-    funcRetTypeTag = funcRetType.tag.load(.acquire);
-    assert(funcRetTypeTag == .funcType or funcRetTypeTag == .type);
-
-    if (!Type.typeEqual(self.tu.global, funcRetType, retType)) {
+    if (!Type.typeEqual(self.tu.global, funcRetType.asTypes(), retType.asTypes())) {
         return Report.incompatibleType(reports, retType, funcRetType, funcRetType, funcRetType);
+    }
+
+    const argsI = funcProtoNode.args.load(.acquire);
+    const typeArgsI = expectedType.left.load(.acquire);
+
+    if (argsI == 0 and typeArgsI == 0) return;
+
+    if (argsI == 0 or typeArgsI == 0) {
+        return Report.incompatibleType(reports, funcProto, expectedType.asConst(), funcProto, funcProto);
+    }
+
+    var protoArg = self.tu.global.nodes.getConstPtr(argsI);
+    var typeArg = self.tu.global.nodes.getConstPtr(typeArgsI);
+
+    while (true) {
+        const protoArgTypeIndex = protoArg.left.load(.acquire);
+        const typeArgTypeIndex = typeArg.right.load(.acquire);
+
+        const protoArgType = self.tu.global.nodes.getPtr(protoArgTypeIndex);
+        const typeArgType = self.tu.global.nodes.getPtr(typeArgTypeIndex);
+
+        if (!Type.typeEqual(self.tu.global, protoArgType.asTypes(), typeArgType.asTypes())) {
+            return Report.incompatibleType(reports, typeArgType, protoArgType, protoArg, protoArg);
+        }
+
+        const protoNextIndex = protoArg.next.load(.acquire);
+        const typeNextIndex = typeArg.next.load(.acquire);
+
+        if (protoNextIndex == 0 and typeNextIndex == 0) break;
+        if (protoNextIndex == 0 or typeNextIndex == 0) {
+            return Report.incompatibleType(reports, expectedType.asConst(), funcProto, funcProto, funcProto);
+        }
+
+        protoArg = self.tu.global.nodes.getConstPtr(protoNextIndex);
+        typeArg = self.tu.global.nodes.getConstPtr(typeNextIndex);
     }
 }
 
-fn checkVarType(self: *Self, alloc: Allocator, leaf: *Parser.Node, type_: *const Parser.Node, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
-    const id = leaf.getText(self.tu.global);
+fn checkVarType(self: *Self, alloc: Allocator, load: *Parser.Node.Load, type_: *const Parser.Node.Types, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
+    const id = load.getText(self.tu.global);
 
-    const variable = self.tu.scope.get(id) orelse return Report.undefinedVariable(reports, leaf);
+    const variable = self.tu.scope.get(id) orelse return Report.undefinedVariable(reports, load.asConst());
 
-    var typeIndex = variable.data.@"0".load(.acquire);
+    var typeIndex = variable.type.load(.acquire);
 
     if (typeIndex == 0)
-        return addInferType(self, alloc, .inferedFromUse, leaf, variable, type_);
+        return addInferType(self, alloc, .inferedFromUse, load.as().asExpression(), variable.asVarConst(), type_);
 
     const tag = variable.tag.load(.acquire);
 
-    var variableType: *const Parser.Node = undefined;
+    var variableType: *const Parser.Node.Types = undefined;
 
     var couldBeCoerce = false;
     // NOTE: This will be runned once for variable and could be multiple with constants
     while (typeIndex != 0) : (typeIndex = variableType.next.load(.acquire)) {
-        variableType = self.tu.global.nodes.getConstPtr(typeIndex);
+        variableType = self.tu.global.nodes.getConstPtr(typeIndex).asConstTypes();
 
         if (Type.typeEqual(self.tu.global, variableType, type_)) return;
         // NOTE: This has to be appart because if it a constant I want to check if it has an equal
@@ -415,72 +469,73 @@ fn checkVarType(self: *Self, alloc: Allocator, leaf: *Parser.Node, type_: *const
     }
 
     if (tag == .constant)
-        return addInferType(self, alloc, .inferedFromUse, leaf, variable, type_);
+        return addInferType(self, alloc, .inferedFromUse, load.as().asExpression(), variable.asVarConst(), type_);
 
     if (couldBeCoerce) {
         var x: ?Parser.Node.Flags = .{};
         while (x) |_| {
-            const pastFlags = leaf.flags.load(.acquire);
+            const pastFlags = load.flags.load(.acquire);
             var flags = pastFlags;
             flags.implicitCast = true;
 
-            x = leaf.flags.cmpxchgWeak(pastFlags, flags, .acquire, .monotonic);
+            x = load.flags.cmpxchgWeak(pastFlags, flags, .acquire, .monotonic);
         }
 
         return;
     }
 
-    return Report.incompatibleType(reports, variableType, type_, leaf, variable);
+    return Report.incompatibleType(reports, variableType.asConst(), type_.asConst(), load.as(), variable.as());
 }
 
-fn addInferType(self: *Self, alloc: Allocator, comptime flag: std.meta.FieldEnum(Parser.Node.Flags), leaf: *const Parser.Node, variable: *Parser.Node, type_: *const Parser.Node) (Allocator.Error || Error)!void {
+fn addInferType(self: *Self, alloc: Allocator, comptime flag: std.meta.FieldEnum(Parser.Node.Flags), leaf: *const Parser.Node.Expression, variable: *Parser.Node.VarConst, type_: *const Parser.Node.Types) (Allocator.Error || Error)!void {
     assert(flag == .inferedFromUse or flag == .inferedFromExpression);
     const typeTag = type_.tag.load(.acquire);
     assert(typeTag == .funcType or typeTag == .type);
-    try self.push(alloc, variable, .addInference);
+    try self.push(alloc, variable.as(), .addInference);
     defer self.pop();
 
     // Check Variable expression for that type
-    try self.checkType(alloc, self.tu.global.nodes.getPtr(variable.data.@"1".load(.acquire)), type_, null);
+    try self.checkType(alloc, self.tu.global.nodes.getPtr(variable.expr.load(.acquire)).asExpression(), type_, null);
 
     // Reset data
     var nodeType = type_.*;
     nodeType.tokenIndex.store(leaf.tokenIndex.load(.acquire), .release);
 
-    nodeType.next.store(variable.data.@"0".load(.acquire), .release);
+    nodeType.next.store(variable.type.load(.acquire), .release);
     var flags: Parser.Node.Flags = .{};
     @field(flags, @tagName(flag)) = true;
     nodeType.flags.store(flags, .release);
 
     // Add to list
-    const x = try self.tu.global.nodes.appendIndex(alloc, nodeType);
+    const x = try self.tu.global.nodes.appendIndex(alloc, nodeType.asConst().*);
     // Make the variable be that type
     // TODO: Check if this type was already added
-    if (variable.data.@"0".cmpxchgStrong(nodeType.next.load(.acquire), x, .acq_rel, .monotonic) != null) try self.addInferType(alloc, flag, leaf, variable, type_);
+    if (variable.type.cmpxchgStrong(nodeType.next.load(.acquire), x, .acq_rel, .monotonic) != null) try self.addInferType(alloc, flag, leaf, variable, type_);
 }
 
-fn checkLitType(self: *Self, lit: *const Parser.Node, expectedType: *const Parser.Node, reports: ?*Report.Reports) (Error)!void {
+fn checkLitType(self: *Self, lit: *const Parser.Node.Literal, expectedType: *const Parser.Node.Types, reports: ?*Report.Reports) (Error)!void {
     std.debug.assert(expectedType.tag.load(.acquire) == .type);
 
-    const primitive = expectedType.data[1].load(.acquire);
-    const size = expectedType.data[0].load(.acquire);
+    const expectedT = expectedType.asConstType();
+    const primitive = expectedT.primitive.load(.acquire);
+    const size = expectedT.size.load(.acquire);
 
     const text = lit.getText(self.tu.global);
     switch (@as(Parser.Node.Primitive, @enumFromInt(primitive))) {
         Parser.Node.Primitive.uint => {
             const max = std.math.pow(u64, 2, size) - 1;
-            const number = std.fmt.parseInt(u64, text, 10) catch return Report.incompatibleLiteral(reports, lit, expectedType);
+            const number = std.fmt.parseInt(u64, text, 10) catch return Report.incompatibleLiteral(reports, lit.asConst(), expectedType.asConst());
 
             if (number < max) return;
-            return Report.incompatibleLiteral(reports, lit, expectedType);
+            return Report.incompatibleLiteral(reports, lit.asConst(), expectedType.asConst());
         },
         Parser.Node.Primitive.sint => {
             const max = std.math.pow(i64, 2, (size - 1)) - 1;
             const number = std.fmt.parseInt(i64, text, 10) catch
-                return Report.incompatibleLiteral(reports, lit, expectedType);
+                return Report.incompatibleLiteral(reports, lit.asConst(), expectedType.asConst());
 
             if (number < max) return;
-            return Report.incompatibleLiteral(reports, lit, expectedType);
+            return Report.incompatibleLiteral(reports, lit.asConst(), expectedType.asConst());
         },
         Parser.Node.Primitive.float => unreachable,
     }

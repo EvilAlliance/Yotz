@@ -26,6 +26,7 @@ pub const Type = enum(u32) {
     slash,
     caret,
     equal,
+    coma,
 
     EOF,
 
@@ -60,6 +61,7 @@ pub const Type = enum(u32) {
             .slash => "/",
             .caret => "^",
             .equal => "=",
+            .coma => ",",
 
             .EOF => "EOF",
         };

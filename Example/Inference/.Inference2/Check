@@ -2,12 +2,12 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 88
-main: () u8 : () u8 { 
+:b stdout 110
+main: () u8 #inferedFromExpression : () u8 { 
     a: u16 #inferedFromUse = 8;
     b: u16 = a;
     return a;
-} 
+}
 
 :b stderr 293
 [INFO]: Example/Inference/Inference2.yt:2:5: a is declared here 

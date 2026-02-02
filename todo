@@ -448,7 +448,9 @@
         "id": "AQbxF6cR",
         "title": "Variable when there are infering types, it does the check 2 times",
         "desc": "",
-        "time_created": "2026-01-30 12:09:28.121316734 -03:00:00"
+        "time_created": "2026-01-30 12:09:28.121316734 -03:00:00",
+        "time_started": "2026-02-01 22:51:29.083870357 -03:00:00",
+        "time_completed": "2026-02-01 22:53:49.289496149 -03:00:00"
       },
       {
         "id": "noZ58Ak7",
@@ -457,6 +459,27 @@
         "time_created": "2026-01-30 15:18:18.733861188 -03:00:00",
         "time_started": "2026-01-30 19:18:58.219954027 -03:00:00",
         "time_completed": "2026-01-30 19:18:58.550866737 -03:00:00"
+      },
+      {
+        "id": "sR9aELsf",
+        "title": "The program does not report where is the type incompatible exaclty, it could be inside the return value and this return a function which returns a function and the problem could be in many places",
+        "desc": "",
+        "time_created": "2026-01-31 21:03:03.416188825 -03:00:00"
+      },
+      {
+        "id": "pwDbSnQX",
+        "title": "At the moment the fake type is created we must transform it into a real type",
+        "desc": "A problem could appear when alias are introduce, but i do not think so",
+        "time_created": "2026-02-01 19:24:35.639228865 -03:00:00",
+        "time_completed": "2026-02-01 22:49:20.747983687 -03:00:00"
+      },
+      {
+        "id": "Jm8BSqSe",
+        "title": "Improve way we detect that main has the correct type",
+        "desc": "",
+        "time_created": "2026-02-01 19:28:44.367538814 -03:00:00",
+        "time_started": "2026-02-01 23:17:58.400044466 -03:00:00",
+        "time_completed": "2026-02-01 23:17:58.560080738 -03:00:00"
       }
     ]
   }

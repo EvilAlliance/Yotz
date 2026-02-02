@@ -2,10 +2,10 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 53
-main: () u8 : () u8 { 
+:b stdout 75
+main: () u8 #inferedFromExpression : () u8 { 
     return (10 + (5 * 8));
-} 
+}
 
 :b stderr 0
 

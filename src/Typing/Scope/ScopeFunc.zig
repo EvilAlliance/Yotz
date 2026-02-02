@@ -1,7 +1,7 @@
 const Self = @This();
 
 global: *ScopeGlobal,
-base: ArrayList(StringHashMapUnmanaged(*Parser.Node)) = .{},
+base: ArrayList(StringHashMapUnmanaged(*Parser.Node.Declarator)) = .{},
 // NOTE: This is not manipulated multithreaded, this is for a specific TranslationUnit
 order: usize = 0,
 
@@ -15,7 +15,7 @@ pub fn initHeap(alloc: Allocator, globaScope: *ScopeGlobal) Allocator.Error!*Sel
     return self;
 }
 
-pub fn put(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: *Parser.Node) (Allocator.Error || mod.Error)!void {
+pub fn put(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: *Parser.Node.Declarator) (Allocator.Error || mod.Error)!void {
     const self: *Self = @ptrCast(@alignCast(ctx));
     if (get(self, key)) |_| return mod.Error.KeyAlreadyExists;
 
@@ -27,7 +27,7 @@ pub fn put(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: *Parser.No
     self.order += 1;
 }
 
-pub fn get(ctx: *anyopaque, key: []const u8) ?*Parser.Node {
+pub fn get(ctx: *anyopaque, key: []const u8) ?*Parser.Node.Declarator {
     const self: *Self = @ptrCast(@alignCast(ctx));
 
     var i: usize = self.base.items.len;
@@ -60,11 +60,11 @@ pub fn getGlobal(ctx: *anyopaque) *ScopeGlobal {
     return ScopeGlobal.getGlobal(self.global);
 }
 
-pub fn putGlobal(self: *Self, alloc: Allocator, key: []const u8, value: Parser.NodeIndex) Allocator.Error!void {
+pub fn putGlobal(self: *Self, alloc: Allocator, key: []const u8, value: Parser.Node.Declarator) Allocator.Error!void {
     return self.global.vtable.put(self.global, alloc, key, value);
 }
 
-pub fn getFromGlobal(self: *Self, key: []const u8) ?Parser.NodeIndex {
+pub fn getFromGlobal(self: *Self, key: []const u8) ?Parser.Node.Declarator {
     return self.global.vtable.get(self.global, key);
 }
 

@@ -1,0 +1,14 @@
+:i argc 0
+:b stdin 0
+
+:i returncode 0
+:b stdout 118
+pepe :: (a: (u8) u8, b: (u8) u8) u8 { 
+    return a(b);
+}
+main :: () u8 { 
+    return pepe((a: u8) u8 return a, 1);
+}
+
+:b stderr 0
+

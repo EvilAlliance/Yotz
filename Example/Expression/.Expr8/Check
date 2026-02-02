@@ -2,10 +2,10 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 54
-main: () u8 : () u8 { 
+:b stdout 76
+main: () u8 #inferedFromExpression : () u8 { 
     return ((7 / 35) - 49);
-} 
+}
 
 :b stderr 0
 

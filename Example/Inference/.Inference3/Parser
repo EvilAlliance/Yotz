@@ -2,14 +2,15 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 97
+:b stdout 96
 main :: () u8 { 
     a := 10;
     b := (a + 20);
     c := 30;
     e := (b + c);
     return e;
-} 
+}
 
 :b stderr 0
+
 

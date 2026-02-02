@@ -1,6 +1,6 @@
 const Self = @This();
 
-base: StringHashMapUnmanaged(*Parser.Node) = .{},
+base: StringHashMapUnmanaged(*Parser.Node.Declarator) = .{},
 refCount: std.atomic.Value(usize) = std.atomic.Value(usize).init(1),
 rwLock: std.Thread.RwLock = .{},
 
@@ -12,7 +12,7 @@ pub fn initHeap(alloc: Allocator) Allocator.Error!*Self {
     return self;
 }
 
-pub fn put(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: *Parser.Node) (Allocator.Error || mod.Error)!void {
+pub fn put(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: *Parser.Node.Declarator) (Allocator.Error || mod.Error)!void {
     const self: *Self = @ptrCast(@alignCast(ctx));
     if (get(self, key)) |_| return mod.Error.KeyAlreadyExists;
     {
@@ -23,17 +23,12 @@ pub fn put(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: *Parser.No
     }
 }
 
-pub fn get(ctx: *anyopaque, key: []const u8) ?*Parser.Node {
+pub fn get(ctx: *anyopaque, key: []const u8) ?*Parser.Node.Declarator {
     const self: *Self = @ptrCast(@alignCast(ctx));
     self.rwLock.lockShared();
     defer self.rwLock.unlockShared();
 
     return self.base.get(key);
-}
-
-pub fn waitingForUnlock(ctx: *anyopaque, alloc: Allocator, key: []const u8, func: *const fn (ObserverParams) void, args: ObserverParams) Allocator.Error!void {
-    const self: *Self = @ptrCast(@alignCast(ctx));
-    try self.observer.pushUnlock(alloc, key, func, args);
 }
 
 pub fn push(ctx: *const anyopaque, alloc: Allocator) Allocator.Error!void {
@@ -95,8 +90,6 @@ pub fn scope(self: *Self) Scope {
         },
     };
 }
-
-pub const ObserverParams = struct { *TranslationUnit, Allocator, Parser.NodeIndex, Parser.NodeIndex, ?*Report.Reports };
 
 const Scope = @import("Scope.zig");
 const ScopeFunc = @import("ScopeFunc.zig");

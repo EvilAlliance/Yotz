@@ -2,17 +2,17 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 96
+:b stdout 91
 main :: () u8 { 
-} 
+}
 foo :: () u8 { 
-} 
+}
 bar :: () u8 { 
-} 
+}
 baz :: () u8 { 
-} 
+}
 qux :: () u8 { 
-} 
+}
 
 :b stderr 840
 [ERROR]: Example/ParseError/ExpressionError.yt:3:15: Expected: "number literal", "(", "-", "identifier" but found: ';' 
@@ -31,6 +31,9 @@ qux :: () u8 {
     return 4 + };
                ^
 [ERROR]: Example/ParseError/ExpressionError.yt:24:1: Expected: "identifier" but found: '}' 
+}
+^
+
 }
 ^
 

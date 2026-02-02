@@ -1,4 +1,4 @@
-pub fn typing(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
+pub fn typing(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Node.Root, reports: ?*Report.Reports) Allocator.Error!void {
     try record(self, alloc, root, reports);
 
     assert(self.global.readyTu.getPtr(self.id).cmpxchgStrong(false, true, .acq_rel, .monotonic) == null);
@@ -11,48 +11,39 @@ pub fn typing(self: *const TranslationUnit, alloc: Allocator, root: *const Parse
     try cycleCheck(self, alloc, root);
 }
 
-fn record(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
-
-    var stmtI = root.data.@"0".load(.acquire);
-    const endIndex = root.data.@"1".load(.acquire);
+fn record(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Node.Root, reports: ?*Report.Reports) Allocator.Error!void {
+    var stmtI = root.firstStmt.load(.acquire);
+    const endIndex = root.endStmt.load(.acquire);
 
     while (stmtI != endIndex) {
         const stmt = self.global.nodes.getPtr(stmtI);
         defer stmtI = stmt.next.load(.acquire);
 
-        const tag = stmt.tag.load(.acquire);
-
-        assert(tag == .variable or tag == .constant);
-        Statement.recordVariable(self, alloc, stmt, reports) catch |err| switch (err) {
+        Statement.recordVariable(self, alloc, stmt.asVarConst(), reports) catch |err| switch (err) {
             Scope.Error.KeyAlreadyExists => {},
             else => return @errorCast(err),
         };
     }
 }
 
-fn check(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Node, reports: ?*Report.Reports) Allocator.Error!void {
-
-    var stmtI = root.data.@"0".load(.acquire);
-    const endIndex = root.data.@"1".load(.acquire);
+fn check(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Node.Root, reports: ?*Report.Reports) Allocator.Error!void {
+    var stmtI = root.firstStmt.load(.acquire);
+    const endIndex = root.endStmt.load(.acquire);
 
     while (stmtI != endIndex) {
         const stmt = self.global.nodes.getPtr(stmtI);
         defer stmtI = stmt.next.load(.acquire);
 
-        const tag = stmt.tag.load(.acquire);
-
-        assert(tag == .variable or tag == .constant);
-        Statement.checkVariable(self, alloc, stmt, reports) catch |err| switch (err) {
+        Statement.checkVariable(self, alloc, stmt.asVarConst(), reports) catch |err| switch (err) {
             Expression.Error.TooBig, Expression.Error.IncompatibleType, Expression.Error.UndefVar => continue,
             else => return @errorCast(err),
         };
     }
 }
 
-fn cycleCheck(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Node) Allocator.Error!void {
-
-    var stmtI = root.data.@"0".load(.acquire);
-    const endIndex = root.data.@"1".load(.acquire);
+fn cycleCheck(self: *const TranslationUnit, alloc: Allocator, root: *const Parser.Node.Root) Allocator.Error!void {
+    var stmtI = root.firstStmt.load(.acquire);
+    const endIndex = root.endStmt.load(.acquire);
 
     while (stmtI != endIndex) {
         const stmt = self.global.nodes.getPtr(stmtI);
@@ -61,7 +52,7 @@ fn cycleCheck(self: *const TranslationUnit, alloc: Allocator, root: *const Parse
         const tag = stmt.tag.load(.acquire);
 
         assert(tag == .variable or tag == .constant);
-        try Statement.traceVariable(self, alloc, stmt);
+        try Statement.traceVariable(self, alloc, stmt.asConstVarConst());
     }
 }
 

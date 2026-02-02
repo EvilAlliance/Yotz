@@ -1,18 +1,35 @@
-pub fn recordVariable(self: *const TranslationUnit, alloc: Allocator, variable: *Parser.Node, reports: ?*Report.Reports) (Allocator.Error || Scope.Error)!void {
-    self.scope.put(alloc, variable.getText(self.global), variable) catch |err| switch (err) {
+pub fn recordVariable(self: *const TranslationUnit, alloc: Allocator, variable: *Parser.Node.VarConst, reports: ?*Report.Reports) (Allocator.Error || Scope.Error)!void {
+    self.scope.put(alloc, variable.getText(self.global), variable.as().asDeclarator()) catch |err| switch (err) {
         Scope.Error.KeyAlreadyExists => {
             const original = self.scope.get(variable.getText(self.global)).?;
-            Report.redefinition(reports, variable, original);
+            Report.redefinition(reports, variable.as(), original.as());
             return Scope.Error.KeyAlreadyExists;
         },
         else => return @errorCast(err),
     };
 }
 
-pub fn traceVariable(self: *const TranslationUnit, alloc: Allocator, variable: *const Parser.Node) Allocator.Error!void {
-    const expressionIndex = variable.data.@"1".load(.acquire);
-    const expressionNode = self.global.nodes.get(expressionIndex);
-    const expressionTag = expressionNode.tag.load(.acquire);
+pub fn recordFunctionArgs(self: *const TranslationUnit, alloc: Allocator, args_: *Parser.Node.ProtoArg, reports: ?*Report.Reports) (Allocator.Error)!void {
+    var args = args_;
+    while (true) {
+        self.scope.put(alloc, args.getText(self.global), args.as().asDeclarator()) catch |err| switch (err) {
+            Scope.Error.KeyAlreadyExists => {
+                const original = self.scope.get(args.getText(self.global)).?;
+                Report.redefinition(reports, args.asConst(), original.as());
+            },
+            else => return @errorCast(err),
+        };
+
+        const argsI = args.next.load(.acquire);
+        if (argsI == 0) break;
+        args = self.global.nodes.getPtr(argsI).asProtoArg();
+    }
+}
+
+pub fn traceVariable(self: *const TranslationUnit, alloc: Allocator, variable: *const Parser.Node.VarConst) Allocator.Error!void {
+    const expressionIndex = variable.expr.load(.acquire);
+    const expression = self.global.nodes.getConstPtr(expressionIndex).asConstExpression();
+    const expressionTag = expression.tag.load(.acquire);
 
     if (expressionIndex == 0 or expressionTag == .funcProto) {
         return;
@@ -24,31 +41,28 @@ pub fn traceVariable(self: *const TranslationUnit, alloc: Allocator, variable: *
     }
 }
 
-pub fn checkVariable(self: *const TranslationUnit, alloc: Allocator, node: *Parser.Node, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
-    const typeIndex = node.data[0].load(.acquire);
+pub fn checkVariable(self: *const TranslationUnit, alloc: Allocator, variable: *Parser.Node.VarConst, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
+    const typeIndex = variable.type.load(.acquire);
 
     var expr = try Expression.init(alloc, self);
     defer expr.deinit(alloc);
 
     if (typeIndex == 0) {
-        if (!try expr.inferType(alloc, node, self.global.nodes.getConstPtr(node.data.@"1".load(.acquire)), reports)) return;
-        expr.reset();
-    } else {
-        const t = self.global.nodes.getPtr(typeIndex);
-        Type.transformType(self, t);
+        _ = try expr.inferType(alloc, variable, self.global.nodes.getConstPtr(variable.expr.load(.acquire)).asConstExpression(), reports);
+        return;
     }
 
-    const typeIndex2 = node.data.@"0".load(.acquire);
+    const typeIndex2 = variable.type.load(.acquire);
     std.debug.assert(typeIndex2 != 0);
-    const exprI = node.data.@"1".load(.acquire);
+    const exprI = variable.expr.load(.acquire);
 
-    try expr.checkType(alloc, self.global.nodes.getPtr(exprI), self.global.nodes.getConstPtr(typeIndex2), reports);
+    try expr.checkType(alloc, self.global.nodes.getPtr(exprI).asExpression(), self.global.nodes.getConstPtr(typeIndex2).asConstTypes(), reports);
 }
 
-pub fn checkReturn(self: *const TranslationUnit, alloc: Allocator, stmt: *const Parser.Node, type_: *const Parser.Node, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
+pub fn checkReturn(self: *const TranslationUnit, alloc: Allocator, stmt: *const Parser.Node.Return, type_: *const Parser.Node.Types, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
     var expr = try Expression.init(alloc, self);
     defer expr.deinit(alloc);
-    try expr.checkType(alloc, self.global.nodes.getPtr(stmt.data[1].load(.acquire)), type_, reports);
+    try expr.checkType(alloc, self.global.nodes.getPtr(stmt.expr.load(.acquire)).asExpression(), type_, reports);
 }
 
 const Expression = @import("Expression.zig");

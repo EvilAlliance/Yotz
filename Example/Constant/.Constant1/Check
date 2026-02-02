@@ -2,14 +2,14 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 190
-main: () u8 : () u8 { 
+:b stdout 212
+main: () u8 #inferedFromExpression : () u8 { 
     a: u8 #inferedFromUse, u16 #inferedFromUse : 10;
     b: u8 #inferedFromUse, u16 #inferedFromUse : (20 + a);
     c: u16 = a;
     d: u16 = b;
     return (a + b);
-} 
+}
 
 :b stderr 0
 

@@ -2,16 +2,16 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 100
+:b stdout 97
 main :: () u8 { 
     return 1;
-} 
+}
 bar :: () u8 { 
     return 3;
-} 
+}
 baz :: () u8 { 
     return 4;
-} 
+}
 
 :b stderr 586
 [ERROR]: Example/ParseError/ParseError0.yt:6:9: Expected: "number literal", "(", "-", "identifier" but found: ')' 
@@ -29,6 +29,8 @@ test :: () {
 [ERROR]: Example/ParseError/ParseError0.yt:30:5: Expected: ":" but found: 'identifier' 
 qux u8 :: () {
     ^
+
+ ^
 
 () {
            ^
