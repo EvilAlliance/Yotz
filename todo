@@ -448,7 +448,9 @@
         "id": "AQbxF6cR",
         "title": "Variable when there are infering types, it does the check 2 times",
         "desc": "",
-        "time_created": "2026-01-30 12:09:28.121316734 -03:00:00"
+        "time_created": "2026-01-30 12:09:28.121316734 -03:00:00",
+        "time_started": "2026-02-01 22:51:29.083870357 -03:00:00",
+        "time_completed": "2026-02-01 22:53:49.289496149 -03:00:00"
       },
       {
         "id": "noZ58Ak7",
