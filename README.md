@@ -61,6 +61,13 @@ Output file with the statements
 ```console
 yot parse <src> <...args> -- <...executable args>
 ```
+### Check
+
+Output file with the result of the checking proccess
+
+```console
+yot check <src> <...args> -- <...executable args>
+```
 
 ### IR
 
