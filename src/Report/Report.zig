@@ -16,6 +16,8 @@ message: union(enum) {
     expectedFunction: mod.ExpectedFunction,
     incompatibleReturnType: mod.IncompatibleReturnType,
     reservedIdentifier: mod.ReservedIdentifier,
+    argumentsAreConstant: mod.ArgumentsAreConstant,
+    assignmentToConstant: mod.AssignmentToConstant,
 },
 
 pub fn display(self: *const Self, message: mod.Message) void {
@@ -35,6 +37,8 @@ pub fn display(self: *const Self, message: mod.Message) void {
         .expectedFunction => |ef| ef.display(message),
         .incompatibleReturnType => |irt| irt.display(message),
         .reservedIdentifier => |ri| ri.display(message),
+        .argumentsAreConstant => |aac| aac.display(message),
+        .assignmentToConstant => |atc| atc.display(message),
     }
 }
 
@@ -240,6 +244,36 @@ pub fn reservedIdentifier(reports: ?*mod.Reports, where: *const Parser.Node.Decl
     }
 
     return Typing.Statement.Error.ReserveIdentifier;
+}
+
+pub fn argumentsAreConstant(reports: ?*mod.Reports, argument: *const Parser.Node.Assignment, declared: *const Parser.Node.ProtoArg) Typing.Statement.Error {
+    if (reports) |rs| {
+        rs.appendBounded(.{
+            .message = .{
+                .argumentsAreConstant = .{
+                    .argument = argument,
+                    .declared = declared,
+                },
+            },
+        }) catch {};
+    }
+
+    return Typing.Statement.Error.AssignmentConstant;
+}
+
+pub fn assignmentToConstant(reports: ?*mod.Reports, constant: *const Parser.Node.Assignment, declared: *const Parser.Node.VarConst) Typing.Statement.Error {
+    if (reports) |rs| {
+        rs.appendBounded(.{
+            .message = .{
+                .assignmentToConstant = .{
+                    .constant = constant,
+                    .declared = declared,
+                },
+            },
+        }) catch {};
+    }
+
+    return Typing.Statement.Error.AssignmentConstant;
 }
 
 const mod = @import("mod.zig");

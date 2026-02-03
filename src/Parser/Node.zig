@@ -140,7 +140,7 @@ pub const Entry = @import("Node/Entry.zig");
 pub const Root = @import("Node/Root.zig");
 pub const Statement = @import("Node/Statement.zig");
 pub const Declarator = @import("Node/Declarator.zig");
-pub const Assigment = @import("Node/Assigment.zig");
+pub const Assignment = @import("Node/Assigment.zig");
 
 pub fn asFuncProto(self: *Self) *FuncProto {
     assert(self.tag.load(.acquire) == .funcProto);
@@ -420,13 +420,13 @@ pub fn asConstDeclarator(self: *const Self) *const Declarator {
     return @ptrCast(self);
 }
 
-pub fn asAssigment(self: *Self) *Assigment {
+pub fn asAssigment(self: *Self) *Assignment {
     const tag = self.tag.load(.acquire);
     assert(tag == .assigment);
     return @ptrCast(self);
 }
 
-pub fn asConstAssigment(self: *const Self) *const Assigment {
+pub fn asConstAssigment(self: *const Self) *const Assignment {
     const tag = self.tag.load(.acquire);
     assert(tag == .assigment);
     return @ptrCast(self);

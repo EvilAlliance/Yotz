@@ -363,7 +363,7 @@ fn parseAssigment(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (
 
     const expr = try self.parseExpression(alloc, reports);
 
-    const index = try self.tu.global.nodes.appendIndex(alloc, (Node.Assigment{
+    const index = try self.tu.global.nodes.appendIndex(alloc, (Node.Assignment{
         .tokenIndex = .init(nameIndex),
         .expr = .init(expr),
     }).asConst().*);

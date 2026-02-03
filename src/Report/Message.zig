@@ -184,6 +184,42 @@ const Error = struct {
         );
     }
 
+    pub inline fn argumentsAreConstant(self: @This(), argument: *const Parser.Node.Assignment) void {
+        const loc = argument.asConst().getLocation(self.global);
+        const fileInfo = self.global.files.get(loc.source);
+        const where = placeSlice(loc, fileInfo.source);
+        std.log.err(
+            "{s}:{}:{}: Cannot assign to argument '{s}' (arguments are constant) \n{s}\n{[5]c: >[6]}",
+            .{
+                fileInfo.path,
+                loc.row,
+                loc.col,
+                argument.getText(self.global),
+                fileInfo.source[where.beg..where.end],
+                '^',
+                where.pad,
+            },
+        );
+    }
+
+    pub inline fn assignmentToConstant(self: @This(), constant: *const Parser.Node.Assignment) void {
+        const loc = constant.asConst().getLocation(self.global);
+        const fileInfo = self.global.files.get(loc.source);
+        const where = placeSlice(loc, fileInfo.source);
+        std.log.err(
+            "{s}:{}:{}: Cannot assign to constant '{s}' \n{s}\n{[5]c: >[6]}",
+            .{
+                fileInfo.path,
+                loc.row,
+                loc.col,
+                constant.getText(self.global),
+                fileInfo.source[where.beg..where.end],
+                '^',
+                where.pad,
+            },
+        );
+    }
+
     pub inline fn unknownIdentifier(self: @This(), unknownNode: *const Parser.Node) void {
         const loc = unknownNode.getLocation(self.global);
         const fileInfo = self.global.files.get(loc.source);

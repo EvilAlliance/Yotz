@@ -77,10 +77,10 @@ pub fn asConstVarConst(self: *const Self) *const Node.VarConst {
     return self.asConst().asConstVarConst();
 }
 
-pub fn asAssigment(self: *Self) *Node.Assigment {
+pub fn asAssigment(self: *Self) *Node.Assignment {
     return self.as().asAssigment();
 }
 
-pub fn asConstAssigment(self: *const Self) *const Node.Assigment {
+pub fn asConstAssigment(self: *const Self) *const Node.Assignment {
     return self.asConst().asConstAssigment();
 }

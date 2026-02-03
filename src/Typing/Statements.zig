@@ -1,5 +1,6 @@
 pub const Error = error{
     ReserveIdentifier,
+    AssignmentConstant,
 };
 
 pub fn recordVariable(self: *const TranslationUnit, alloc: Allocator, variable: *Parser.Node.VarConst, reports: ?*Report.Reports) (Allocator.Error || Scope.Error || Error)!void {
@@ -45,6 +46,34 @@ pub fn traceVariable(self: *const TranslationUnit, alloc: Allocator, variable: *
 
         try expr.traceVariable(alloc, variable);
     }
+}
+
+pub fn checkAssignment(self: *const TranslationUnit, alloc: Allocator, assignment: *Parser.Node.Assignment, reports: ?*Report.Reports) (Allocator.Error || Expression.Error || Error)!void {
+    const id = assignment.getText(self.global);
+    const variable = self.scope.get(id) orelse return Report.undefinedVariable(reports, assignment.asConst());
+
+    if (variable.tag.load(.acquire) == .protoArg) return Report.argumentsAreConstant(reports, assignment, variable.asConstProtoArg());
+    if (variable.tag.load(.acquire) == .constant) return Report.assignmentToConstant(reports, assignment, variable.asVarConst());
+
+    var exprChecker = try Expression.init(alloc, self);
+    defer exprChecker.deinit(alloc);
+
+    const exprI = assignment.expr.load(.acquire);
+    const typeI = variable.type.load(.acquire);
+
+    const expr =
+        self.global.nodes.getPtr(exprI).asExpression();
+
+    if (typeI == 0) {
+        _ = try exprChecker.inferType(alloc, variable.asVarConst(), expr, reports);
+        return;
+    }
+    try exprChecker.checkType(
+        alloc,
+        expr,
+        self.global.nodes.getConstPtr(typeI).asConstTypes(),
+        reports,
+    );
 }
 
 pub fn checkVariable(self: *const TranslationUnit, alloc: Allocator, variable: *Parser.Node.VarConst, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
