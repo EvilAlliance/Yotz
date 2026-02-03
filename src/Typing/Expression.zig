@@ -469,7 +469,7 @@ fn checkVarType(self: *Self, alloc: Allocator, load: *Parser.Node.Load, type_: *
     }
 
     if (tag == .constant)
-        addInferType(self, alloc, .inferedFromUse, load.as().asExpression(), variable.asVarConst(), type_) catch |err| switch (err) {
+        return addInferType(self, alloc, .inferedFromUse, load.as().asExpression(), variable.asVarConst(), type_) catch |err| switch (err) {
             Error.IncompatibleType => return Report.incompatibleType(reports, self.tu.global.nodes.getConstPtr(variable.type.load(.acquire)), type_.asConst(), load.asConst(), variable.asConst()),
             else => return err,
         };
