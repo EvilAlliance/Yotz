@@ -304,7 +304,15 @@ fn parseStatement(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (
 
     const nodeIndex = switch (self.peek()[0].tag) {
         .ret => try self.parseReturn(alloc, reports),
-        .iden => try self.parseVariableDecl(alloc, reports),
+        .iden => blk: {
+            try Report.expect(reports, self.peekMany(1)[0], &.{ .colon, .equal });
+
+            break :blk switch (self.peekMany(1).@"0".tag) {
+                .colon => try self.parseVariableDecl(alloc, reports),
+                .equal => try self.parseAssigment(alloc, reports),
+                else => unreachable,
+            };
+        },
         else => unreachable,
     };
 
@@ -343,6 +351,22 @@ fn parseVariableDecl(self: *@This(), alloc: Allocator, reports: ?*Report.Reports
     }
 
     _ = self.popIf(.semicolon);
+
+    return index;
+}
+
+fn parseAssigment(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
+    _, const nameIndex = self.popIf(.iden) orelse unreachable;
+
+    try Report.expect(reports, self.peek()[0], &.{.equal});
+    _ = self.pop();
+
+    const expr = try self.parseExpression(alloc, reports);
+
+    const index = try self.tu.global.nodes.appendIndex(alloc, (Node.Assignment{
+        .tokenIndex = .init(nameIndex),
+        .expr = .init(expr),
+    }).asConst().*);
 
     return index;
 }

@@ -54,7 +54,7 @@ fn _checkScope(self: *const TranslationUnit, alloc: Allocator, stmtI: Parser.Nod
         checkStatements(self, alloc, stmt.asStatement(), type_, reports) catch |err| switch (err) {
             Expression.Error.TooBig, Expression.Error.IncompatibleType, Expression.Error.UndefVar => {},
             Scope.Error.KeyAlreadyExists => {},
-            Statement.Error.ReserveIdentifier => {},
+            Statement.Error.ReserveIdentifier, Statement.Error.AssignmentConstant => {},
             else => return @errorCast(err),
         };
 
@@ -73,6 +73,7 @@ fn checkStatements(self: *const TranslationUnit, alloc: Allocator, stmt: *Parser
     const tag = stmt.tag.load(.acquire);
     switch (tag) {
         .ret => try Statement.checkReturn(self, alloc, stmt.asConstReturn(), retType, reports),
+        .assigment => try Statement.checkAssignment(self, alloc, stmt.asAssigment(), reports),
         .variable, .constant => {
             Statement.checkVariable(self, alloc, stmt.asVarConst(), reports) catch |err| {
                 try Statement.recordVariable(self, alloc, stmt.asVarConst(), reports);

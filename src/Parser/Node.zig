@@ -24,6 +24,7 @@ pub const Tag = enum(mod.NodeIndex) {
 
     scope, // data[0] start, when next is zero of the children stop
 
+    assigment,
     ret, // right expression
     variable, // left type, right expr
     constant, // left type, right expr
@@ -84,6 +85,62 @@ pub inline fn getText(self: *const @This(), global: *Global) []const u8 {
 pub inline fn getName(self: *const @This(), global: Global) []const u8 {
     return global.tokens.get(self.tokenIndex.load(.acquire)).tag.getName();
 }
+
+pub fn typeToString(self: @This()) u8 {
+    return @as(u8, switch (@as(mod.Node.Primitive, @enumFromInt(self.right.load(.acquire)))) {
+        .sint => 's',
+        .uint => 'u',
+        .float => 'f',
+    });
+}
+
+pub fn toStringFlags(self: *const Self, alloc: std.mem.Allocator, cont: *std.ArrayList(u8)) std.mem.Allocator.Error!void {
+    const fields = std.meta.fields(Flags);
+    inline for (fields) |field| {
+        if (field.type != bool) continue;
+        const set = @field(self.flags.load(.acquire), field.name);
+        if (set) {
+            try cont.appendSlice(alloc, " #");
+            try cont.appendSlice(alloc, field.name);
+        }
+    }
+}
+
+const mod = @import("mod.zig");
+
+const Lexer = @import("../Lexer/mod.zig");
+const Global = @import("../Global.zig");
+const Util = @import("../Util.zig");
+
+const std = @import("std");
+const assert = std.debug.assert;
+const Value = std.atomic.Value;
+
+pub const FuncProto = @import("Node/FuncProto.zig");
+pub const Expression = @import("Node/Expression.zig");
+pub const BinaryOp = @import("Node/BinaryOp.zig");
+pub const UnaryOp = @import("Node/UnaryOp.zig");
+pub const VarConst = @import("Node/VarConst.zig");
+pub const Literal = @import("Node/Literal.zig");
+pub const Load = @import("Node/Load.zig");
+pub const Call = @import("Node/Call.zig");
+pub const FakeType = @import("Node/FakeType.zig");
+pub const Type = @import("Node/Type.zig");
+pub const FakeTypes = @import("Node/FakeTypes.zig");
+pub const Types = @import("Node/Types.zig");
+pub const FuncType = @import("Node/FuncType.zig");
+pub const FakeFuncType = @import("Node/FakeFuncType.zig");
+pub const FakeArgType = @import("Node/FakeArgType.zig");
+pub const ArgType = @import("Node/ArgType.zig");
+pub const Return = @import("Node/Return.zig");
+pub const Scope = @import("Node/Scope.zig");
+pub const ProtoArg = @import("Node/ProtoArg.zig");
+pub const CallArg = @import("Node/CallArg.zig");
+pub const Entry = @import("Node/Entry.zig");
+pub const Root = @import("Node/Root.zig");
+pub const Statement = @import("Node/Statement.zig");
+pub const Declarator = @import("Node/Declarator.zig");
+pub const Assignment = @import("Node/Assigment.zig");
 
 pub fn asFuncProto(self: *Self) *FuncProto {
     assert(self.tag.load(.acquire) == .funcProto);
@@ -332,7 +389,7 @@ pub fn asConstRoot(self: *const Self) *const Root {
 }
 
 pub fn isStatement(tag: Tag) bool {
-    return Util.listContains(Tag, &.{ .ret, .variable, .constant }, tag);
+    return Util.listContains(Tag, &.{ .ret, .variable, .constant, .assigment }, tag);
 }
 
 pub fn asStatement(self: *Self) *Statement {
@@ -363,57 +420,14 @@ pub fn asConstDeclarator(self: *const Self) *const Declarator {
     return @ptrCast(self);
 }
 
-pub fn typeToString(self: @This()) u8 {
-    return @as(u8, switch (@as(mod.Node.Primitive, @enumFromInt(self.right.load(.acquire)))) {
-        .sint => 's',
-        .uint => 'u',
-        .float => 'f',
-    });
+pub fn asAssigment(self: *Self) *Assignment {
+    const tag = self.tag.load(.acquire);
+    assert(tag == .assigment);
+    return @ptrCast(self);
 }
 
-pub fn toStringFlags(self: *const Self, alloc: std.mem.Allocator, cont: *std.ArrayList(u8)) std.mem.Allocator.Error!void {
-    const fields = std.meta.fields(Flags);
-    inline for (fields) |field| {
-        if (field.type != bool) continue;
-        const set = @field(self.flags.load(.acquire), field.name);
-        if (set) {
-            try cont.appendSlice(alloc, " #");
-            try cont.appendSlice(alloc, field.name);
-        }
-    }
+pub fn asConstAssigment(self: *const Self) *const Assignment {
+    const tag = self.tag.load(.acquire);
+    assert(tag == .assigment);
+    return @ptrCast(self);
 }
-
-const mod = @import("mod.zig");
-
-const Lexer = @import("../Lexer/mod.zig");
-const Global = @import("../Global.zig");
-const Util = @import("../Util.zig");
-
-const std = @import("std");
-const assert = std.debug.assert;
-const Value = std.atomic.Value;
-
-pub const FuncProto = @import("Node/FuncProto.zig");
-pub const Expression = @import("Node/Expression.zig");
-pub const BinaryOp = @import("Node/BinaryOp.zig");
-pub const UnaryOp = @import("Node/UnaryOp.zig");
-pub const VarConst = @import("Node/VarConst.zig");
-pub const Literal = @import("Node/Literal.zig");
-pub const Load = @import("Node/Load.zig");
-pub const Call = @import("Node/Call.zig");
-pub const FakeType = @import("Node/FakeType.zig");
-pub const Type = @import("Node/Type.zig");
-pub const FakeTypes = @import("Node/FakeTypes.zig");
-pub const Types = @import("Node/Types.zig");
-pub const FuncType = @import("Node/FuncType.zig");
-pub const FakeFuncType = @import("Node/FakeFuncType.zig");
-pub const FakeArgType = @import("Node/FakeArgType.zig");
-pub const ArgType = @import("Node/ArgType.zig");
-pub const Return = @import("Node/Return.zig");
-pub const Scope = @import("Node/Scope.zig");
-pub const ProtoArg = @import("Node/ProtoArg.zig");
-pub const CallArg = @import("Node/CallArg.zig");
-pub const Entry = @import("Node/Entry.zig");
-pub const Root = @import("Node/Root.zig");
-pub const Statement = @import("Node/Statement.zig");
-pub const Declarator = @import("Node/Declarator.zig");
