@@ -452,7 +452,18 @@ fn checkVarType(self: *Self, alloc: Allocator, load: *Parser.Node.Load, type_: *
     var typeIndex = variable.type.load(.acquire);
 
     if (typeIndex == 0)
-        return addInferType(self, alloc, .inferedFromUse, load.as().asExpression(), variable.asVarConst(), type_);
+        return addInferType(self, alloc, .inferedFromUse, load.as().asExpression(), variable.asVarConst(), type_) catch |err| switch (err) {
+            Error.IncompatibleType => {
+                if (!try self.inferType(
+                    alloc,
+                    variable.asVarConst(),
+                    self.tu.global.nodes.getConstPtr(variable.asVarConst().expr.load(.acquire)).asConstExpression(),
+                    reports,
+                )) return;
+                return Report.incompatibleType(reports, self.tu.global.nodes.getConstPtr(variable.type.load(.acquire)), type_.asConst(), load.asConst(), variable.asConst());
+            },
+            else => return err,
+        };
 
     const tag = variable.tag.load(.acquire);
 
