@@ -20,7 +20,7 @@ pub fn Multiple(Key: type, Args: type, ContextOpt: ?type) type {
             args: Args,
         };
 
-        node: std.SinglyLinkedList.Node = .{},
+        node: std.SinglyLinkedList = .{},
 
         pool: *std.Thread.Pool = undefined,
         mutex: std.Thread.Mutex = .{},
@@ -44,7 +44,7 @@ pub fn Multiple(Key: type, Args: type, ContextOpt: ?type) type {
         }
 
         pub fn pushUnlock(self: *Self, alloc: Allocator, wait: Key, func: *const fn (Args) void, args: Args) Allocator.Error!void {
-            const handler: *Handler = if (self.node.removeNext()) |handlerOld| @fieldParentPtr("node", handlerOld) else try alloc.create(Handler);
+            const handler: *Handler = if (self.node.popFirst()) |handlerOld| @fieldParentPtr("node", handlerOld) else try alloc.create(Handler);
 
             handler.* = .{
                 .func = func,
@@ -78,8 +78,7 @@ pub fn Multiple(Key: type, Args: type, ContextOpt: ?type) type {
                 self.ctx.init(&handler.args);
                 try self.pool.spawn(executeHandler, .{ self, handler.func, handler.args });
 
-                node.next = null;
-                self.node.insertAfter(node);
+                self.node.prepend(node);
             }
         }
 
@@ -93,7 +92,7 @@ pub fn Multiple(Key: type, Args: type, ContextOpt: ?type) type {
                 }
             }
 
-            while (self.node.removeNext()) |n| {
+            while (self.node.popFirst()) |n| {
                 const handler: *Handler = @fieldParentPtr("node", n);
                 alloc.destroy(handler);
             }
