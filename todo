@@ -481,6 +481,12 @@
         "time_created": "2026-02-01 19:28:44.367538814 -03:00:00",
         "time_started": "2026-02-01 23:17:58.400044466 -03:00:00",
         "time_completed": "2026-02-01 23:17:58.560080738 -03:00:00"
+      },
+      {
+        "id": "umX9yxEj",
+        "title": "Add report warining when variable is not useed",
+        "desc": "",
+        "time_created": "2026-02-06 17:28:18.790823071 -03:00:00"
       }
     ]
   }
