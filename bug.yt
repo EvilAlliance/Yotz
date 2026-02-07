@@ -1,0 +1,10 @@
+main :: () u8 {
+    x :: 8;
+
+    a :u8= x;
+    b :u16= x;
+
+    c := x;
+
+    return c;
+}
