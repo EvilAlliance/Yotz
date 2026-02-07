@@ -492,7 +492,21 @@
         "id": "XUFU7Wfk",
         "title": "Fucntion to compare all types and the checkLoadType extract it",
         "desc": "",
-        "time_created": "2026-02-06 23:32:15.164501389 -03:00:00"
+        "time_created": "2026-02-06 23:32:15.164501389 -03:00:00",
+        "time_started": "2026-02-07 11:45:41.724539563 -03:00:00",
+        "time_completed": "2026-02-07 19:12:44.841783602 -03:00:00"
+      },
+      {
+        "id": "MkuCV2US",
+        "title": "Extract checking for args in the checkCallType or make is simpler",
+        "desc": "",
+        "time_created": "2026-02-07 12:49:08.363503226 -03:00:00"
+      },
+      {
+        "id": "ZFdkSAqs",
+        "title": "Try to sumplify the leafs of _inferType",
+        "desc": "",
+        "time_created": "2026-02-07 12:59:17.006048976 -03:00:00"
       }
     ]
   }

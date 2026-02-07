@@ -175,6 +175,27 @@ pub fn canTypeBeCoerced(actual: *const Parser.Node.Types, expected: *const Parse
     return expectedType.primitive.load(.acquire) == actualType.primitive.load(.acquire) and expectedType.size.load(.acquire) >= actualType.size.load(.acquire);
 }
 
+const EqualCoerce = union(enum) { notFound: void, coerce: void, found: *Parser.Node.Types };
+const Equal = union(enum) { notFound: void, found: *Parser.Node.Types };
+const Coerce = union(enum) { notFound: void, coerce: void };
+const None = union(enum) { notFound: void };
+
+// NOTE: All type connected to actual are check when the expected (if expected next != 0 the other type is not checked)
+pub fn compareActualsTypes(global: *const Global, actual: *Parser.Node.Types, expecected: *const Parser.Node.Types, comptime equal: bool, comptime coerce: bool) if (equal and coerce) EqualCoerce else if (equal) Equal else if (coerce) Coerce else None {
+    var node: *Parser.Node = actual.as();
+    var couldBeCoerce = false;
+
+    while (Parser.Node.isTypes(node.tag.load(.acquire))) : (node = global.nodes.getPtr(node.next.load(.acquire))) {
+        const variableType = node.asTypes();
+
+        if (equal and typeEqual(global, variableType, expecected)) return .{ .found = variableType };
+        if (coerce and canTypeBeCoerced(variableType, expecected)) couldBeCoerce = true;
+    }
+
+    if (coerce and couldBeCoerce) return .coerce;
+    return .notFound;
+}
+
 const TranslationUnit = @import("../TranslationUnit.zig");
 const Global = @import("../Global.zig");
 const Parser = @import("../Parser/mod.zig");

@@ -391,13 +391,13 @@ fn checkCallType(self: *Self, alloc: Allocator, call_: *Parser.Node.Call, expect
         assert(self.inferType(alloc, func.asVarConst(), self.tu.global.nodes.getPtr(func.asVarConst().expr.load(.acquire)).asExpression(), reports) catch |err| std.debug.panic("Why would this fail, it should be valid {}", .{err}));
     }
 
-    const funcType = self.tu.global.nodes.getConstPtr(func.type.load(.acquire));
+    const funcType = self.tu.global.nodes.getPtr(func.type.load(.acquire));
 
-    var retType = funcType.asConstTypes();
+    var retType = funcType.asTypes();
 
     while (true) {
         if (retType.tag.load(.acquire) != .funcType) return Report.expectedFunction(reports, call.as(), retType.asConst());
-        const retFuncType = retType.asConstFuncType();
+        const retFuncType = retType.asFuncType();
 
         var argTypeI = retFuncType.argsType.load(.acquire);
         var argI = call.firstArg.load(.acquire);
@@ -415,27 +415,24 @@ fn checkCallType(self: *Self, alloc: Allocator, call_: *Parser.Node.Call, expect
             argTypeI = argType.next.load(.acquire);
             argI = arg.next.load(.acquire);
         }
-        retType = self.tu.global.nodes.getConstPtr(retFuncType.retType.load(.acquire)).asConstTypes();
+        retType = self.tu.global.nodes.getPtr(retFuncType.retType.load(.acquire)).asTypes();
 
         const nextCall = call.next.load(.acquire);
         if (nextCall == 0) break;
         call = self.tu.global.nodes.getPtr(nextCall).asCall();
     }
 
-    if (Type.typeEqual(self.tu.global, retType, expectedType)) return;
-    if (Type.canTypeBeCoerced(retType, expectedType)) {
-        var x: ?Parser.Node.Flags = .{};
-        while (x) |_| {
+    return switch (Type.compareActualsTypes(self.tu.global, retType, expectedType, true, true)) {
+        .found => {},
+        .coerce => {
             const pastFlags = call.as().flags.load(.acquire);
             var flags = pastFlags;
             flags.implicitCast = true;
 
-            x = call.as().flags.cmpxchgWeak(pastFlags, flags, .acquire, .monotonic);
-        }
-        return;
-    }
-
-    return Report.incompatibleReturnType(reports, retType.asConst(), expectedType.asConst(), call.asConst(), func.asConst());
+            assert(call.as().flags.cmpxchgStrong(pastFlags, flags, .acquire, .monotonic) == null);
+        },
+        .notFound => Report.incompatibleReturnType(reports, retType.asConst(), expectedType.asConst(), call.asConst(), func.asConst()),
+    };
 }
 
 fn checkFuncProtoType(self: *Self, funcProtoNode: *const Parser.Node.FuncProto, expectedType: *const Parser.Node.Types, reports: ?*Report.Reports) (Error)!void {
@@ -450,8 +447,9 @@ fn checkFuncProtoType(self: *Self, funcProtoNode: *const Parser.Node.FuncProto, 
     const retType = self.tu.global.nodes.getPtr(retTypeIndex);
     const funcRetType = self.tu.global.nodes.getPtr(funcRetTypeIndex);
 
-    if (!Type.typeEqual(self.tu.global, funcRetType.asTypes(), retType.asTypes())) {
-        return Report.incompatibleType(reports, retType, funcRetType, funcRetType, funcRetType);
+    switch (Type.compareActualsTypes(self.tu.global, funcRetType.asTypes(), retType.asTypes(), true, false)) {
+        .notFound => return Report.incompatibleType(reports, retType, funcRetType, funcRetType, funcRetType),
+        .found => {},
     }
 
     const argsI = funcProtoNode.args.load(.acquire);
@@ -473,8 +471,9 @@ fn checkFuncProtoType(self: *Self, funcProtoNode: *const Parser.Node.FuncProto, 
         const protoArgType = self.tu.global.nodes.getPtr(protoArgTypeIndex);
         const typeArgType = self.tu.global.nodes.getPtr(typeArgTypeIndex);
 
-        if (!Type.typeEqual(self.tu.global, protoArgType.asTypes(), typeArgType.asTypes())) {
-            return Report.incompatibleType(reports, typeArgType, protoArgType, protoArg, protoArg);
+        switch (Type.compareActualsTypes(self.tu.global, protoArgType.asTypes(), typeArgType.asTypes(), true, false)) {
+            .notFound => return Report.incompatibleType(reports, typeArgType, protoArgType, protoArg, protoArg),
+            .found => {},
         }
 
         const protoNextIndex = protoArg.next.load(.acquire);
@@ -495,7 +494,7 @@ fn checkVarType(self: *Self, alloc: Allocator, load: *Parser.Node.Load, type_: *
 
     const variable = self.tu.scope.get(id) orelse return Report.undefinedVariable(reports, load.asConst());
 
-    var typeIndex = variable.type.load(.acquire);
+    const typeIndex = variable.type.load(.acquire);
 
     if (typeIndex == 0) {
         return addInferType(self, alloc, .inferedFromUse, load.as().asExpression(), variable.asVarConst(), type_, reports) catch |err| switch (err) {
@@ -512,37 +511,34 @@ fn checkVarType(self: *Self, alloc: Allocator, load: *Parser.Node.Load, type_: *
         };
     }
 
-    const tag = variable.tag.load(.acquire);
+    const variableType: *Parser.Node.Types = self.tu.global.nodes.getPtr(typeIndex).asTypes();
+    const result = Type.compareActualsTypes(self.tu.global, variableType, type_, true, true);
+    switch (result) {
+        .found => return,
+        .notFound, .coerce => {
+            const tag = variable.tag.load(.acquire);
+            if (tag == .constant)
+                return addInferType(self, alloc, .inferedFromUse, load.as().asExpression(), variable.asVarConst(), type_, reports) catch |err| switch (err) {
+                    Error.IncompatibleType => return Report.incompatibleType(
+                        reports,
+                        self.tu.global.nodes.getConstPtr(typeIndex),
+                        type_.asConst(),
+                        load.asConst(),
+                        variable.asConst(),
+                    ),
+                    else => return err,
+                };
 
-    var variableType: *const Parser.Node.Types = undefined;
+            if (std.meta.activeTag(result) == .coerce) {
+                const pastFlags = load.flags.load(.acquire);
+                var flags = pastFlags;
+                flags.implicitCast = true;
 
-    var couldBeCoerce = false;
-    // NOTE: This will be runned once for variable and could be multiple with constants
-    while (typeIndex != 0) : (typeIndex = variableType.next.load(.acquire)) {
-        variableType = self.tu.global.nodes.getConstPtr(typeIndex).asConstTypes();
+                assert(load.flags.cmpxchgStrong(pastFlags, flags, .acquire, .monotonic) == null);
 
-        if (Type.typeEqual(self.tu.global, variableType, type_)) return;
-        // NOTE: This has to be appart because if it a constant I want to check if it has an equal
-        if (Type.canTypeBeCoerced(variableType, type_)) couldBeCoerce = true;
-    }
-
-    if (tag == .constant)
-        return addInferType(self, alloc, .inferedFromUse, load.as().asExpression(), variable.asVarConst(), type_, reports) catch |err| switch (err) {
-            Error.IncompatibleType => return Report.incompatibleType(reports, self.tu.global.nodes.getConstPtr(variable.type.load(.acquire)), type_.asConst(), load.asConst(), variable.asConst()),
-            else => return err,
-        };
-
-    if (couldBeCoerce) {
-        var x: ?Parser.Node.Flags = .{};
-        while (x) |_| {
-            const pastFlags = load.flags.load(.acquire);
-            var flags = pastFlags;
-            flags.implicitCast = true;
-
-            x = load.flags.cmpxchgWeak(pastFlags, flags, .acquire, .monotonic);
-        }
-
-        return;
+                return;
+            }
+        },
     }
 
     return Report.incompatibleType(reports, variableType.asConst(), type_.asConst(), load.as(), variable.as());
@@ -558,22 +554,19 @@ fn addInferType(self: *Self, alloc: Allocator, comptime flag: std.meta.FieldEnum
     // Check Variable expression for that type
     try self.checkType(alloc, self.tu.global.nodes.getPtr(variable.expr.load(.acquire)).asExpression(), type_, null);
 
-    var after = variable.type.load(.acquire);
+    const after = variable.type.load(.acquire);
 
     if (before != after) {
-        var variableType: *Parser.Node.Types = undefined;
-        while (after != before) : (after = variableType.next.load(.acquire)) {
-            variableType = self.tu.global.nodes.getPtr(after).asTypes();
-
-            // WARN: This could cause problems, and have missmatch. Causing worse error message
-            if (Type.typeEqual(self.tu.global, variableType, type_)) {
+        switch (Type.compareActualsTypes(self.tu.global, self.tu.global.nodes.getPtr(after).asTypes(), type_, true, false)) {
+            .found => |variableType| {
                 var flags: Parser.Node.Flags = .{};
                 @field(flags, @tagName(flag)) = true;
                 variableType.flags.store(flags, .release);
                 variableType.tokenIndex.store(leaf.tokenIndex.load(.acquire), .release);
 
                 return;
-            }
+            },
+            .notFound => {},
         }
     }
 
@@ -600,12 +593,10 @@ fn addInferType(self: *Self, alloc: Allocator, comptime flag: std.meta.FieldEnum
         return;
     }
 
-    var typeI = variable.type.load(.acquire);
-    var variableType: *Parser.Node.Types = undefined;
-    while (typeI != 0) : (typeI = variableType.next.load(.acquire)) {
-        variableType = self.tu.global.nodes.getPtr(typeI).asTypes();
-
-        if (Type.typeEqual(self.tu.global, variableType, type_)) return;
+    const variableType = self.tu.global.nodes.getPtr(variable.type.load(.acquire)).asTypes();
+    switch (Type.compareActualsTypes(self.tu.global, variableType, type_, true, false)) {
+        .found => return,
+        .notFound => {},
     }
 
     @panic("Revaluete the way it is done");

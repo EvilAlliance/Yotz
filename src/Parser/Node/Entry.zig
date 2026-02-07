@@ -1,5 +1,6 @@
 const Self = @This();
 
+// NOTE: This is always at the start
 tag: Value(Node.Tag) = .init(.entry),
 tokenIndex: Value(mod.TokenIndex) = .init(0),
 left: Value(mod.NodeIndex) = .init(0),
