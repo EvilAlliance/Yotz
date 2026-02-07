@@ -62,6 +62,7 @@ pub fn testIt(self: @This()) void {
 
     inline for (@typeInfo(SubCommand).@"enum".fields) |falseValue| {
         const value: SubCommand = @enumFromInt(falseValue.value);
+        self.tests.items[index].results[@intFromEnum(value)].type = .NotCompiled;
 
         if (value == .All) continue;
         if (self.subCommand == .All or value == self.subCommand) {
@@ -197,7 +198,10 @@ fn testSubCommand(
     });
 
     var actual = TestCase.init(self.alloc, fileWithAnswer, &[0][]const u8{}, expected.stdin, result, stdout.items, stderr.items) catch |err| switch (err) {
-        error.notFound => return,
+        error.notFound => {
+            self.tests.items[index].results[@intFromEnum(subCommand)].type = .Fail;
+            return;
+        },
         else => @panic("Not enough memory"),
     };
     defer actual.deinit();

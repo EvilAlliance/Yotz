@@ -83,7 +83,9 @@ pub fn checkVariable(self: *const TranslationUnit, alloc: Allocator, variable: *
     defer expr.deinit(alloc);
 
     if (typeIndex == 0) {
-        _ = try expr.inferType(alloc, variable, self.global.nodes.getConstPtr(variable.expr.load(.acquire)).asConstExpression(), reports);
+        if (try expr.inferType(alloc, variable, self.global.nodes.getConstPtr(variable.expr.load(.acquire)).asConstExpression(), reports)) return;
+        expr.reset();
+        try expr.pushDependant(alloc, variable);
         return;
     }
 

@@ -13,6 +13,9 @@ const VTable = struct {
     getGlobal: *const fn (*anyopaque) *ScopeGlobal,
     deepClone: *const fn (*anyopaque, alloc: Allocator) Allocator.Error!Self,
 
+    pushDependant: *const fn (*anyopaque, Allocator, []const u8, *Parser.Node.VarConst) Allocator.Error!void,
+    popDependant: *const fn (*anyopaque, []const u8) ?*Parser.Node.VarConst,
+
     deinit: *const fn (*anyopaque, alloc: Allocator) void,
 };
 
@@ -38,6 +41,14 @@ pub fn getGlobal(self: Self) *ScopeGlobal {
 
 pub fn deepClone(self: Self, alloc: Allocator) Allocator.Error!Self {
     return self.vtable.deepClone(self.ptr, alloc);
+}
+
+pub fn pushDependant(self: Self, alloc: Allocator, key: []const u8, value: *Parser.Node.VarConst) Allocator.Error!void {
+    return self.vtable.pushDependant(self.ptr, alloc, key, value);
+}
+
+pub fn popDependant(self: Self, key: []const u8) ?*Parser.Node.VarConst {
+    return self.vtable.popDependant(self.ptr, key);
 }
 
 pub fn deinit(self: Self, alloc: Allocator) void {

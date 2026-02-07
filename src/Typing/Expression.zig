@@ -90,6 +90,7 @@ fn push(self: *Self, alloc: Allocator, variable: *const Parser.Node, reason: Rea
 fn pop(self: *Self) void {
     _ = self.hasCycle.pop();
 }
+
 pub fn traceVariable(self: *Self, alloc: Allocator, variable: *const Parser.Node.VarConst) Allocator.Error!void {
     try self.push(alloc, variable.asConst(), .cycleGlobalTracing);
     defer self.pop();
@@ -133,6 +134,50 @@ fn _traceVariable(self: *Self, alloc: Allocator, expr: *const Parser.Node.Expres
     }
 }
 
+pub fn pushDependant(self: *Self, alloc: Allocator, variable: *Parser.Node.VarConst) Allocator.Error!void {
+    try self.push(alloc, variable.asConst(), .cycleGlobalTracing);
+    defer self.pop();
+
+    const exprI = variable.expr.load(.acquire);
+
+    try self._pushDependant(alloc, variable, self.tu.global.nodes.getConstPtr(exprI).asConstExpression());
+}
+
+fn _pushDependant(self: *Self, alloc: Allocator, variable: *Parser.Node.VarConst, expr: *const Parser.Node.Expression) Allocator.Error!void {
+    switch (expr.tag.load(.acquire)) {
+        .load => {
+            const load = expr.asConstLoad();
+            try self.push(alloc, load.asConst(), .cycleGlobalTracing);
+            defer self.pop();
+
+            const id = load.getText(self.tu.global);
+            const loadedVariable = self.tu.scope.get(id) orelse return;
+
+            if (loadedVariable.tag.load(.acquire) == .protoArg) return;
+
+            try self.tu.scope.pushDependant(alloc, id, variable);
+        },
+        .neg => {
+            const left = expr.left.load(.acquire);
+
+            try self._pushDependant(alloc, variable, self.tu.global.nodes.getPtr(left).asConstExpression());
+        },
+        .addition,
+        .subtraction,
+        .multiplication,
+        .division,
+        .power,
+        => {
+            const left = expr.left.load(.acquire);
+            const right = expr.right.load(.acquire);
+
+            try self._pushDependant(alloc, variable, self.tu.global.nodes.getPtr(left).asConstExpression());
+            try self._pushDependant(alloc, variable, self.tu.global.nodes.getPtr(right).asConstExpression());
+        },
+        else => {},
+    }
+}
+
 pub fn inferType(self: *Self, alloc: Allocator, variable: *Parser.Node.VarConst, expr: *const Parser.Node.Expression, reports: ?*Report.Reports) (Allocator.Error || Error)!bool {
     try self.push(alloc, expr.asConst(), .inference);
     defer self.pop();
@@ -141,7 +186,8 @@ pub fn inferType(self: *Self, alloc: Allocator, variable: *Parser.Node.VarConst,
 
     if (typeI == null) return false;
 
-    try self.addInferType(alloc, .inferedFromExpression, typeI.?.place, variable, typeI.?.type);
+    if (variable.type.load(.acquire) != 0) return true;
+    try self.addInferType(alloc, .inferedFromExpression, typeI.?.place, variable, typeI.?.type, reports);
 
     return true;
 }
@@ -451,8 +497,8 @@ fn checkVarType(self: *Self, alloc: Allocator, load: *Parser.Node.Load, type_: *
 
     var typeIndex = variable.type.load(.acquire);
 
-    if (typeIndex == 0)
-        return addInferType(self, alloc, .inferedFromUse, load.as().asExpression(), variable.asVarConst(), type_) catch |err| switch (err) {
+    if (typeIndex == 0) {
+        return addInferType(self, alloc, .inferedFromUse, load.as().asExpression(), variable.asVarConst(), type_, reports) catch |err| switch (err) {
             Error.IncompatibleType => {
                 if (!try self.inferType(
                     alloc,
@@ -464,6 +510,7 @@ fn checkVarType(self: *Self, alloc: Allocator, load: *Parser.Node.Load, type_: *
             },
             else => return err,
         };
+    }
 
     const tag = variable.tag.load(.acquire);
 
@@ -480,7 +527,7 @@ fn checkVarType(self: *Self, alloc: Allocator, load: *Parser.Node.Load, type_: *
     }
 
     if (tag == .constant)
-        return addInferType(self, alloc, .inferedFromUse, load.as().asExpression(), variable.asVarConst(), type_) catch |err| switch (err) {
+        return addInferType(self, alloc, .inferedFromUse, load.as().asExpression(), variable.asVarConst(), type_, reports) catch |err| switch (err) {
             Error.IncompatibleType => return Report.incompatibleType(reports, self.tu.global.nodes.getConstPtr(variable.type.load(.acquire)), type_.asConst(), load.asConst(), variable.asConst()),
             else => return err,
         };
@@ -501,15 +548,36 @@ fn checkVarType(self: *Self, alloc: Allocator, load: *Parser.Node.Load, type_: *
     return Report.incompatibleType(reports, variableType.asConst(), type_.asConst(), load.as(), variable.as());
 }
 
-fn addInferType(self: *Self, alloc: Allocator, comptime flag: std.meta.FieldEnum(Parser.Node.Flags), leaf: *const Parser.Node.Expression, variable: *Parser.Node.VarConst, type_: *const Parser.Node.Types) (Allocator.Error || Error)!void {
+fn addInferType(self: *Self, alloc: Allocator, comptime flag: std.meta.FieldEnum(Parser.Node.Flags), leaf: *const Parser.Node.Expression, variable: *Parser.Node.VarConst, type_: *const Parser.Node.Types, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
     assert(flag == .inferedFromUse or flag == .inferedFromExpression);
     const typeTag = type_.tag.load(.acquire);
     assert(typeTag == .funcType or typeTag == .type);
     try self.push(alloc, variable.as(), .addInference);
     defer self.pop();
 
+    const before = variable.type.load(.acquire);
+
     // Check Variable expression for that type
     try self.checkType(alloc, self.tu.global.nodes.getPtr(variable.expr.load(.acquire)).asExpression(), type_, null);
+
+    var after = variable.type.load(.acquire);
+
+    if (before != after) {
+        var variableType: *Parser.Node.Types = undefined;
+        while (after != before) : (after = variableType.next.load(.acquire)) {
+            variableType = self.tu.global.nodes.getPtr(after).asTypes();
+
+            // WARN: This could cause problems, and have missmatch. Causing worse error message
+            if (Type.typeEqual(self.tu.global, variableType, type_)) {
+                var flags: Parser.Node.Flags = .{};
+                @field(flags, @tagName(flag)) = true;
+                variableType.flags.store(flags, .release);
+                variableType.tokenIndex.store(leaf.tokenIndex.load(.acquire), .release);
+
+                return;
+            }
+        }
+    }
 
     // Reset data
     var nodeType = type_.*;
@@ -524,7 +592,17 @@ fn addInferType(self: *Self, alloc: Allocator, comptime flag: std.meta.FieldEnum
     const x = try self.tu.global.nodes.appendIndex(alloc, nodeType.asConst().*);
     // Make the variable be that type
     // TODO: Check if this type was already added
-    if (variable.type.cmpxchgStrong(nodeType.next.load(.acquire), x, .acq_rel, .monotonic) != null) try self.addInferType(alloc, flag, leaf, variable, type_);
+    if (variable.type.cmpxchgStrong(nodeType.next.load(.acquire), x, .acq_rel, .monotonic) == null) {
+        const id = variable.getText(self.tu.global);
+        while (self.tu.scope.popDependant(id)) |dependant| {
+            if (dependant.type.load(.acquire) == 0) {
+                try Statement.checkVariable(self.tu, alloc, dependant, reports);
+            }
+        }
+        return;
+    }
+
+    @panic("What should i do, this may happend with glboal variables");
 }
 
 fn checkLitType(self: *Self, lit: *const Parser.Node.Literal, expectedType: *const Parser.Node.Types, reports: ?*Report.Reports) (Error)!void {
@@ -556,6 +634,7 @@ fn checkLitType(self: *Self, lit: *const Parser.Node.Literal, expectedType: *con
 }
 
 const Type = @import("Type.zig");
+const Statement = @import("Statements.zig");
 
 const TranslationUnit = @import("../TranslationUnit.zig");
 const Report = @import("../Report/mod.zig");
