@@ -550,8 +550,6 @@ fn checkVarType(self: *Self, alloc: Allocator, load: *Parser.Node.Load, type_: *
 
 fn addInferType(self: *Self, alloc: Allocator, comptime flag: std.meta.FieldEnum(Parser.Node.Flags), leaf: *const Parser.Node.Expression, variable: *Parser.Node.VarConst, type_: *const Parser.Node.Types, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
     assert(flag == .inferedFromUse or flag == .inferedFromExpression);
-    const typeTag = type_.tag.load(.acquire);
-    assert(typeTag == .funcType or typeTag == .type);
     try self.push(alloc, variable.as(), .addInference);
     defer self.pop();
 
@@ -602,7 +600,15 @@ fn addInferType(self: *Self, alloc: Allocator, comptime flag: std.meta.FieldEnum
         return;
     }
 
-    @panic("What should i do, this may happend with glboal variables");
+    var typeI = variable.type.load(.acquire);
+    var variableType: *Parser.Node.Types = undefined;
+    while (typeI != 0) : (typeI = variableType.next.load(.acquire)) {
+        variableType = self.tu.global.nodes.getPtr(typeI).asTypes();
+
+        if (Type.typeEqual(self.tu.global, variableType, type_)) return;
+    }
+
+    @panic("Revaluete the way it is done");
 }
 
 fn checkLitType(self: *Self, lit: *const Parser.Node.Literal, expectedType: *const Parser.Node.Types, reports: ?*Report.Reports) (Error)!void {

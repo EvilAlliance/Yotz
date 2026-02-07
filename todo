@@ -485,8 +485,14 @@
       {
         "id": "umX9yxEj",
         "title": "Add report warining when variable is not useed",
-        "desc": "",
+        "desc": "Added fucntion in scope, like getLoad or laod key and there mark it",
         "time_created": "2026-02-06 17:28:18.790823071 -03:00:00"
+      },
+      {
+        "id": "XUFU7Wfk",
+        "title": "Fucntion to compare all types and the checkLoadType extract it",
+        "desc": "",
+        "time_created": "2026-02-06 23:32:15.164501389 -03:00:00"
       }
     ]
   }
