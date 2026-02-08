@@ -140,13 +140,15 @@ fn skipBlock(self: *@This()) void {
 }
 
 fn parseFuncProto(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
-    try Report.expect(reports, self.pop()[0], &.{.openParen});
+    const token, const tokenIndex = self.pop();
+    try Report.expect(reports, token, &.{.openParen});
     const args = try self.parseArgs(alloc, reports);
     try Report.expect(reports, self.pop()[0], &.{.closeParen});
 
     const p = try self.parseType(alloc, reports);
     const funcProto: Node.FuncProto = .{
         .args = .init(args),
+        .tokenIndex = .init(tokenIndex),
         .retType = .init(p),
     };
 
