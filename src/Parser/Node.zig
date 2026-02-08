@@ -95,6 +95,38 @@ pub fn typeToString(self: @This()) u8 {
     });
 }
 
+pub fn Iterator(comptime T: type, comptime field: []const u8) type {
+    if (@typeInfo(T) != .pointer) @compileError("Must be a pointer");
+    if (@sizeOf(@typeInfo(T).pointer.child) != @sizeOf(Self)) @compileError("Must be a pointer");
+    return struct {
+        const IterSelf = @This();
+
+        global: *const Global,
+        current: mod.NodeIndex,
+
+        pub fn init(global: *const Global, start: mod.NodeIndex) IterSelf {
+            return .{
+                .global = global,
+                .current = start,
+            };
+        }
+
+        pub fn next(self: *IterSelf) ?T {
+            if (self.current == 0) return null;
+
+            const node = if (@typeInfo(T).pointer.is_const)
+                self.global.nodes.getConstPtr(self.current)
+            else
+                self.global.nodes.getPtr(self.current);
+
+            const nextIndex = @field(node, field).load(.acquire);
+            self.current = nextIndex;
+
+            return @ptrCast(node);
+        }
+    };
+}
+
 pub fn toStringFlags(self: *const Self, alloc: std.mem.Allocator, cont: *std.ArrayList(u8)) std.mem.Allocator.Error!void {
     const fields = std.meta.fields(Flags);
     inline for (fields) |field| {

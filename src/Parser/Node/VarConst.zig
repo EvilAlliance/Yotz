@@ -2,16 +2,25 @@ const Self = @This();
 
 tag: Value(Node.Tag),
 tokenIndex: Value(mod.TokenIndex) = .init(0),
-type: Value(mod.NodeIndex) = .init(0),
+type: Value(mod.NodeIndex) = .init(0), // Declarator
 expr: Value(mod.NodeIndex) = .init(0),
 next: Value(mod.NodeIndex) = .init(0),
 flags: Value(Node.Flags) = .init(Node.Flags{}),
 
-const varConst = [_]Struct.FieldMap{
+const declarator = [_]Struct.FieldMap{
+    .{ .b = "tag", .v = "tag" },
+    .{ .b = "tokenIndex", .v = "tokenIndex" },
+    .{ .b = "type", .v = "type" },
+    .{ .b = "right", .v = "expr" },
+    .{ .b = "next", .v = "next" },
+    .{ .b = "flags", .v = "flags" },
+};
+
+const statement = [_]Struct.FieldMap{
     .{ .b = "tag", .v = "tag" },
     .{ .b = "tokenIndex", .v = "tokenIndex" },
     .{ .b = "left", .v = "type" },
-    .{ .b = "right", .v = "expr" },
+    .{ .b = "expr", .v = "expr" },
     .{ .b = "next", .v = "next" },
     .{ .b = "flags", .v = "flags" },
 };
@@ -19,7 +28,8 @@ const varConst = [_]Struct.FieldMap{
 comptime {
     if (@sizeOf(Node) != @sizeOf(Self)) @compileError("Must be same size");
 
-    Struct.assertSameOffsetsFromMap(Node, Self, &varConst);
+    Struct.assertSameOffsetsFromMap(Node.Declarator, Self, &declarator);
+    Struct.assertSameOffsetsFromMap(Node.Statement, Self, &statement);
     Struct.assertCommonFieldTypes(Node, Self, Node.COMMONTYPE);
     Struct.assertCommonFieldDefaults(Node, Self, Node.COMMONDEFAULT);
 }

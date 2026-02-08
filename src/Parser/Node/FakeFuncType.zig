@@ -19,9 +19,9 @@ const fakeFuncType = [_]Struct.FieldMap{
 comptime {
     if (@sizeOf(Node) != @sizeOf(Self)) @compileError("Must be same size");
 
-    Struct.assertSameOffsetsFromMap(Node, Self, &fakeFuncType);
-    Struct.assertCommonFieldTypes(Node, Self, Node.COMMONTYPE);
-    Struct.assertCommonFieldDefaults(Node, Self, Node.COMMONDEFAULT);
+    Struct.assertSameOffsetsFromMap(Node.FakeTypes, Self, &fakeFuncType);
+    Struct.assertCommonFieldTypes(Node.FakeTypes, Self, Node.COMMONTYPE);
+    Struct.assertCommonFieldDefaults(Node.FakeTypes, Self, Node.COMMONDEFAULT);
 }
 
 pub fn as(self: *Self) *Node {

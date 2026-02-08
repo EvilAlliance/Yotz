@@ -2,7 +2,7 @@ const Self = @This();
 
 tag: Value(Node.Tag) = .init(.fakeArgType),
 tokenIndex: Value(mod.TokenIndex) = .init(0),
-isName: Value(mod.NodeIndex) = .init(0),
+count: Value(mod.NodeIndex) = .init(0),
 fakeType: Value(mod.NodeIndex) = .init(0),
 next: Value(mod.NodeIndex) = .init(0),
 flags: Value(Node.Flags) = .init(Node.Flags{}),
@@ -10,7 +10,7 @@ flags: Value(Node.Flags) = .init(Node.Flags{}),
 const fakeArgType = [_]Struct.FieldMap{
     .{ .b = "tag", .v = "tag" },
     .{ .b = "tokenIndex", .v = "tokenIndex" },
-    .{ .b = "left", .v = "isName" },
+    .{ .b = "left", .v = "count" },
     .{ .b = "right", .v = "fakeType" },
     .{ .b = "next", .v = "next" },
     .{ .b = "flags", .v = "flags" },
@@ -19,9 +19,9 @@ const fakeArgType = [_]Struct.FieldMap{
 comptime {
     if (@sizeOf(Node) != @sizeOf(Self)) @compileError("Must be same size");
 
-    Struct.assertSameOffsetsFromMap(Node, Self, &fakeArgType);
-    Struct.assertCommonFieldTypes(Node, Self, Node.COMMONTYPE);
-    Struct.assertCommonFieldDefaults(Node, Self, Node.COMMONDEFAULT);
+    Struct.assertSameOffsetsFromMap(Node.FakeTypes, Self, &fakeArgType);
+    Struct.assertCommonFieldTypes(Node.FakeTypes, Self, Node.COMMONTYPE);
+    Struct.assertCommonFieldDefaults(Node.FakeTypes, Self, Node.COMMONDEFAULT);
 }
 
 pub fn as(self: *Self) *Node {
@@ -32,8 +32,12 @@ pub fn asConst(self: *const Self) *const Node {
     return @ptrCast(self);
 }
 
+pub fn iterate(self: *const Self, global: *Global) Node.Iterator(*Self, "next") {
+    return .init(global, global.nodes.indexOf(self.asConst()));
+}
+
 pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64) std.mem.Allocator.Error!void {
-    if (self.isName.load(.acquire) == 1) {
+    if (self.flags.load(.acquire).hasName) {
         try cont.appendSlice(alloc, self.asConst().getText(global));
         try cont.appendSlice(alloc, ": ");
     }

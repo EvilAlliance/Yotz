@@ -2,7 +2,7 @@ const Self = @This();
 
 tag: Value(Node.Tag),
 tokenIndex: Value(mod.TokenIndex) = .init(0),
-type: Value(mod.NodeIndex) = .init(0),
+type: Value(mod.NodeIndex) = .init(0), // ProtoArg and VarConst
 right: Value(mod.NodeIndex) = .init(0),
 next: Value(mod.NodeIndex) = .init(0),
 flags: Value(Node.Flags) = .init(Node.Flags{}),
