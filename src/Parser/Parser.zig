@@ -161,7 +161,11 @@ fn parseArgs(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (Alloc
     const firstArg = try self.tu.global.nodes.reserve(alloc);
     var currentArg = firstArg;
 
+    var count: Parser.NodeIndex = 0;
+
     while (true) {
+        count += 1;
+
         try Report.expect(reports, self.peek()[0], &.{.iden});
         _, const nameI = self.pop();
         try Report.expect(reports, self.peek()[0], &.{.colon});
@@ -182,6 +186,11 @@ fn parseArgs(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (Alloc
         currentArg.next.store(self.tu.global.nodes.indexOf(nextArg), .release);
         currentArg = nextArg;
     }
+
+    var it = firstArg.asProtoArg().iterate(self.tu.global);
+
+    while (it.next()) |arg| : (count -= 1)
+        arg.count.store(count, .release);
 
     return self.tu.global.nodes.indexOf(firstArg);
 }
@@ -213,7 +222,10 @@ fn parseTypeFunctionArgs(self: *@This(), alloc: Allocator, reports: ?*Report.Rep
     const firstArg = try self.tu.global.nodes.reserve(alloc);
     var currentArg = firstArg;
 
+    var count: Parser.NodeIndex = 0;
+
     while (true) {
+        count += 1;
         const nameToken = self.peek();
         try Report.expect(reports, nameToken.@"0", &.{.iden});
 
@@ -224,13 +236,14 @@ fn parseTypeFunctionArgs(self: *@This(), alloc: Allocator, reports: ?*Report.Rep
             break :blk try self.parseType(alloc, reports);
         } else try self.parseType(alloc, reports);
 
-        currentArg.* = .{
+        const argType = Node.FakeArgType{
             .tag = .init(.fakeArgType),
             .tokenIndex = .init(nameToken.@"1"),
-            .left = .init(0),
-            .right = .init(typeIndex),
+            .count = .init(0),
+            .fakeType = .init(typeIndex),
             .flags = .init(.{ .hasName = hasName }),
         };
+        currentArg.* = argType.asConst().*;
 
         if (self.peek().@"0".tag != .coma) break;
         _ = self.pop();
@@ -241,6 +254,10 @@ fn parseTypeFunctionArgs(self: *@This(), alloc: Allocator, reports: ?*Report.Rep
         currentArg.next.store(self.tu.global.nodes.indexOf(nextArg), .release);
         currentArg = nextArg;
     }
+    var it = firstArg.asFakeArgType().iterate(self.tu.global);
+
+    while (it.next()) |arg| : (count -= 1)
+        arg.count.store(count, .release);
 
     return self.tu.global.nodes.indexOf(firstArg);
 }
