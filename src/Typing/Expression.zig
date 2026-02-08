@@ -216,31 +216,41 @@ pub fn _inferType(self: *Self, alloc: Allocator, expr: *const Parser.Node.Expres
             const protoArgsIndex = funcProto.args.load(.acquire);
 
             if (protoArgsIndex != 0) {
-                var protoArg = self.tu.global.nodes.getConstPtr(protoArgsIndex);
-                const firstArgType = try self.tu.global.nodes.reserve(alloc);
-                var currentArgType = firstArgType;
+                const protoArgFirst = self.tu.global.nodes.getConstPtr(protoArgsIndex).asConstProtoArg();
+                var firstIndex: Parser.NodeIndex = 0;
+                var nextIndex: Parser.NodeIndex = 0;
 
-                while (true) {
-                    const argType = protoArg.left.load(.acquire);
+                var itProtoArg = protoArgFirst.iterate(self.tu.global);
+                // Adding it in reverse order then when adding the count It is reversed
+                while (itProtoArg.next()) |protoArg| {
+                    const argTypeI = protoArg.type.load(.acquire);
 
-                    currentArgType.* = .{
-                        .tag = .init(.argType),
+                    const argType = Parser.Node.ArgType{
                         .tokenIndex = .init(protoArg.tokenIndex.load(.acquire)),
-                        .left = .init(0),
-                        .right = .init(argType),
+                        .count = .init(0),
+                        .type_ = .init(argTypeI),
+
+                        .next = .init(nextIndex),
                     };
 
-                    const nextProtoArgIndex = protoArg.next.load(.acquire);
-                    if (nextProtoArgIndex == 0) break;
-
-                    protoArg = self.tu.global.nodes.getConstPtr(nextProtoArgIndex);
-
-                    const nextArgType = try self.tu.global.nodes.reserve(alloc);
-                    currentArgType.next.store(self.tu.global.nodes.indexOf(nextArgType), .release);
-                    currentArgType = nextArgType;
+                    nextIndex = try self.tu.global.nodes.appendIndex(alloc, argType.asConst().*);
+                    if (firstIndex == 0) firstIndex = nextIndex;
                 }
 
-                argTypeIndex = self.tu.global.nodes.indexOf(firstArgType);
+                var itArgType = self.tu.global.nodes.getPtr(nextIndex).asArgType().iterate(self.tu.global);
+                var counter: Parser.NodeIndex = 0;
+                var prevIndex: Parser.NodeIndex = 0;
+
+                while (itArgType.next()) |argType| {
+                    counter += 1;
+                    assert(argType.count.cmpxchgStrong(0, counter, .acq_rel, .monotonic) == null);
+
+                    argType.next.store(prevIndex, .release);
+
+                    prevIndex = self.tu.global.nodes.indexOf(argType.as());
+                }
+
+                argTypeIndex = firstIndex;
             }
 
             const i = try self.tu.global.nodes.appendIndex(alloc, (Parser.Node.FuncType{
