@@ -55,7 +55,8 @@ pub const Flags = packed struct {
     inferedFromUse: bool = false,
     inferedFromExpression: bool = false,
     implicitCast: bool = false,
-    reserved: u29 = undefined,
+    hasName: bool = false,
+    reserved: u28 = undefined,
 };
 
 tag: Value(Tag) = .init(.poison),
@@ -98,6 +99,8 @@ pub fn toStringFlags(self: *const Self, alloc: std.mem.Allocator, cont: *std.Arr
     const fields = std.meta.fields(Flags);
     inline for (fields) |field| {
         if (field.type != bool) continue;
+        if (comptime std.mem.eql(u8, field.name, "hasName")) continue;
+
         const set = @field(self.flags.load(.acquire), field.name);
         if (set) {
             try cont.appendSlice(alloc, " #");

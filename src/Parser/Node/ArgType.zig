@@ -2,7 +2,7 @@ const Self = @This();
 
 tag: Value(Node.Tag) = .init(.argType),
 tokenIndex: Value(mod.TokenIndex) = .init(0),
-isName: Value(mod.NodeIndex) = .init(0),
+count: Value(mod.NodeIndex) = .init(0),
 type_: Value(mod.NodeIndex) = .init(0),
 next: Value(mod.NodeIndex) = .init(0),
 flags: Value(Node.Flags) = .init(Node.Flags{}),
@@ -10,7 +10,7 @@ flags: Value(Node.Flags) = .init(Node.Flags{}),
 const argType = [_]Struct.FieldMap{
     .{ .b = "tag", .v = "tag" },
     .{ .b = "tokenIndex", .v = "tokenIndex" },
-    .{ .b = "left", .v = "isName" },
+    .{ .b = "left", .v = "count" },
     .{ .b = "right", .v = "type_" },
     .{ .b = "next", .v = "next" },
     .{ .b = "flags", .v = "flags" },
@@ -33,7 +33,7 @@ pub fn asConst(self: *const Self) *const Node {
 }
 
 pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64) std.mem.Allocator.Error!void {
-    if (self.isName.load(.acquire) == 1) {
+    if (self.flags.load(.acquire).hasName) {
         try cont.appendSlice(alloc, self.asConst().getText(global));
         try cont.appendSlice(alloc, ": ");
     }

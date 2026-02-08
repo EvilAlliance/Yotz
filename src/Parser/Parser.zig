@@ -227,8 +227,9 @@ fn parseTypeFunctionArgs(self: *@This(), alloc: Allocator, reports: ?*Report.Rep
         currentArg.* = .{
             .tag = .init(.fakeArgType),
             .tokenIndex = .init(nameToken.@"1"),
-            .left = .init(@intFromBool(hasName)),
+            .left = .init(0),
             .right = .init(typeIndex),
+            .flags = .init(.{ .hasName = hasName }),
         };
 
         if (self.peek().@"0".tag != .coma) break;
