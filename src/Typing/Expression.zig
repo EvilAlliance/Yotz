@@ -461,18 +461,18 @@ fn checkFuncProtoType(self: *Self, funcProtoNode: *const Parser.Node.FuncProto, 
         return Report.incompatibleType(reports, funcProto, expectedType.asConst(), funcProto, funcProto);
     }
 
-    var protoArg = self.tu.global.nodes.getConstPtr(argsI);
-    var typeArg = self.tu.global.nodes.getConstPtr(typeArgsI);
+    var protoArg = self.tu.global.nodes.getConstPtr(argsI).asConstProtoArg();
+    var typeArg = self.tu.global.nodes.getConstPtr(typeArgsI).asConstArgType();
 
     while (true) {
-        const protoArgTypeIndex = protoArg.left.load(.acquire);
-        const typeArgTypeIndex = typeArg.right.load(.acquire);
+        const protoArgTypeIndex = protoArg.type.load(.acquire);
+        const typeArgTypeIndex = typeArg.type_.load(.acquire);
 
-        const protoArgType = self.tu.global.nodes.getPtr(protoArgTypeIndex);
-        const typeArgType = self.tu.global.nodes.getPtr(typeArgTypeIndex);
+        const protoArgType = self.tu.global.nodes.getPtr(protoArgTypeIndex).asTypes();
+        const typeArgType = self.tu.global.nodes.getPtr(typeArgTypeIndex).asTypes();
 
-        switch (Type.compareActualsTypes(self.tu.global, protoArgType.asTypes(), typeArgType.asTypes(), true, false)) {
-            .notFound => return Report.incompatibleType(reports, typeArgType, protoArgType, protoArg, protoArg),
+        switch (Type.compareActualsTypes(self.tu.global, protoArgType, typeArgType, true, false)) {
+            .notFound => return Report.incompatibleType(reports, typeArgType.as(), protoArgType.as(), protoArg.asConst(), protoArg.asConst()),
             .found => {},
         }
 
@@ -484,8 +484,8 @@ fn checkFuncProtoType(self: *Self, funcProtoNode: *const Parser.Node.FuncProto, 
             return Report.incompatibleType(reports, expectedType.asConst(), funcProto, funcProto, funcProto);
         }
 
-        protoArg = self.tu.global.nodes.getConstPtr(protoNextIndex);
-        typeArg = self.tu.global.nodes.getConstPtr(typeNextIndex);
+        protoArg = self.tu.global.nodes.getConstPtr(protoNextIndex).asConstProtoArg();
+        typeArg = self.tu.global.nodes.getConstPtr(typeNextIndex).asConstArgType();
     }
 }
 
