@@ -32,6 +32,14 @@ pub fn asConst(self: *const Self) *const Node {
     return @ptrCast(self);
 }
 
+pub fn iterate(self: *Self, global: *Global) Node.Iterator(*Self, "next") {
+    return .init(global, global.nodes.indexOf(self.as()));
+}
+
+pub fn iterateConst(self: *const Self, global: *Global) Node.Iterator(*const Self, "next") {
+    return .init(global, global.nodes.indexOf(self.asConst()));
+}
+
 pub inline fn getText(self: *const Self, global: *Global) []const u8 {
     return self.asConst().getText(global);
 }

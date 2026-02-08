@@ -40,6 +40,10 @@ pub fn iterate(self: *const Self, global: *Global) Node.Iterator(*Self, "next") 
     return .init(global, global.nodes.indexOf(self.asConst()));
 }
 
+pub fn iterateConst(self: *const Self, global: *Global) Node.Iterator(*const Self, "next") {
+    return .init(global, global.nodes.indexOf(self.asConst()));
+}
+
 const mod = @import("../mod.zig");
 const Node = @import("../Node.zig");
 
