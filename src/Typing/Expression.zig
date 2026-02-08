@@ -263,7 +263,7 @@ pub fn _inferType(self: *Self, alloc: Allocator, expr: *const Parser.Node.Expres
             return .{ .type = self.tu.global.nodes.getConstPtr(i).asConstTypes(), .place = funcProto.asConst().asConstExpression() };
         },
         .call => {
-            var call = expr.asConstCall();
+            const call = expr.asConstCall();
             const id = call.getText(self.tu.global);
             const func = (self.tu.scope.get(id) orelse return Report.undefinedVariable(reports, call.asConst())).asVarConst();
 
@@ -272,13 +272,15 @@ pub fn _inferType(self: *Self, alloc: Allocator, expr: *const Parser.Node.Expres
             }
 
             var funcType = self.tu.global.nodes.getConstPtr(func.type.load(.acquire));
-            while (call.next.load(.acquire) != 0) {
+
+            var it = call.iterateConst(self.tu.global);
+            // Consume the firstOne, I am searching a()()()
+            _ = it.next();
+            while (it.next()) |_| {
                 if (funcType.tag.load(.acquire) != .funcType) return Report.expectedFunction(reports, call.asConst(), funcType);
 
                 const ft = funcType.asConstFuncType();
                 funcType = self.tu.global.nodes.getConstPtr(ft.retType.load(.acquire));
-
-                call = self.tu.global.nodes.getConstPtr(call.next.load(.acquire)).asConstCall();
             }
 
             const ft = funcType.asConstFuncType();
