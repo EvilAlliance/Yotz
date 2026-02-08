@@ -393,6 +393,7 @@ fn checkCallType(self: *Self, alloc: Allocator, call_: *Parser.Node.Call, expect
 
     const funcType = self.tu.global.nodes.getPtr(func.type.load(.acquire));
 
+    // Lets say that there is an identity function, to use it in the loop uniformly
     var retType = funcType.asTypes();
 
     while (true) {
@@ -412,8 +413,7 @@ fn checkCallType(self: *Self, alloc: Allocator, call_: *Parser.Node.Call, expect
                 reports,
             );
 
-            argTypeI = argType.next.load(.acquire);
-            argI = arg.next.load(.acquire);
+            argTypeI, argI = .{ argType.next.load(.acquire), arg.next.load(.acquire) };
         }
         retType = self.tu.global.nodes.getPtr(retFuncType.retType.load(.acquire)).asTypes();
 
