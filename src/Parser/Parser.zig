@@ -421,14 +421,13 @@ fn parseCall(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (Alloc
     _ = self.pop();
 
     const firstCall = try self.tu.global.nodes.reserve(alloc);
-    firstCall.* = .{
-        .tag = .init(.call),
+    const call: Node.Call = .{
         .tokenIndex = .init(nameI),
-        .left = .init(args),
-        .right = .init(0),
+        .firstArg = .init(args),
     };
+    firstCall.* = call.asConst().*;
 
-    var currentCall = firstCall;
+    var currentCall = firstCall.asCall();
 
     // Handle chained calls like ()()()
     while (self.peek().@"0".tag == .openParen) {
@@ -440,14 +439,13 @@ fn parseCall(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (Alloc
         _ = self.pop();
 
         const nextCall = try self.tu.global.nodes.reserve(alloc);
-        nextCall.* = .{
-            .tag = .init(.call),
+        const nextCallNode: Node.Call = .{
             .tokenIndex = .init(parenI),
-            .left = .init(chainedArgs),
-            .right = .init(0),
+            .firstArg = .init(chainedArgs),
         };
+        nextCall.* = nextCallNode.asConst().*;
         currentCall.next.store(self.tu.global.nodes.indexOf(nextCall), .release);
-        currentCall = nextCall;
+        currentCall = nextCall.asCall();
     }
 
     return self.tu.global.nodes.indexOf(firstCall);
@@ -459,7 +457,11 @@ fn parseCallArgs(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (A
     const firstArg = try self.tu.global.nodes.reserve(alloc);
     var currentArg = firstArg;
 
+    var count: Parser.NodeIndex = 0;
+
     while (true) {
+        count += 1;
+
         const argTokenIndex = self.peek().@"1";
         const expr = try self.parseExpression(alloc, reports);
 
@@ -480,6 +482,11 @@ fn parseCallArgs(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (A
         currentArg.next.store(self.tu.global.nodes.indexOf(nextArg), .release);
         currentArg = nextArg;
     }
+
+    var it = firstArg.asCallArg().iterate(self.tu.global);
+
+    while (it.next()) |arg| : (count -= 1)
+        arg.count.store(count, .release);
 
     return self.tu.global.nodes.indexOf(firstArg);
 }

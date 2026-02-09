@@ -2,7 +2,7 @@ const Self = @This();
 
 tag: Value(Node.Tag) = .init(.callArg),
 tokenIndex: Value(mod.TokenIndex) = .init(0),
-left: Value(mod.NodeIndex) = .init(0),
+count: Value(mod.NodeIndex) = .init(0),
 expr: Value(mod.NodeIndex) = .init(0),
 next: Value(mod.NodeIndex) = .init(0),
 flags: Value(Node.Flags) = .init(Node.Flags{}),
@@ -10,7 +10,7 @@ flags: Value(Node.Flags) = .init(Node.Flags{}),
 const callArg = [_]Struct.FieldMap{
     .{ .b = "tag", .v = "tag" },
     .{ .b = "tokenIndex", .v = "tokenIndex" },
-    .{ .b = "left", .v = "left" },
+    .{ .b = "left", .v = "count" },
     .{ .b = "right", .v = "expr" },
     .{ .b = "next", .v = "next" },
     .{ .b = "flags", .v = "flags" },

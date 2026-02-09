@@ -278,7 +278,7 @@ pub fn assignmentToConstant(reports: ?*mod.Reports, constant: *const Parser.Node
     return Typing.Statement.Error.AssignmentConstant;
 }
 
-pub fn argumentCountMismatch(reports: ?*mod.Reports, actualCount: u64, expectedCount: u64, place: *const Parser.Node.FuncProto, expectedFunctionType: *const Parser.Node.Types) (Typing.Expression.Error) {
+pub fn argumentCountMismatch(reports: ?*mod.Reports, actualCount: u64, expectedCount: u64, place: *const Parser.Node, expectedFunctionType: *const Parser.Node.Types) (Typing.Expression.Error) {
     if (reports) |rs| {
         rs.appendBounded(.{
             .message = .{

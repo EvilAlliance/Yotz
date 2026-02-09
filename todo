@@ -500,7 +500,8 @@
         "id": "MkuCV2US",
         "title": "Extract checking for args in the checkCallType or make is simpler",
         "desc": "",
-        "time_created": "2026-02-07 12:49:08.363503226 -03:00:00"
+        "time_created": "2026-02-07 12:49:08.363503226 -03:00:00",
+        "time_completed": "2026-02-09 19:08:47.667806833 -03:00:00"
       },
       {
         "id": "ZFdkSAqs",
@@ -520,7 +521,8 @@
         "id": "WEoctHAM",
         "title": "Call does not check the argumentes if there are less or more",
         "desc": "",
-        "time_created": "2026-02-07 20:59:48.705447303 -03:00:00"
+        "time_created": "2026-02-07 20:59:48.705447303 -03:00:00",
+        "time_completed": "2026-02-09 19:08:40.518802072 -03:00:00"
       },
       {
         "id": "h25vcdat",

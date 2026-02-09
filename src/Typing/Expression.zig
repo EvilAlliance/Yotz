@@ -416,6 +416,15 @@ fn checkCallType(self: *Self, alloc: Allocator, call_: *Parser.Node.Call, expect
         var itArgType = retFuncType.argIterator(self.tu.global);
         var itArg = callNode.argIterator(self.tu.global);
 
+        // Get counts for mismatch checking
+        const firstArgType = itArgType.peek();
+        const firstArg = itArg.peek();
+
+        const expectedArgCount = if (firstArgType) |arg| arg.count.load(.acquire) else 0;
+        const actualArgCount = if (firstArg) |arg| arg.count.load(.acquire) else 0;
+        const countMismatch = expectedArgCount != actualArgCount;
+
+        // Check all matching arguments even if counts differ
         while (itArgType.next()) |argType| {
             const arg = itArg.next() orelse break;
 
@@ -425,6 +434,11 @@ fn checkCallType(self: *Self, alloc: Allocator, call_: *Parser.Node.Call, expect
                 self.tu.global.nodes.getConstPtr(argType.type_.load(.acquire)).asConstTypes(),
                 reports,
             );
+        }
+
+        // Report count mismatch after checking all matching arguments
+        if (countMismatch) {
+            return Report.argumentCountMismatch(reports, actualArgCount, expectedArgCount, callNode.as(), retType);
         }
 
         retType = self.tu.global.nodes.getPtr(retFuncType.retType.load(.acquire)).asTypes();
@@ -490,7 +504,7 @@ fn checkFuncProtoType(self: *Self, funcProtoNode: *const Parser.Node.FuncProto, 
 
     // Report count mismatch after checking all matching arguments
     if (countMismatch) {
-        return Report.argumentCountMismatch(reports, protoArgCount, typeArgCount, funcProtoNode, expectedType);
+        return Report.argumentCountMismatch(reports, protoArgCount, typeArgCount, funcProtoNode.asConst(), expectedType);
     }
 }
 
