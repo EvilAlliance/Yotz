@@ -16,5 +16,8 @@ main: () u8 #inferedFromExpression : () u8 {
     return b();
 }
 
-:b stderr 0
+:b stderr 113
+[WARNING]: Example/CallFuncion/CallFunction2.yt:7:1: Variable 'foo' is declared but never used 
+foo :: () u8 {
+^
 

@@ -21,6 +21,7 @@ pub const reservedIdentifier = Report.reservedIdentifier;
 pub const argumentsAreConstant = Report.argumentsAreConstant;
 pub const assignmentToConstant = Report.assignmentToConstant;
 pub const argumentCountMismatch = Report.argumentCountMismatch;
+pub const unusedVariable = Report.unusedVariable;
 
 pub const Reports = ArrayListThreadSafe(Report);
 
@@ -42,6 +43,7 @@ pub const ReservedIdentifier = @import("ReservedIdentifier.zig");
 pub const ArgumentsAreConstant = @import("ArgumentsAreConstant.zig");
 pub const AssignmentToConstant = @import("AssignmentToConstant.zig");
 pub const ArgumentCountMismatch = @import("ArgumentCountMismatch.zig");
+pub const UnusedVariable = @import("UnusedVariable.zig");
 
 const Bucketarray = @import("../Util/BucketArray.zig").BucketArray;
 const ArrayListThreadSafe = @import("../Util/ArrayListThreadSafe.zig").ArrayListThreadSafe;

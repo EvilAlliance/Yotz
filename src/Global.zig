@@ -11,13 +11,13 @@ observer: Observer.Multiple(usize, Args, struct {
 
     pub fn deinit(self: @This(), arg: Args, runned: bool) void {
         _ = self;
-        const tu, const alloc, _, _, _ = arg;
+        const tu, const alloc, _, _, const reports = arg;
 
         if (!runned) {
             @panic("What to do");
         }
 
-        tu.deinit(alloc);
+        tu.deinit(alloc, reports);
         alloc.destroy(tu);
     }
 }) = .{},

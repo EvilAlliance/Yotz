@@ -17,7 +17,7 @@ bar: () u8 #inferedFromExpression : () u8 {
 globalVar: u8 = 5;
 globalVar: u8 = 10;
 
-:b stderr 736
+:b stderr 970
 [INFO]: Example/CheckError/Redefinition.yt:3:5: x is declared here 
     x : u8 = 5;
     ^
@@ -27,10 +27,16 @@ globalVar: u8 = 10;
 [INFO]: Example/CheckError/Redefinition.yt:8:1: bar is declared here 
 bar :: () u8 {
 ^
+[WARNING]: Example/CheckError/Redefinition.yt:8:1: Variable 'bar' is declared but never used 
+bar :: () u8 {
+^
 [ERROR]: Example/CheckError/Redefinition.yt:13:1: Identifier bar is already in use 
 bar :: () u8 {  // Error: identifier 'bar' is already in use
 ^
 [INFO]: Example/CheckError/Redefinition.yt:17:1: globalVar is declared here 
+globalVar : u8 = 5;
+^
+[WARNING]: Example/CheckError/Redefinition.yt:17:1: Variable 'globalVar' is declared but never used 
 globalVar : u8 = 5;
 ^
 [ERROR]: Example/CheckError/Redefinition.yt:19:1: Identifier globalVar is already in use 

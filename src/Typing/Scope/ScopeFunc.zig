@@ -46,10 +46,19 @@ pub fn push(ctx: *anyopaque, alloc: Allocator) Allocator.Error!void {
     try self.base.append(alloc, .{});
 }
 
-pub fn pop(ctx: *anyopaque, alloc: Allocator) void {
+pub fn pop(ctx: *anyopaque, alloc: Allocator, reports: ?*Report.Reports) void {
     const self: *Self = @ptrCast(@alignCast(ctx));
     assert(self.base.items.len > 0);
     var dic = self.base.pop().?;
+
+    var valIt = dic.valueIterator();
+    while (valIt.next()) |entry| {
+        const declarator = entry.@"0";
+        const flags = declarator.flags.load(.acquire);
+        if (!flags.used) {
+            Report.unusedVariable(reports, declarator);
+        }
+    }
 
     var it = dic.valueIterator();
     while (it.next()) |val| while (val.@"1".popFirst()) |node| alloc.destroy(@as(*mod.Dependant, @fieldParentPtr("node", node)));
@@ -81,18 +90,15 @@ pub fn deepClone(ctx: *anyopaque, alloc: Allocator) Allocator.Error!Scope {
     return x.scope();
 }
 
-pub fn deinit(ctx: *anyopaque, alloc: Allocator) void {
+pub fn deinit(ctx: *anyopaque, alloc: Allocator, reports: ?*Report.Reports) void {
     const self: *Self = @ptrCast(@alignCast(ctx));
 
-    for (self.base.items) |*value| {
-        var it = value.valueIterator();
-        while (it.next()) |val| while (val.@"1".popFirst()) |node| alloc.destroy(@as(*mod.Dependant, @fieldParentPtr("node", node)));
-        value.deinit(alloc);
-    }
+    for (self.base.items) |_|
+        Self.pop(ctx, alloc, reports);
 
     self.base.deinit(alloc);
 
-    ScopeGlobal.deinit(self.global, alloc);
+    ScopeGlobal.deinit(self.global, alloc, reports);
 
     while (self.node.popFirst()) |n| {
         const dependant: *mod.Dependant = @fieldParentPtr("node", n);
@@ -167,6 +173,7 @@ const mod = @import("mod.zig");
 const TypeCheck = @import("../mod.zig");
 
 const Parser = @import("../../Parser/mod.zig");
+const Report = @import("../../Report/mod.zig");
 
 const std = @import("std");
 const StringHashMapUnmanaged = std.StringHashMapUnmanaged;

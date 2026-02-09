@@ -4,7 +4,7 @@ pub fn typing(self: *const TranslationUnit, alloc: Allocator, func: *const Parse
     const tIndex = func.retType.load(.acquire);
 
     try self.scope.push(alloc);
-    defer self.scope.pop(alloc);
+    defer self.scope.pop(alloc, reports);
 
     const argsI = func.args.load(.acquire);
     if (argsI != 0) try Statement.recordFunctionArgs(self, alloc, self.global.nodes.getPtr(argsI).asProtoArg(), reports);
@@ -13,7 +13,7 @@ pub fn typing(self: *const TranslationUnit, alloc: Allocator, func: *const Parse
     const stmtORscope = self.global.nodes.get(stmtORscopeIndex);
 
     try self.scope.push(alloc);
-    defer self.scope.pop(alloc);
+    defer self.scope.pop(alloc, reports);
 
     const type_ = self.global.nodes.getConstPtr(tIndex).asConstTypes();
     {

@@ -516,6 +516,24 @@ const Warn = struct {
             },
         );
     }
+
+    pub inline fn unusedVariable(self: @This(), variable: *const Parser.Node.Declarator) void {
+        const loc = variable.asConst().getLocation(self.global);
+        const fileInfo = self.global.files.get(loc.source);
+        const where = placeSlice(loc, fileInfo.source);
+        std.log.warn(
+            "{s}:{}:{}: Variable '{s}' is declared but never used \n{s}\n{[5]c: >[6]}",
+            .{
+                fileInfo.path,
+                loc.row,
+                loc.col,
+                variable.getText(self.global),
+                fileInfo.source[where.beg..where.end],
+                '^',
+                where.pad,
+            },
+        );
+    }
 };
 
 global: *Global,

@@ -45,8 +45,8 @@ pub fn initFunc(self: *const Self, alloc: Allocator) Allocator.Error!Self {
     return tu;
 }
 
-pub fn deinit(self: Self, alloc: Allocator) void {
-    self.scope.deinit(alloc);
+pub fn deinit(self: Self, alloc: Allocator, reports: ?*Report.Reports) void {
+    self.scope.deinit(alloc, reports);
 }
 
 pub fn acquire(self: Self, alloc: Allocator) Allocator.Error!Self {
@@ -73,7 +73,7 @@ pub fn startFunction(self: *const Self, alloc: Allocator, start: Parser.TokenInd
 }
 
 fn _startFunction(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: *Parser.Node.FuncProto, reports: ?*Report.Reports) Allocator.Error!void {
-    defer self.deinit(alloc);
+    defer self.deinit(alloc, reports);
 
     if (self.global.subCommand == .Lexer) unreachable;
 
@@ -116,7 +116,7 @@ pub fn startRoot(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, 
 
 fn _startRoot(self: *const Self, alloc: Allocator, start: Parser.TokenIndex, placeHolder: *Parser.Node.Entry, reports: ?*Report.Reports) Allocator.Error!void {
     if (self.global.subCommand == .Lexer) unreachable;
-    defer self.deinit(alloc);
+    defer self.deinit(alloc, reports);
 
     var parser = try Parser.Parser.init(self);
 
@@ -156,7 +156,6 @@ pub fn startEntry(alloc: Allocator, arguments: *const ParseArgs.Arguments) std.m
     };
 
     var scope: Typing.Scope.Scope = undefined;
-    defer if (arguments.subCom != .Lexer) scope.deinit(alloc);
     if (arguments.subCom != .Lexer) {
         const tu = try initRoot(alloc, &global);
         scope = try tu.scope.deepClone(alloc);
@@ -171,6 +170,11 @@ pub fn startEntry(alloc: Allocator, arguments: *const ParseArgs.Arguments) std.m
 
     if (arguments.subCom != .Parser and arguments.subCom != .Lexer) {
         if (scope.get("main")) |main| {
+            const pastFlags = main.flags.load(.acquire);
+            var flags = pastFlags;
+            flags.used = true;
+            assert(main.flags.cmpxchgStrong(pastFlags, flags, .acq_rel, .monotonic) == null);
+
             const funcTypeNode = global.nodes.getConstPtr(main.type.load(.acquire));
             if (funcTypeNode.tag.load(.acquire) != .funcType) {
                 Report.missingMain(&reports);
@@ -197,6 +201,9 @@ pub fn startEntry(alloc: Allocator, arguments: *const ParseArgs.Arguments) std.m
             }
         } else Report.missingMain(&reports);
     }
+
+    if (arguments.subCom != .Lexer)
+        scope.deinit(alloc, &reports);
 
     const message = Report.Message.init(&global);
     for (reports.slice()) |r| {

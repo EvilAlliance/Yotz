@@ -19,6 +19,7 @@ message: union(enum) {
     argumentsAreConstant: mod.ArgumentsAreConstant,
     assignmentToConstant: mod.AssignmentToConstant,
     argumentCountMismatch: mod.ArgumentCountMismatch,
+    unusedVariable: mod.UnusedVariable,
 },
 
 pub fn display(self: *const Self, alloc: std.mem.Allocator, message: mod.Message) void {
@@ -41,6 +42,7 @@ pub fn display(self: *const Self, alloc: std.mem.Allocator, message: mod.Message
         .argumentsAreConstant => |aac| aac.display(message),
         .assignmentToConstant => |atc| atc.display(message),
         .argumentCountMismatch => |acm| acm.display(message),
+        .unusedVariable => |uv| uv.display(message),
     }
 }
 
@@ -293,6 +295,18 @@ pub fn argumentCountMismatch(reports: ?*mod.Reports, actualCount: u64, expectedC
     }
 
     return Typing.Expression.Error.IncompatibleType;
+}
+
+pub fn unusedVariable(reports: ?*mod.Reports, variable: *const Parser.Node.Declarator) void {
+    if (reports) |rs| {
+        rs.appendBounded(.{
+            .message = .{
+                .unusedVariable = .{
+                    .variable = variable,
+                },
+            },
+        }) catch {};
+    }
 }
 
 const mod = @import("mod.zig");

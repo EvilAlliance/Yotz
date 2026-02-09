@@ -8,7 +8,7 @@ const VTable = struct {
     get: *const fn (*anyopaque, key: []const u8) ?*Parser.Node.Declarator,
 
     push: *const fn (*anyopaque, alloc: Allocator) Allocator.Error!void,
-    pop: *const fn (*anyopaque, alloc: Allocator) void,
+    pop: *const fn (*anyopaque, alloc: Allocator, reports: ?*Report.Reports) void,
 
     getGlobal: *const fn (*anyopaque) *ScopeGlobal,
     deepClone: *const fn (*anyopaque, alloc: Allocator) Allocator.Error!Self,
@@ -16,7 +16,7 @@ const VTable = struct {
     pushDependant: *const fn (*anyopaque, Allocator, []const u8, *Parser.Node.VarConst) Allocator.Error!void,
     popDependant: *const fn (*anyopaque, []const u8) ?*Parser.Node.VarConst,
 
-    deinit: *const fn (*anyopaque, alloc: Allocator) void,
+    deinit: *const fn (*anyopaque, alloc: Allocator, reports: ?*Report.Reports) void,
 };
 
 pub fn put(self: Self, alloc: Allocator, key: []const u8, value: *Parser.Node.Declarator) (Allocator.Error || mod.Error)!void {
@@ -31,8 +31,8 @@ pub fn push(self: Self, alloc: Allocator) Allocator.Error!void {
     try self.vtable.push(self.ptr, alloc);
 }
 
-pub fn pop(self: Self, alloc: Allocator) void {
-    self.vtable.pop(self.ptr, alloc);
+pub fn pop(self: Self, alloc: Allocator, reports: ?*Report.Reports) void {
+    self.vtable.pop(self.ptr, alloc, reports);
 }
 
 pub fn getGlobal(self: Self) *ScopeGlobal {
@@ -51,14 +51,15 @@ pub fn popDependant(self: Self, key: []const u8) ?*Parser.Node.VarConst {
     return self.vtable.popDependant(self.ptr, key);
 }
 
-pub fn deinit(self: Self, alloc: Allocator) void {
-    self.vtable.deinit(self.ptr, alloc);
+pub fn deinit(self: Self, alloc: Allocator, reports: ?*Report.Reports) void {
+    self.vtable.deinit(self.ptr, alloc, reports);
 }
 
 const ScopeGlobal = @import("ScopeGlobal.zig");
 const mod = @import("mod.zig");
 
 const Parser = @import("../../Parser/mod.zig");
+const Report = @import("../../Report/mod.zig");
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;

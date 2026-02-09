@@ -486,7 +486,8 @@
         "id": "umX9yxEj",
         "title": "Add report warining when variable is not useed",
         "desc": "Added fucntion in scope, like getLoad or laod key and there mark it",
-        "time_created": "2026-02-06 17:28:18.790823071 -03:00:00"
+        "time_created": "2026-02-06 17:28:18.790823071 -03:00:00",
+        "time_completed": "2026-02-09 20:24:39.996223088 -03:00:00"
       },
       {
         "id": "XUFU7Wfk",
@@ -513,7 +514,7 @@
       },
       {
         "id": "Ph2N7wbr",
-        "title": "Report error print chain of inference",
+        "title": "Report error print chain of inference, Have to change how it is done, the change will have to be generated when the scope is still active",
         "desc": "",
         "time_created": "2026-02-07 20:36:32.900716846 -03:00:00"
       },
@@ -528,13 +529,15 @@
         "id": "h25vcdat",
         "title": "Call does not count the arguments like the rest",
         "desc": "",
-        "time_created": "2026-02-09 18:20:21.765787154 -03:00:00"
+        "time_created": "2026-02-09 18:20:21.765787154 -03:00:00",
+        "time_completed": "2026-02-09 19:10:19.783011745 -03:00:00"
       },
       {
         "id": "rsqphWWj",
         "title": "check error report in checkProtoFuncType",
         "desc": "",
-        "time_created": "2026-02-09 18:30:44.969879796 -03:00:00"
+        "time_created": "2026-02-09 18:30:44.969879796 -03:00:00",
+        "time_completed": "2026-02-09 19:10:14.811981076 -03:00:00"
       }
     ]
   }

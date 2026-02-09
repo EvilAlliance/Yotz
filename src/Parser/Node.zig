@@ -56,7 +56,8 @@ pub const Flags = packed struct {
     inferedFromExpression: bool = false,
     implicitCast: bool = false,
     hasName: bool = false,
-    reserved: u28 = undefined,
+    used: bool = false,
+    reserved: u27 = undefined,
 };
 
 tag: Value(Tag) = .init(.poison),

@@ -10,5 +10,8 @@ main: () u8 #inferedFromExpression : () u8 {
     return (a + 10);
 }
 
-:b stderr 0
+:b stderr 115
+[WARNING]: Example/Inference/Inference.yt:4:5: Variable 'c' is declared but never used 
+    c := a + b + 30;
+    ^
 

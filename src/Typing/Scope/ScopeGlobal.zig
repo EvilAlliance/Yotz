@@ -39,9 +39,9 @@ pub fn push(ctx: *const anyopaque, alloc: Allocator) Allocator.Error!void {
     unreachable;
 }
 
-pub fn pop(ctx: *const anyopaque, alloc: Allocator) void {
+pub fn pop(ctx: *const anyopaque, alloc: Allocator, reports: ?*Report.Reports) void {
     const self: *const Self = @ptrCast(@alignCast(ctx));
-    _ = .{ self, alloc };
+    _ = .{ self, alloc, reports };
     unreachable;
 }
 
@@ -79,11 +79,16 @@ pub fn popDependant(ctx: *anyopaque, key: []const u8) ?*Parser.Node.VarConst {
     return variable.variable;
 }
 
-pub fn deinit(ctx: *anyopaque, alloc: Allocator) void {
+pub fn deinit(ctx: *anyopaque, alloc: Allocator, reports: ?*Report.Reports) void {
     const self: *Self = @ptrCast(@alignCast(ctx));
     if (self.release()) {
         var it = self.base.valueIterator();
-        while (it.next()) |val| while (val.@"1".popFirst()) |node| alloc.destroy(@as(*mod.Dependant, @fieldParentPtr("node", node)));
+        while (it.next()) |val| {
+            while (val.@"1".popFirst()) |node| alloc.destroy(@as(*mod.Dependant, @fieldParentPtr("node", node)));
+            if (!val.@"0".flags.load(.acquire).used) {
+                Report.unusedVariable(reports, val.@"0");
+            }
+        }
 
         self.base.deinit(alloc);
 

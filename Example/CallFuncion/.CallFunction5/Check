@@ -23,5 +23,8 @@ main: () u8 #inferedFromExpression : () u8 {
     return ((baz(1) * baz(2)) * pepe((a: u8) u8 return a, 1));
 }
 
-:b stderr 0
+:b stderr 118
+[WARNING]: Example/CallFuncion/CallFunction5.yt:7:1: Variable 'foo' is declared but never used 
+foo :: (a: u8) u8 {
+^
 

@@ -9,9 +9,12 @@ main: () u8 #inferedFromExpression : () u8 {
     return a;
 }
 
-:b stderr 293
+:b stderr 404
 [INFO]: Example/Inference/Inference2.yt:2:5: a is declared here 
     a := 8;
+    ^
+[WARNING]: Example/Inference/Inference2.yt:4:5: Variable 'b' is declared but never used 
+    b :u16 = a;
     ^
 [INFO]: Example/Inference/Inference2.yt:4:14: Infered Type u16 here: 
     b :u16 = a;

@@ -16,18 +16,20 @@ bar: () u8 #inferedFromExpression : () u8 {
     return b;
 }
 
-:b stderr 466
+:b stderr 699
 [ERROR]: Example/CheckError/UndefinedVariable.yt:3:12: Unknown identifier 'x' 
     return x;  // Error: undefined variable 'x'
            ^
+[WARNING]: Example/CheckError/UndefinedVariable.yt:6:1: Variable 'foo' is declared but never used 
+foo :: () u8 {
+^
 [ERROR]: Example/CheckError/UndefinedVariable.yt:8:14: Unknown identifier 'z' 
     y : u8 = z + 5;  // Error: undefined variable 'z'
              ^
+[WARNING]: Example/CheckError/UndefinedVariable.yt:12:1: Variable 'bar' is declared but never used 
+bar :: () u8 {
+^
 [ERROR]: Example/CheckError/UndefinedVariable.yt:15:14: Unknown identifier 'undefinedVar' 
-    b := a + undefinedVar;  // Error: undefined variable 'undefinedVar'
-             ^
-
-identifier 'undefinedVar' 
     b := a + undefinedVar;  // Error: undefined variable 'undefinedVar'
              ^
 

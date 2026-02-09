@@ -11,5 +11,11 @@ main: () u8 #inferedFromExpression : () u8 {
     return b;
 }
 
-:b stderr 0
+:b stderr 222
+[WARNING]: Example/Inference/Inference1.yt:5:5: Variable 'c' is declared but never used 
+    c :: a + 10;
+    ^
+[WARNING]: Example/Inference/Inference1.yt:7:5: Variable 'd' is declared but never used 
+    d :u16= b;
+    ^
 

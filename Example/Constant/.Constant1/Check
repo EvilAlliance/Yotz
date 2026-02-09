@@ -11,5 +11,11 @@ main: () u8 #inferedFromExpression : () u8 {
     return (a + b);
 }
 
-:b stderr 0
+:b stderr 218
+[WARNING]: Example/Constant/Constant1.yt:6:5: Variable 'c' is declared but never used 
+    c: u16 = a;
+    ^
+[WARNING]: Example/Constant/Constant1.yt:7:5: Variable 'd' is declared but never used 
+    d: u16 = b;
+    ^
 

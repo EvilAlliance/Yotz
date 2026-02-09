@@ -155,12 +155,28 @@ fn _pushDependant(self: *Self, alloc: Allocator, variable: *Parser.Node.VarConst
 
             if (loadedVariable.tag.load(.acquire) == .protoArg) return;
 
+            const varPastFlags = loadedVariable.flags.load(.acquire);
+            var varFlags = varPastFlags;
+            varFlags.used = true;
+            _ = loadedVariable.flags.cmpxchgStrong(varPastFlags, varFlags, .acquire, .monotonic);
+
             try self.tu.scope.pushDependant(alloc, id, variable);
         },
         .neg => {
             const left = expr.left.load(.acquire);
 
             try self._pushDependant(alloc, variable, self.tu.global.nodes.getPtr(left).asConstExpression());
+        },
+        .call => {
+            const call = expr.asConstLoad();
+            const id = call.getText(self.tu.global);
+
+            const func = self.tu.scope.get(id) orelse return;
+
+            const varPastFlags = func.flags.load(.acquire);
+            var varFlags = varPastFlags;
+            varFlags.used = true;
+            _ = func.flags.cmpxchgStrong(varPastFlags, varFlags, .acquire, .monotonic);
         },
         .addition,
         .subtraction,
@@ -403,6 +419,11 @@ fn checkCallType(self: *Self, alloc: Allocator, call_: *Parser.Node.Call, expect
         assert(self.inferType(alloc, func.asVarConst(), self.tu.global.nodes.getPtr(func.asVarConst().expr.load(.acquire)).asExpression(), reports) catch |err| std.debug.panic("Why would this fail, it should be valid {}", .{err}));
     }
 
+    const varPastFlags = func.flags.load(.acquire);
+    var varFlags = varPastFlags;
+    varFlags.used = true;
+    _ = func.flags.cmpxchgStrong(varPastFlags, varFlags, .acquire, .monotonic);
+
     const funcType = self.tu.global.nodes.getPtr(func.type.load(.acquire));
 
     // Lets say that there is an identity function, to use it in the loop uniformly
@@ -512,6 +533,11 @@ fn checkVarType(self: *Self, alloc: Allocator, load: *Parser.Node.Load, type_: *
     const id = load.getText(self.tu.global);
 
     const variable = self.tu.scope.get(id) orelse return Report.undefinedVariable(reports, load.asConst());
+
+    const varPastFlags = variable.flags.load(.acquire);
+    var varFlags = varPastFlags;
+    varFlags.used = true;
+    _ = variable.flags.cmpxchgStrong(varPastFlags, varFlags, .acquire, .monotonic);
 
     const typeIndex = variable.type.load(.acquire);
 
