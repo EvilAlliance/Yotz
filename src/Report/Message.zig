@@ -293,19 +293,44 @@ const Error = struct {
         );
     }
 
-    pub inline fn incompatibleType(self: @This(), actual: *const Parser.Node, expected: *const Parser.Node, loc: Lexer.Location) void {
+    pub inline fn incompatibleType(self: @This(), alloc: std.mem.Allocator, actual: *const Parser.Node, expected: *const Parser.Node, loc: Lexer.Location) std.mem.Allocator.Error!void {
         const fileInfo = self.global.files.get(loc.source);
         const where = placeSlice(loc, fileInfo.source);
+
+        var actualStr = std.ArrayList(u8){};
+        defer actualStr.deinit(alloc);
+        try actual.asConstTypes().toString(self.global, alloc, &actualStr, 0, false);
+
+        var expectedStr = std.ArrayList(u8){};
+        defer expectedStr.deinit(alloc);
+        try expected.asConstTypes().toString(self.global, alloc, &expectedStr, 0, false);
+
         std.log.err(
-            "{s}:{}:{}: Type {c}{}, is incompatible with {c}{} \n{s}\n{[8]c: >[9]}",
+            "{s}:{}:{}: Type {s}, is incompatible with {s} \n{s}\n{[6]c: >[7]}",
             .{
                 fileInfo.path,
                 loc.row,
                 loc.col,
-                actual.typeToString(),
-                actual.left.load(.acquire),
-                expected.typeToString(),
-                expected.left.load(.acquire),
+                actualStr.items,
+                expectedStr.items,
+                fileInfo.source[where.beg..where.end],
+                '^',
+                where.pad,
+            },
+        );
+    }
+
+    pub inline fn argumentCountMismatch(self: @This(), actualCount: u64, expectedCount: u64, loc: Lexer.Location) void {
+        const fileInfo = self.global.files.get(loc.source);
+        const where = placeSlice(loc, fileInfo.source);
+        std.log.err(
+            "{s}:{}:{}: Function has {} arguments but expected {} \n{s}\n{[6]c: >[7]}",
+            .{
+                fileInfo.path,
+                loc.row,
+                loc.col,
+                actualCount,
+                expectedCount,
                 fileInfo.source[where.beg..where.end],
                 '^',
                 where.pad,

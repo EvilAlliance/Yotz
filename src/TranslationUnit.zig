@@ -200,7 +200,7 @@ pub fn startEntry(alloc: Allocator, arguments: *const ParseArgs.Arguments) std.m
 
     const message = Report.Message.init(&global);
     for (reports.slice()) |r| {
-        r.display(message);
+        r.display(alloc, message);
     }
 
     return ret;

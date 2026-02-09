@@ -61,7 +61,7 @@ pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, co
         if (Node.isFakeTypes(typeTag)) {
             try typeNode.asFakeTypes().toString(global, alloc, cont, d);
         } else if (Node.isTypes(typeTag)) {
-            try typeNode.asTypes().toString(global, alloc, cont, d);
+            try typeNode.asTypes().toString(global, alloc, cont, d, true);
         } else unreachable;
         try cont.append(alloc, ' ');
     }

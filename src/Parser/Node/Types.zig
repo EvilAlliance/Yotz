@@ -56,11 +56,11 @@ pub fn asConstArgType(self: *const Self) *const Node.ArgType {
     return self.asConst().asConstArgType();
 }
 
-pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64) std.mem.Allocator.Error!void {
+pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, printFlags: bool) std.mem.Allocator.Error!void {
     switch (self.tag.load(.acquire)) {
-        .type => try self.asConstType().toString(global, alloc, cont, d),
-        .funcType => try self.asConstFuncType().toString(global, alloc, cont, d),
-        .argType => try self.asConstArgType().toString(global, alloc, cont, d),
+        .type => try self.asConstType().toString(global, alloc, cont, d, printFlags),
+        .funcType => try self.asConstFuncType().toString(global, alloc, cont, d, printFlags),
+        .argType => try self.asConstArgType().toString(global, alloc, cont, d, printFlags),
         else => unreachable,
     }
 }

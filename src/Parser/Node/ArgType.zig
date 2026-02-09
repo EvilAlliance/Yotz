@@ -40,20 +40,20 @@ pub fn iterateConst(self: *const Self, global: *Global) Node.Iterator(*const Sel
     return .init(global, global.nodes.indexOf(self.asConst()));
 }
 
-pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64) std.mem.Allocator.Error!void {
+pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, printFlags: bool) std.mem.Allocator.Error!void {
     if (self.flags.load(.acquire).hasName) {
         try cont.appendSlice(alloc, self.asConst().getText(global));
         try cont.appendSlice(alloc, ": ");
     }
 
-    try global.nodes.getConstPtr(self.type_.load(.acquire)).asConstTypes().toString(global, alloc, cont, d);
+    try global.nodes.getConstPtr(self.type_.load(.acquire)).asConstTypes().toString(global, alloc, cont, d, printFlags);
 
-    try self.asConst().toStringFlags(alloc, cont);
+    if (printFlags) try self.asConst().toStringFlags(alloc, cont);
 
     const nextIndex = self.next.load(.acquire);
     if (nextIndex != 0) {
         try cont.appendSlice(alloc, ", ");
-        try global.nodes.getPtr(nextIndex).asConstArgType().toString(global, alloc, cont, d);
+        try global.nodes.getPtr(nextIndex).asConstArgType().toString(global, alloc, cont, d, printFlags);
     }
 }
 

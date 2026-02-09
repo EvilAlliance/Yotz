@@ -40,15 +40,15 @@ pub fn argIteratorConst(self: *const Self, global: *Global) Node.Iterator(*const
     return .init(global, self.argsType.load(.acquire));
 }
 
-pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64) std.mem.Allocator.Error!void {
+pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, printFlags: bool) std.mem.Allocator.Error!void {
     try cont.append(alloc, '(');
     const argsIndex = self.argsType.load(.acquire);
-    if (argsIndex != 0) try global.nodes.getPtr(argsIndex).asConstArgType().toString(global, alloc, cont, d);
+    if (argsIndex != 0) try global.nodes.getPtr(argsIndex).asConstArgType().toString(global, alloc, cont, d, printFlags);
     try cont.appendSlice(alloc, ") ");
 
-    try global.nodes.getPtr(self.retType.load(.acquire)).asConstTypes().toString(global, alloc, cont, d);
+    try global.nodes.getPtr(self.retType.load(.acquire)).asConstTypes().toString(global, alloc, cont, d, printFlags);
 
-    try self.asConst().toStringFlags(alloc, cont);
+    if (printFlags) try self.asConst().toStringFlags(alloc, cont);
 }
 
 const mod = @import("../mod.zig");

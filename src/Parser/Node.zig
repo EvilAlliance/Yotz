@@ -124,6 +124,29 @@ pub fn Iterator(comptime T: type, comptime field: []const u8) type {
 
             return @ptrCast(node);
         }
+
+        pub fn peek(self: *const IterSelf) ?T {
+            if (self.current == 0) return null;
+
+            const node = if (@typeInfo(T).pointer.is_const)
+                self.global.nodes.getConstPtr(self.current)
+            else
+                self.global.nodes.getPtr(self.current);
+
+            return @ptrCast(node);
+        }
+
+        pub fn skip(self: *IterSelf) void {
+            if (self.current == 0) return;
+
+            const node = if (@typeInfo(T).pointer.is_const)
+                self.global.nodes.getConstPtr(self.current)
+            else
+                self.global.nodes.getPtr(self.current);
+
+            const nextIndex = @field(node, field).load(.acquire);
+            self.current = nextIndex;
+        }
     };
 }
 

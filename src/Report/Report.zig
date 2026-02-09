@@ -18,12 +18,13 @@ message: union(enum) {
     reservedIdentifier: mod.ReservedIdentifier,
     argumentsAreConstant: mod.ArgumentsAreConstant,
     assignmentToConstant: mod.AssignmentToConstant,
+    argumentCountMismatch: mod.ArgumentCountMismatch,
 },
 
-pub fn display(self: *const Self, message: mod.Message) void {
+pub fn display(self: *const Self, alloc: std.mem.Allocator, message: mod.Message) void {
     switch (self.message) {
         .unexpectedToken => |ut| ut.display(message),
-        .incompatibleType => |it| it.display(message),
+        .incompatibleType => |it| it.display(alloc, message),
         .incompatibleLiteral => |il| il.display(message),
         .missingMain => |mm| mm.display(message),
         .undefinedVariable => |uv| uv.display(message),
@@ -39,6 +40,7 @@ pub fn display(self: *const Self, message: mod.Message) void {
         .reservedIdentifier => |ri| ri.display(message),
         .argumentsAreConstant => |aac| aac.display(message),
         .assignmentToConstant => |atc| atc.display(message),
+        .argumentCountMismatch => |acm| acm.display(message),
     }
 }
 
@@ -274,6 +276,23 @@ pub fn assignmentToConstant(reports: ?*mod.Reports, constant: *const Parser.Node
     }
 
     return Typing.Statement.Error.AssignmentConstant;
+}
+
+pub fn argumentCountMismatch(reports: ?*mod.Reports, actualCount: u64, expectedCount: u64, place: *const Parser.Node.FuncProto, expectedFunctionType: *const Parser.Node.Types) (Typing.Expression.Error) {
+    if (reports) |rs| {
+        rs.appendBounded(.{
+            .message = .{
+                .argumentCountMismatch = .{
+                    .actualCount = actualCount,
+                    .expectedCount = expectedCount,
+                    .place = place,
+                    .expectedFunction = expectedFunctionType,
+                },
+            },
+        }) catch {};
+    }
+
+    return Typing.Expression.Error.IncompatibleType;
 }
 
 const mod = @import("mod.zig");

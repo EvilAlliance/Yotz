@@ -51,7 +51,7 @@ pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, co
         if (Node.isFakeTypes(type_.tag.load(.acquire))) {
             try type_.asFakeTypes().toString(global, alloc, cont, d);
         } else if (Node.isTypes(type_.tag.load(.acquire))) {
-            try type_.asTypes().toString(global, alloc, cont, d);
+            try type_.asTypes().toString(global, alloc, cont, d, true);
         } else unreachable;
 
         while (protoArg.next.load(.acquire) != 0) {
@@ -64,7 +64,7 @@ pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, co
             if (Node.isFakeTypes(type_.tag.load(.acquire))) {
                 try type_.asFakeTypes().toString(global, alloc, cont, d);
             } else if (Node.isTypes(type_.tag.load(.acquire))) {
-                try type_.asTypes().toString(global, alloc, cont, d);
+                try type_.asTypes().toString(global, alloc, cont, d, true);
             } else unreachable;
         }
     }
@@ -75,7 +75,7 @@ pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, co
     if (Node.isFakeTypes(retType.tag.load(.acquire))) {
         try retType.asConstFakeTypes().toString(global, alloc, cont, 0);
     } else if (Node.isTypes(retType.tag.load(.acquire))) {
-        try retType.asConstTypes().toString(global, alloc, cont, 0);
+        try retType.asConstTypes().toString(global, alloc, cont, 0, true);
     } else unreachable;
 
     if (self.scope.load(.acquire) == 0) return;

@@ -32,7 +32,7 @@ pub fn asConst(self: *const Self) *const Node {
     return @ptrCast(self);
 }
 
-pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64) std.mem.Allocator.Error!void {
+pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, printFlags: bool) std.mem.Allocator.Error!void {
     try cont.append(alloc, @as(u8, switch (@as(Node.Primitive, @enumFromInt(self.primitive.load(.acquire)))) {
         .sint => 's',
         .uint => 'u',
@@ -43,11 +43,11 @@ pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, co
     try cont.appendSlice(alloc, size);
     alloc.free(size);
 
-    try self.asConst().toStringFlags(alloc, cont);
+    if (printFlags) try self.asConst().toStringFlags(alloc, cont);
 
     if (self.next.load(.acquire) != 0) {
         try cont.appendSlice(alloc, ", ");
-        try global.nodes.getConstPtr(self.next.load(.acquire)).asConstTypes().toString(global, alloc, cont, d);
+        try global.nodes.getConstPtr(self.next.load(.acquire)).asConstTypes().toString(global, alloc, cont, d, printFlags);
     }
 }
 

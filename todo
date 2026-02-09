@@ -509,6 +509,30 @@
         "time_created": "2026-02-07 12:59:17.006048976 -03:00:00",
         "time_started": "2026-02-07 19:24:58.14620273 -03:00:00",
         "time_completed": "2026-02-07 19:36:04.870012417 -03:00:00"
+      },
+      {
+        "id": "Ph2N7wbr",
+        "title": "Report error print chain of inference",
+        "desc": "",
+        "time_created": "2026-02-07 20:36:32.900716846 -03:00:00"
+      },
+      {
+        "id": "WEoctHAM",
+        "title": "Call does not check the argumentes if there are less or more",
+        "desc": "",
+        "time_created": "2026-02-07 20:59:48.705447303 -03:00:00"
+      },
+      {
+        "id": "h25vcdat",
+        "title": "Call does not count the arguments like the rest",
+        "desc": "",
+        "time_created": "2026-02-09 18:20:21.765787154 -03:00:00"
+      },
+      {
+        "id": "rsqphWWj",
+        "title": "check error report in checkProtoFuncType",
+        "desc": "",
+        "time_created": "2026-02-09 18:30:44.969879796 -03:00:00"
       }
     ]
   }

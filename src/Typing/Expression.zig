@@ -80,7 +80,7 @@ fn push(self: *Self, alloc: Allocator, variable: *const Parser.Node, reason: Rea
         const r = try Report.dependencyCycle(alloc, self.hasCycle.items);
 
         const message = Report.Message.init(self.tu.global);
-        r.display(message);
+        r.display(alloc, message);
         std.process.exit(1);
     }
 
@@ -461,19 +461,21 @@ fn checkFuncProtoType(self: *Self, funcProtoNode: *const Parser.Node.FuncProto, 
         .found => {},
     }
 
-    const argsI = funcProtoNode.args.load(.acquire);
-    const typeArgsI = expectedType.left.load(.acquire);
+    var itProtoArg = funcProtoNode.argIterator(self.tu.global);
+    var itTypeArg = expectedType.asConstFuncType().argIterator(self.tu.global);
 
-    if (argsI == 0 and typeArgsI == 0) return;
+    // Check if the argument counts match
+    const firstProtoArg = itProtoArg.peek();
+    const firstTypeArg = itTypeArg.peek();
 
-    if (argsI == 0 or typeArgsI == 0) {
-        return Report.incompatibleType(reports, funcProto, expectedType.asConst(), funcProto, funcProto);
-    }
+    const protoArgCount = if (firstProtoArg) |arg| arg.count.load(.acquire) else 0;
+    const typeArgCount = if (firstTypeArg) |arg| arg.count.load(.acquire) else 0;
+    const countMismatch = protoArgCount != typeArgCount;
 
-    var protoArg = self.tu.global.nodes.getConstPtr(argsI).asConstProtoArg();
-    var typeArg = self.tu.global.nodes.getConstPtr(typeArgsI).asConstArgType();
+    // Check all matching arguments even if counts differ
+    while (itProtoArg.next()) |protoArg| {
+        const typeArg = itTypeArg.next() orelse break;
 
-    while (true) {
         const protoArgTypeIndex = protoArg.type.load(.acquire);
         const typeArgTypeIndex = typeArg.type_.load(.acquire);
 
@@ -484,17 +486,11 @@ fn checkFuncProtoType(self: *Self, funcProtoNode: *const Parser.Node.FuncProto, 
             .notFound => return Report.incompatibleType(reports, typeArgType.as(), protoArgType.as(), protoArg.asConst(), protoArg.asConst()),
             .found => {},
         }
+    }
 
-        const protoNextIndex = protoArg.next.load(.acquire);
-        const typeNextIndex = typeArg.next.load(.acquire);
-
-        if (protoNextIndex == 0 and typeNextIndex == 0) break;
-        if (protoNextIndex == 0 or typeNextIndex == 0) {
-            return Report.incompatibleType(reports, expectedType.asConst(), funcProto, funcProto, funcProto);
-        }
-
-        protoArg = self.tu.global.nodes.getConstPtr(protoNextIndex).asConstProtoArg();
-        typeArg = self.tu.global.nodes.getConstPtr(typeNextIndex).asConstArgType();
+    // Report count mismatch after checking all matching arguments
+    if (countMismatch) {
+        return Report.argumentCountMismatch(reports, protoArgCount, typeArgCount, funcProtoNode, expectedType);
     }
 }
 

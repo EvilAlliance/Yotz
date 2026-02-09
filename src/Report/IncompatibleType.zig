@@ -4,8 +4,8 @@ expectedType: *const Parser.Node,
 place: *const Parser.Node,
 declared: *const Parser.Node,
 
-pub fn display(self: @This(), message: Message) void {
-    message.err.incompatibleType(self.actualType, self.expectedType, self.place.getLocation(message.global));
+pub fn display(self: @This(), alloc: std.mem.Allocator, message: Message) void {
+    message.err.incompatibleType(alloc, self.actualType, self.expectedType, self.place.getLocation(message.global)) catch {};
     message.info.isDeclaredHere(self.declared);
 
     const actualFlags = self.actualType.flags.load(.acquire);
@@ -22,3 +22,4 @@ pub fn display(self: @This(), message: Message) void {
 const Message = @import("Message.zig");
 
 const Parser = @import("../Parser/mod.zig");
+const std = @import("std");
