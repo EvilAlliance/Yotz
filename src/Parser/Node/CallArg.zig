@@ -32,8 +32,8 @@ pub fn asConst(self: *const Self) *const Node {
     return @ptrCast(self);
 }
 
-pub fn iterate(self: *Self, global: *Global) Node.Iterator(*Self, "next") {
-    return .init(global, global.nodes.indexOf(self.as()));
+pub fn iterate(self: *const Self, global: *Global) Node.Iterator(*Self, "next") {
+    return .init(global, global.nodes.indexOf(self.asConst()));
 }
 
 pub fn iterateConst(self: *const Self, global: *Global) Node.Iterator(*const Self, "next") {

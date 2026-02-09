@@ -40,6 +40,14 @@ pub fn iterateConst(self: *const Self, global: *Global) Node.Iterator(*const Sel
     return .init(global, global.nodes.indexOf(self.asConst()));
 }
 
+pub fn argIterator(self: *const Self, global: *Global) Node.Iterator(*Node.CallArg, "next") {
+    return .init(global, self.firstArg.load(.acquire));
+}
+
+pub fn argIteratorConst(self: *const Self, global: *Global) Node.Iterator(*const Node.CallArg, "next") {
+    return .init(global, self.firstArg.load(.acquire));
+}
+
 pub inline fn getText(self: *const Self, global: *Global) []const u8 {
     return self.asConst().getText(global);
 }

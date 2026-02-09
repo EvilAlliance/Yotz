@@ -31,6 +31,14 @@ pub fn asConst(self: *const Self) *const Node {
     return @ptrCast(self);
 }
 
+pub fn argIterator(self: *const Self, global: *Global) Node.Iterator(*Node.ProtoArg, "next") {
+    return .init(global, self.args.load(.acquire));
+}
+
+pub fn argIteratorConst(self: *const Self, global: *Global) Node.Iterator(*const Node.ProtoArg, "next") {
+    return .init(global, self.args.load(.acquire));
+}
+
 pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64) std.mem.Allocator.Error!void {
     try cont.append(alloc, '(');
     const argIndex = self.args.load(.acquire);

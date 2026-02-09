@@ -408,15 +408,16 @@ fn checkCallType(self: *Self, alloc: Allocator, call_: *Parser.Node.Call, expect
     // Lets say that there is an identity function, to use it in the loop uniformly
     var retType = funcType.asTypes();
 
-    while (true) {
-        if (retType.tag.load(.acquire) != .funcType) return Report.expectedFunction(reports, call.as(), retType.asConst());
+    var itCall = call_.iterate(self.tu.global);
+    while (itCall.next()) |callNode| {
+        if (retType.tag.load(.acquire) != .funcType) return Report.expectedFunction(reports, callNode.as(), retType.asConst());
         const retFuncType = retType.asFuncType();
 
-        var argTypeI = retFuncType.argsType.load(.acquire);
-        var argI = call.firstArg.load(.acquire);
-        while (argTypeI != 0 and argI != 0) {
-            const arg = self.tu.global.nodes.getConstPtr(argI).asConstCallArg();
-            const argType = self.tu.global.nodes.getConstPtr(argTypeI).asConstArgType();
+        var itArgType = retFuncType.argIterator(self.tu.global);
+        var itArg = callNode.argIterator(self.tu.global);
+
+        while (itArgType.next()) |argType| {
+            const arg = itArg.next() orelse break;
 
             try self.checkType(
                 alloc,
@@ -424,14 +425,10 @@ fn checkCallType(self: *Self, alloc: Allocator, call_: *Parser.Node.Call, expect
                 self.tu.global.nodes.getConstPtr(argType.type_.load(.acquire)).asConstTypes(),
                 reports,
             );
-
-            argTypeI, argI = .{ argType.next.load(.acquire), arg.next.load(.acquire) };
         }
-        retType = self.tu.global.nodes.getPtr(retFuncType.retType.load(.acquire)).asTypes();
 
-        const nextCall = call.next.load(.acquire);
-        if (nextCall == 0) break;
-        call = self.tu.global.nodes.getPtr(nextCall).asCall();
+        retType = self.tu.global.nodes.getPtr(retFuncType.retType.load(.acquire)).asTypes();
+        call = callNode;
     }
 
     return switch (Type.compareActualsTypes(self.tu.global, retType, expectedType, true, true)) {
