@@ -91,6 +91,15 @@ fn pop(self: *Self) void {
     _ = self.hasCycle.pop();
 }
 
+fn markAsUsed(node: anytype) void {
+    const varPastFlags = node.flags.load(.acquire);
+    if (!varPastFlags.used) {
+        var varFlags = varPastFlags;
+        varFlags.used = true;
+        assert(node.flags.cmpxchgStrong(varPastFlags, varFlags, .acquire, .monotonic) == null);
+    }
+}
+
 pub fn traceVariable(self: *Self, alloc: Allocator, variable: *const Parser.Node.VarConst) Allocator.Error!void {
     try self.push(alloc, variable.asConst(), .cycleGlobalTracing);
     defer self.pop();
@@ -155,10 +164,7 @@ fn _pushDependant(self: *Self, alloc: Allocator, variable: *Parser.Node.VarConst
 
             if (loadedVariable.tag.load(.acquire) == .protoArg) return;
 
-            const varPastFlags = loadedVariable.flags.load(.acquire);
-            var varFlags = varPastFlags;
-            varFlags.used = true;
-            assert(loadedVariable.flags.cmpxchgStrong(varPastFlags, varFlags, .acquire, .monotonic) == null);
+            markAsUsed(loadedVariable);
 
             try self.tu.scope.pushDependant(alloc, id, variable);
         },
@@ -166,17 +172,6 @@ fn _pushDependant(self: *Self, alloc: Allocator, variable: *Parser.Node.VarConst
             const left = expr.left.load(.acquire);
 
             try self._pushDependant(alloc, variable, self.tu.global.nodes.getPtr(left).asConstExpression());
-        },
-        .call => {
-            const call = expr.asConstLoad();
-            const id = call.getText(self.tu.global);
-
-            const func = self.tu.scope.get(id) orelse return;
-
-            const varPastFlags = func.flags.load(.acquire);
-            var varFlags = varPastFlags;
-            varFlags.used = true;
-            assert(func.flags.cmpxchgStrong(varPastFlags, varFlags, .acquire, .monotonic) == null);
         },
         .addition,
         .subtraction,
@@ -420,10 +415,7 @@ fn checkCallType(self: *Self, alloc: Allocator, call_: *Parser.Node.Call, expect
         assert(self.inferType(alloc, func.asVarConst(), self.tu.global.nodes.getPtr(func.asVarConst().expr.load(.acquire)).asExpression(), reports) catch |err| std.debug.panic("Why would this fail, it should be valid {}", .{err}));
     }
 
-    const varPastFlags = func.flags.load(.acquire);
-    var varFlags = varPastFlags;
-    varFlags.used = true;
-    assert(func.flags.cmpxchgStrong(varPastFlags, varFlags, .acquire, .monotonic) == null);
+    markAsUsed(func);
 
     const funcType = self.tu.global.nodes.getPtr(func.type.load(.acquire));
 
@@ -458,7 +450,6 @@ fn checkCallType(self: *Self, alloc: Allocator, call_: *Parser.Node.Call, expect
             );
         }
 
-        // Report count mismatch after checking all matching arguments
         if (countMismatch) {
             return Report.argumentCountMismatch(reports, actualArgCount, expectedArgCount, callNode.as(), retType);
         }
@@ -500,7 +491,6 @@ fn checkFuncProtoType(self: *Self, funcProtoNode: *const Parser.Node.FuncProto, 
     var itProtoArg = funcProtoNode.argIterator(self.tu.global);
     var itTypeArg = expectedType.asConstFuncType().argIterator(self.tu.global);
 
-    // Check if the argument counts match
     const firstProtoArg = itProtoArg.peek();
     const firstTypeArg = itTypeArg.peek();
 
@@ -508,7 +498,6 @@ fn checkFuncProtoType(self: *Self, funcProtoNode: *const Parser.Node.FuncProto, 
     const typeArgCount = if (firstTypeArg) |arg| arg.count.load(.acquire) else 0;
     const countMismatch = protoArgCount != typeArgCount;
 
-    // Check all matching arguments even if counts differ
     while (itProtoArg.next()) |protoArg| {
         const typeArg = itTypeArg.next() orelse break;
 
@@ -524,7 +513,6 @@ fn checkFuncProtoType(self: *Self, funcProtoNode: *const Parser.Node.FuncProto, 
         }
     }
 
-    // Report count mismatch after checking all matching arguments
     if (countMismatch) {
         return Report.argumentCountMismatch(reports, protoArgCount, typeArgCount, funcProtoNode.asConst(), expectedType);
     }
@@ -535,10 +523,7 @@ fn checkVarType(self: *Self, alloc: Allocator, load: *Parser.Node.Load, type_: *
 
     const variable = self.tu.scope.get(id) orelse return Report.undefinedVariable(reports, load.asConst());
 
-    const varPastFlags = variable.flags.load(.acquire);
-    var varFlags = varPastFlags;
-    varFlags.used = true;
-    assert(variable.flags.cmpxchgStrong(varPastFlags, varFlags, .acquire, .monotonic) == null);
+    markAsUsed(variable);
 
     const typeIndex = variable.type.load(.acquire);
 
