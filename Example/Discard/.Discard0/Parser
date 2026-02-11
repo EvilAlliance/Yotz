@@ -1,0 +1,38 @@
+:i argc 0
+:b stdin 0
+
+:i returncode 0
+:b stdout 413
+foo :: (arg: u8) u8 { 
+    arg = 1;
+    return arg;
+}
+bar :: (arg: u8) u8 { 
+    a :: arg;
+    a = 1;
+    return a;
+}
+baz :: (arg: u8) u8 { 
+    a := arg;
+    a = 1;
+    return a;
+}
+pepe :: () u8 { 
+    a := 1;
+    b := 1;
+    _ := (a + b);
+    c: s8 = 1;
+    d: u8 = 1;
+    a = c;
+    b = d;
+    return 1;
+}
+main :: () u8 { 
+    _ := (foo(2) + (bar(4) * baz(8)));
+    _ :: pepe();
+    _ :: pepe;
+    return 1;
+}
+
+:b stderr 0
+

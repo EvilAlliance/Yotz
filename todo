@@ -431,7 +431,9 @@
         "id": "HLwWUatk",
         "title": "Discard Value _",
         "desc": "",
-        "time_created": "2026-01-30 09:51:00.840745693 -03:00:00"
+        "time_created": "2026-01-30 09:51:00.840745693 -03:00:00",
+        "time_started": "2026-02-11 16:23:50.337726631 -03:00:00",
+        "time_completed": "2026-02-11 18:08:40.325662066 -03:00:00"
       },
       {
         "id": "QS9JuznG",
@@ -552,6 +554,18 @@
         "title": "Check if it is necesary to have the kind, and the rest of parameters in things like incompatible type",
         "desc": "",
         "time_created": "2026-02-11 13:19:52.42750111 -03:00:00"
+      },
+      {
+        "id": "xXVNen5N",
+        "title": "Add Scope as a possible Statement",
+        "desc": "",
+        "time_created": "2026-02-11 16:33:56.767956035 -03:00:00"
+      },
+      {
+        "id": "4hc6WaKu",
+        "title": "Check the recovery system without the semicolon could not work any more",
+        "desc": "",
+        "time_created": "2026-02-11 17:35:56.012095605 -03:00:00"
       }
     ]
   }
