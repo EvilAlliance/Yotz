@@ -194,7 +194,7 @@ pub fn startEntry(alloc: Allocator, arguments: *const ParseArgs.Arguments) std.m
                     Report.mainExpect0Args(&reports, main);
                 } else {
                     const retType = global.nodes.getConstPtr(funcType.retType.load(.acquire));
-                    if (!Typing.Type.typeEqual(&global, retType.asConstTypes(), expectedU8Type.asConstTypes())) {
+                    if (!Typing.Type.typeEqual(&global, retType.asConstTypes(), expectedU8Type.asConstTypes(), null)) {
                         Report.mustReturnU8(&reports, mainName, funcTypeNode);
                     }
                 }
@@ -207,7 +207,7 @@ pub fn startEntry(alloc: Allocator, arguments: *const ParseArgs.Arguments) std.m
 
     const message = Report.Message.init(&global);
     for (reports.slice()) |r| {
-        r.display(alloc, message);
+        try r.display(alloc, message);
     }
 
     return ret;

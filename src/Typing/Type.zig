@@ -116,7 +116,7 @@ fn transformIdentiferType(self: *Global, type_: *Parser.Node.FakeType) void {
     }
 }
 
-pub fn typeEqual(global: *const Global, actual: *const Parser.Node.Types, expected: *const Parser.Node.Types) bool {
+pub fn typeEqual(global: *const Global, actual: *const Parser.Node.Types, expected: *const Parser.Node.Types, mismatch: ?*MismatchLocation) bool {
     const actualTag = actual.tag.load(.acquire);
     const expectedTag = expected.tag.load(.acquire);
 
@@ -127,7 +127,15 @@ pub fn typeEqual(global: *const Global, actual: *const Parser.Node.Types, expect
     if (actualTag == .type and expectedTag == .type) {
         const actualType = actual.asConstType();
         const expectedType = expected.asConstType();
-        return expectedType.primitive.load(.acquire) == actualType.primitive.load(.acquire) and expectedType.size.load(.acquire) == actualType.size.load(.acquire);
+        const matches = expectedType.primitive.load(.acquire) == actualType.primitive.load(.acquire) and expectedType.size.load(.acquire) == actualType.size.load(.acquire);
+        if (!matches and mismatch != null) {
+            mismatch.?.* = .{
+                .actualNode = actual,
+                .expectedNode = expected,
+                .kind = .primitiveType,
+            };
+        }
+        return matches;
     }
 
     if (actualTag == .funcType and expectedTag == .funcType) {
@@ -137,11 +145,15 @@ pub fn typeEqual(global: *const Global, actual: *const Parser.Node.Types, expect
         const expectedArgsI = expectedFunc.argsType.load(.acquire);
         const actualArgsI = actualFunc.argsType.load(.acquire);
 
-        if (!typeEqual(
-            global,
-            global.nodes.getConstPtr(actualFunc.retType.load(.acquire)).asConstTypes(),
-            global.nodes.getConstPtr(expectedFunc.retType.load(.acquire)).asConstTypes(),
-        )) return false;
+        const actualRetType = global.nodes.getConstPtr(actualFunc.retType.load(.acquire)).asConstTypes();
+        const expectedRetType = global.nodes.getConstPtr(expectedFunc.retType.load(.acquire)).asConstTypes();
+
+        if (!typeEqual(global, actualRetType, expectedRetType, mismatch)) {
+            if (mismatch != null and mismatch.?.kind == .primitiveType) {
+                mismatch.?.kind = .returnType;
+            }
+            return false;
+        }
 
         if (actualArgsI == expectedArgsI and actualArgsI == 0)
             return true;
@@ -153,13 +165,27 @@ pub fn typeEqual(global: *const Global, actual: *const Parser.Node.Types, expect
             const actualArgType = global.nodes.getConstPtr(actualArgs.type_.load(.acquire));
             const expectedArgType = global.nodes.getConstPtr(expectedArgs.type_.load(.acquire));
 
-            if (!typeEqual(global, actualArgType.asConstTypes(), expectedArgType.asConstTypes()))
+            if (!typeEqual(global, actualArgType.asConstTypes(), expectedArgType.asConstTypes(), mismatch)) {
+                if (mismatch != null and mismatch.?.kind == .primitiveType) {
+                    mismatch.?.kind = .argumentType;
+                }
                 return false;
+            }
 
             const actualNext = actualArgs.next.load(.acquire);
             const expectedNext = expectedArgs.next.load(.acquire);
 
-            if (actualNext == 0 or expectedNext == 0) return actualNext == 0 and expectedNext == 0;
+            if (actualNext == 0 or expectedNext == 0) {
+                const matches = actualNext == 0 and expectedNext == 0;
+                if (!matches and mismatch != null) {
+                    mismatch.?.* = .{
+                        .actualNode = actual,
+                        .expectedNode = expected,
+                        .kind = .argumentCount,
+                    };
+                }
+                return matches;
+            }
 
             actualArgs = global.nodes.getConstPtr(actualNext).asConstArgType();
             expectedArgs = global.nodes.getConstPtr(expectedNext).asConstArgType();
@@ -175,8 +201,22 @@ pub fn canTypeBeCoerced(actual: *const Parser.Node.Types, expected: *const Parse
     return expectedType.primitive.load(.acquire) == actualType.primitive.load(.acquire) and expectedType.size.load(.acquire) >= actualType.size.load(.acquire);
 }
 
-const EqualCoerce = union(enum) { notFound: void, coerce: void, found: *Parser.Node.Types };
-const Equal = union(enum) { notFound: void, found: *Parser.Node.Types };
+pub const MismatchKind = enum {
+    correct,
+    primitiveType,
+    returnType,
+    argumentType,
+    argumentCount,
+};
+
+pub const MismatchLocation = struct {
+    actualNode: *const Parser.Node.Types,
+    expectedNode: *const Parser.Node.Types,
+    kind: MismatchKind = .correct,
+};
+
+const EqualCoerce = union(enum) { notFound: MismatchLocation, coerce: void, found: *Parser.Node.Types };
+const Equal = union(enum) { notFound: MismatchLocation, found: *Parser.Node.Types };
 const Coerce = union(enum) { notFound: void, coerce: void };
 const None = union(enum) { notFound: void };
 
@@ -184,15 +224,22 @@ const None = union(enum) { notFound: void };
 pub fn compareActualsTypes(global: *const Global, actual: *Parser.Node.Types, expecected: *const Parser.Node.Types, comptime equal: bool, comptime coerce: bool) if (equal and coerce) EqualCoerce else if (equal) Equal else if (coerce) Coerce else None {
     var node: *Parser.Node = actual.as();
     var couldBeCoerce = false;
+    var mismatch: MismatchLocation = .{
+        .actualNode = actual,
+        .expectedNode = expecected,
+    };
 
     while (Parser.Node.isTypes(node.tag.load(.acquire))) : (node = global.nodes.getPtr(node.next.load(.acquire))) {
         const variableType = node.asTypes();
 
-        if (equal and typeEqual(global, variableType, expecected)) return .{ .found = variableType };
+        if (equal and typeEqual(global, variableType, expecected, &mismatch)) return .{ .found = variableType };
         if (coerce and canTypeBeCoerced(variableType, expecected)) couldBeCoerce = true;
     }
 
     if (coerce and couldBeCoerce) return .coerce;
+    if (equal or (equal and coerce)) {
+        return .{ .notFound = mismatch };
+    }
     return .notFound;
 }
 

@@ -10,7 +10,7 @@ main: () u8 #inferedFromExpression : () u8 {
     return 1;
 }
 
-:b stderr 591
+:b stderr 590
 [WARNING]: Example/CheckError/InferIncompatibleType.yt:2:5: Variable 'a' is declared but never used 
     a : u8 = 2; 
     ^
@@ -23,7 +23,8 @@ main: () u8 #inferedFromExpression : () u8 {
 [WARNING]: Example/CheckError/InferIncompatibleType.yt:6:5: Variable 'c' is declared but never used 
     c := a + b;
     ^
-[ERROR]: Example/CheckError/InferIncompatibleType.yt:6:12: Type u8, is incompatible with s8 
+[ERROR]: Example/CheckError/InferIncompatibleType.yt:6:12: Type u8, is incompatible with s8
     c := a + b;
            ^
+
 

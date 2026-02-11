@@ -22,8 +22,8 @@ message: union(enum) {
     unusedVariable: mod.UnusedVariable,
 },
 
-pub fn display(self: *const Self, alloc: std.mem.Allocator, message: mod.Message) void {
-    switch (self.message) {
+pub fn display(self: *const Self, alloc: std.mem.Allocator, message: mod.Message) Allocator.Error!void {
+    try switch (self.message) {
         .unexpectedToken => |ut| ut.display(message),
         .incompatibleType => |it| it.display(alloc, message),
         .incompatibleLiteral => |il| il.display(message),
@@ -37,13 +37,13 @@ pub fn display(self: *const Self, alloc: std.mem.Allocator, message: mod.Message
         .missingReturn => |mr| mr.display(message),
         .unreachableStatement => |us| us.display(message),
         .expectedFunction => |ef| ef.display(message),
-        .incompatibleReturnType => |irt| irt.display(message),
+        .incompatibleReturnType => |irt| irt.display(alloc, message),
         .reservedIdentifier => |ri| ri.display(message),
         .argumentsAreConstant => |aac| aac.display(message),
         .assignmentToConstant => |atc| atc.display(message),
         .argumentCountMismatch => |acm| acm.display(message),
         .unusedVariable => |uv| uv.display(message),
-    }
+    };
 }
 
 pub fn expect(reports: ?*mod.Reports, token: Lexer.Token, t: []const Lexer.Token.Type) (Parser.Parser.Error)!void {
@@ -78,7 +78,7 @@ pub fn incompatibleLiteral(reports: ?*mod.Reports, literal: *const Parser.Node, 
     return Typing.Expression.Error.TooBig;
 }
 
-pub fn incompatibleType(reports: ?*mod.Reports, actualType: *const Parser.Node, expectedType: *const Parser.Node, place: *const Parser.Node, declared: *const Parser.Node) (Typing.Expression.Error) {
+pub fn incompatibleType(reports: ?*mod.Reports, actualType: *const Parser.Node.Types, expectedType: *const Parser.Node.Types, place: *const Parser.Node, declared: *const Parser.Node, kind: ?Typing.Type.MismatchKind) (Typing.Expression.Error) {
     if (reports) |rs| rs.appendBounded(.{
         .message = .{
             .incompatibleType = .{
@@ -87,6 +87,7 @@ pub fn incompatibleType(reports: ?*mod.Reports, actualType: *const Parser.Node, 
 
                 .place = place,
                 .declared = declared,
+                .kind = kind,
             },
         },
     }) catch {};
@@ -219,7 +220,7 @@ pub fn expectedFunction(reports: ?*mod.Reports, variable: *const Parser.Node, de
     return Typing.Expression.Error.IncompatibleType;
 }
 
-pub fn incompatibleReturnType(reports: ?*mod.Reports, actualReturnType: *const Parser.Node, expectedReturnType: *const Parser.Node, place: *const Parser.Node, declared: *const Parser.Node) (Typing.Expression.Error) {
+pub fn incompatibleReturnType(reports: ?*mod.Reports, actualReturnType: *const Parser.Node.Types, expectedReturnType: *const Parser.Node.Types, place: *const Parser.Node, declared: *const Parser.Node, kind: ?Typing.Type.MismatchKind) (Typing.Expression.Error) {
     if (reports) |rs| {
         rs.appendBounded(.{
             .message = .{
@@ -228,6 +229,7 @@ pub fn incompatibleReturnType(reports: ?*mod.Reports, actualReturnType: *const P
                     .expectedReturnType = expectedReturnType,
                     .place = place,
                     .declared = declared,
+                    .kind = kind,
                 },
             },
         }) catch {};

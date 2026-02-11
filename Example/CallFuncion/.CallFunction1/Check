@@ -15,7 +15,7 @@ main: () u8 #inferedFromExpression : () u8 {
     return foo();
 }
 
-:b stderr 458
+:b stderr 472
 [INFO]: Example/CallFuncion/CallFunction1.yt:5:1: bar is declared here 
 bar :: () u16 {
 ^
@@ -25,7 +25,7 @@ bar :: () u16 {
 [WARNING]: Example/CallFuncion/CallFunction1.yt:11:5: Variable 'b' is declared but never used 
     b:u8 = bar();
     ^
-[ERROR]: Example/CallFuncion/CallFunction1.yt:11:12: Incompatible return type u16, expected u8 
+[ERROR]: Example/CallFuncion/CallFunction1.yt:11:12: Incompatible return type u16, expected u8 (types differ)
     b:u8 = bar();
            ^
 

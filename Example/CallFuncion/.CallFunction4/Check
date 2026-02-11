@@ -13,11 +13,11 @@ main: () u8 #inferedFromExpression : () u8 {
     return foo()(a);
 }
 
-:b stderr 219
+:b stderr 233
 [INFO]: Example/CallFuncion/CallFunction4.yt:8:5: a is declared here 
     a :u16= 10;
     ^
-[ERROR]: Example/CallFuncion/CallFunction4.yt:9:18: Type u16, is incompatible with u8 
+[ERROR]: Example/CallFuncion/CallFunction4.yt:9:18: Type u16, is incompatible with u8 (types differ)
     return foo()(a);
                  ^
 

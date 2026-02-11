@@ -80,7 +80,7 @@ fn push(self: *Self, alloc: Allocator, variable: *const Parser.Node, reason: Rea
         const r = try Report.dependencyCycle(alloc, self.hasCycle.items);
 
         const message = Report.Message.init(self.tu.global);
-        r.display(alloc, message);
+        try r.display(alloc, message);
         std.process.exit(1);
     }
 
@@ -332,10 +332,11 @@ pub fn _inferType(self: *Self, alloc: Allocator, expr: *const Parser.Node.Expres
                 const declared = self.tu.scope.get(typeR.?.place.asConst().getText(self.tu.global)).?;
                 return Report.incompatibleType(
                     reports,
-                    typeL.?.type.asConst(),
-                    typeR.?.type.asConst(),
+                    typeL.?.type,
+                    typeR.?.type,
                     expr.asConst(),
                     declared.as(),
+                    null,
                 );
             }
         },
@@ -475,7 +476,7 @@ fn checkCallType(self: *Self, alloc: Allocator, call_: *Parser.Node.Call, expect
 
             assert(call.as().flags.cmpxchgStrong(pastFlags, flags, .acquire, .monotonic) == null);
         },
-        .notFound => Report.incompatibleReturnType(reports, retType.asConst(), expectedType.asConst(), call.asConst(), func.asConst()),
+        .notFound => |mismatch| Report.incompatibleReturnType(reports, mismatch.actualNode, mismatch.expectedNode, call.asConst(), func.asConst(), mismatch.kind),
     };
 }
 
@@ -492,7 +493,7 @@ fn checkFuncProtoType(self: *Self, funcProtoNode: *const Parser.Node.FuncProto, 
     const funcRetType = self.tu.global.nodes.getPtr(funcRetTypeIndex);
 
     switch (Type.compareActualsTypes(self.tu.global, funcRetType.asTypes(), retType.asTypes(), true, false)) {
-        .notFound => return Report.incompatibleType(reports, retType, funcRetType, funcRetType, funcRetType),
+        .notFound => |mismatch| return Report.incompatibleType(reports, mismatch.actualNode, mismatch.expectedNode, funcRetType, funcRetType, mismatch.kind),
         .found => {},
     }
 
@@ -518,7 +519,7 @@ fn checkFuncProtoType(self: *Self, funcProtoNode: *const Parser.Node.FuncProto, 
         const typeArgType = self.tu.global.nodes.getPtr(typeArgTypeIndex).asTypes();
 
         switch (Type.compareActualsTypes(self.tu.global, protoArgType, typeArgType, true, false)) {
-            .notFound => return Report.incompatibleType(reports, typeArgType.as(), protoArgType.as(), protoArg.asConst(), protoArg.asConst()),
+            .notFound => |mismatch| return Report.incompatibleType(reports, mismatch.actualNode, mismatch.expectedNode, protoArg.asConst(), protoArg.asConst(), mismatch.kind),
             .found => {},
         }
     }
@@ -550,7 +551,7 @@ fn checkVarType(self: *Self, alloc: Allocator, load: *Parser.Node.Load, type_: *
                     self.tu.global.nodes.getConstPtr(variable.asVarConst().expr.load(.acquire)).asConstExpression(),
                     reports,
                 )) return;
-                return Report.incompatibleType(reports, self.tu.global.nodes.getConstPtr(variable.type.load(.acquire)), type_.asConst(), load.asConst(), variable.asConst());
+                return Report.incompatibleType(reports, self.tu.global.nodes.getConstPtr(variable.type.load(.acquire)).asConstTypes(), type_, load.asConst(), variable.asConst(), null);
             },
             else => return err,
         };
@@ -560,33 +561,33 @@ fn checkVarType(self: *Self, alloc: Allocator, load: *Parser.Node.Load, type_: *
     const result = Type.compareActualsTypes(self.tu.global, variableType, type_, true, true);
     switch (result) {
         .found => return,
-        .notFound, .coerce => {
+        .notFound => |mismatch| {
             const tag = variable.tag.load(.acquire);
             if (tag == .constant)
                 return addInferType(self, alloc, .inferedFromUse, load.as().asExpression(), variable.asVarConst(), type_, reports) catch |err| switch (err) {
                     Error.IncompatibleType => return Report.incompatibleType(
                         reports,
-                        self.tu.global.nodes.getConstPtr(typeIndex),
-                        type_.asConst(),
+                        mismatch.actualNode,
+                        mismatch.expectedNode,
                         load.asConst(),
                         variable.asConst(),
+                        mismatch.kind,
                     ),
                     else => return err,
                 };
 
-            if (std.meta.activeTag(result) == .coerce) {
-                const pastFlags = load.flags.load(.acquire);
-                var flags = pastFlags;
-                flags.implicitCast = true;
+            return Report.incompatibleType(reports, mismatch.actualNode, mismatch.expectedNode, load.as(), variable.as(), mismatch.kind);
+        },
+        .coerce => {
+            const pastFlags = load.flags.load(.acquire);
+            var flags = pastFlags;
+            flags.implicitCast = true;
 
-                assert(load.flags.cmpxchgStrong(pastFlags, flags, .acquire, .monotonic) == null);
+            assert(load.flags.cmpxchgStrong(pastFlags, flags, .acquire, .monotonic) == null);
 
-                return;
-            }
+            return;
         },
     }
-
-    return Report.incompatibleType(reports, variableType.asConst(), type_.asConst(), load.as(), variable.as());
 }
 
 fn addInferType(self: *Self, alloc: Allocator, comptime flag: std.meta.FieldEnum(Parser.Node.Flags), leaf: *const Parser.Node.Expression, variable: *Parser.Node.VarConst, type_: *const Parser.Node.Types, reports: ?*Report.Reports) (Allocator.Error || Error)!void {
@@ -641,10 +642,8 @@ fn addInferType(self: *Self, alloc: Allocator, comptime flag: std.meta.FieldEnum
     const variableType = self.tu.global.nodes.getPtr(variable.type.load(.acquire)).asTypes();
     switch (Type.compareActualsTypes(self.tu.global, variableType, type_, true, false)) {
         .found => return,
-        .notFound => {},
+        .notFound => @panic("Revaluete the way it is done"),
     }
-
-    @panic("Revaluete the way it is done");
 }
 
 fn checkLitType(self: *Self, lit: *const Parser.Node.Literal, expectedType: *const Parser.Node.Types, reports: ?*Report.Reports) (Error)!void {

@@ -128,19 +128,31 @@ const Error = struct {
         );
     }
 
-    pub inline fn incompatibleReturnType(self: @This(), actual: *const Parser.Node, expected: *const Parser.Node, loc: Lexer.Location) void {
+    pub inline fn incompatibleReturnType(self: @This(), alloc: Allocator, actual: *const Parser.Node.Types, expected: *const Parser.Node.Types, loc: Lexer.Location, kind: ?[]const u8) Allocator.Error!void {
         const fileInfo = self.global.files.get(loc.source);
         const where = placeSlice(loc, fileInfo.source);
+
+        var actualStr = std.ArrayList(u8){};
+        defer actualStr.deinit(alloc);
+        try actual.toString(self.global, alloc, &actualStr, 0, false);
+
+        var expectedStr = std.ArrayList(u8){};
+        defer expectedStr.deinit(alloc);
+        try expected.toString(self.global, alloc, &expectedStr, 0, false);
+
+        const kindStr = if (kind) |k| k else "";
+        const separator = if (kind != null) " " else "";
+
         std.log.err(
-            "{s}:{}:{}: Incompatible return type {c}{}, expected {c}{} \n{s}\n{[8]c: >[9]}",
+            "{s}:{}:{}: Incompatible return type {s}, expected {s}{s}{s}\n{s}\n{[8]c: >[9]}",
             .{
                 fileInfo.path,
                 loc.row,
                 loc.col,
-                actual.typeToString(),
-                actual.left.load(.acquire),
-                expected.typeToString(),
-                expected.left.load(.acquire),
+                actualStr.items,
+                expectedStr.items,
+                separator,
+                kindStr,
                 fileInfo.source[where.beg..where.end],
                 '^',
                 where.pad,
@@ -293,26 +305,31 @@ const Error = struct {
         );
     }
 
-    pub inline fn incompatibleType(self: @This(), alloc: std.mem.Allocator, actual: *const Parser.Node, expected: *const Parser.Node, loc: Lexer.Location) std.mem.Allocator.Error!void {
+    pub inline fn incompatibleType(self: @This(), alloc: std.mem.Allocator, actual: *const Parser.Node.Types, expected: *const Parser.Node.Types, loc: Lexer.Location, kind: ?[]const u8) std.mem.Allocator.Error!void {
         const fileInfo = self.global.files.get(loc.source);
         const where = placeSlice(loc, fileInfo.source);
 
         var actualStr = std.ArrayList(u8){};
         defer actualStr.deinit(alloc);
-        try actual.asConstTypes().toString(self.global, alloc, &actualStr, 0, false);
+        try actual.toString(self.global, alloc, &actualStr, 0, false);
 
         var expectedStr = std.ArrayList(u8){};
         defer expectedStr.deinit(alloc);
-        try expected.asConstTypes().toString(self.global, alloc, &expectedStr, 0, false);
+        try expected.toString(self.global, alloc, &expectedStr, 0, false);
+
+        const kindStr = if (kind) |k| k else "";
+        const separator = if (kind != null) " " else "";
 
         std.log.err(
-            "{s}:{}:{}: Type {s}, is incompatible with {s} \n{s}\n{[6]c: >[7]}",
+            "{s}:{}:{}: Type {s}, is incompatible with {s}{s}{s}\n{s}\n{[8]c: >[9]}",
             .{
                 fileInfo.path,
                 loc.row,
                 loc.col,
                 actualStr.items,
                 expectedStr.items,
+                separator,
+                kindStr,
                 fileInfo.source[where.beg..where.end],
                 '^',
                 where.pad,
@@ -557,3 +574,4 @@ const Global = @import("../Global.zig");
 const Typing = @import("../Typing/mod.zig");
 
 const std = @import("std");
+const Allocator = std.mem.Allocator;

@@ -22,11 +22,11 @@ baz: () u8 #inferedFromExpression : () u8 {
     return x;
 }
 
-:b stderr 1520
+:b stderr 1546
 [INFO]: Example/CheckError/TypeCheckError0.yt:3:5: x is declared here 
     x : s8 = 5;
     ^
-[ERROR]: Example/CheckError/TypeCheckError0.yt:4:14: Type s8, is incompatible with u8 
+[ERROR]: Example/CheckError/TypeCheckError0.yt:4:14: Type s8, is incompatible with u8 (types differ)
     y : u8 = x;  // Error: cannot assign s8 to u8
              ^
 [WARNING]: Example/CheckError/TypeCheckError0.yt:8:1: Variable 'foo' is declared but never used 
@@ -38,10 +38,10 @@ foo :: () u8 {
 [INFO]: Example/CheckError/TypeCheckError0.yt:11:5: b is declared here 
     b : s8 = 10;
     ^
-[ERROR]: Example/CheckError/TypeCheckError0.yt:12:12: Type u8, is incompatible with s8 
+[ERROR]: Example/CheckError/TypeCheckError0.yt:12:12: Type u8, is incompatible with s8
     c := a + b;  // Error: cannot infer type from incompatible operands
            ^
-[ERROR]: Example/CheckError/TypeCheckError0.yt:12:12: Type u8, is incompatible with s8 
+[ERROR]: Example/CheckError/TypeCheckError0.yt:12:12: Type u8, is incompatible with s8
     c := a + b;  // Error: cannot infer type from incompatible operands
            ^
 [WARNING]: Example/CheckError/TypeCheckError0.yt:16:1: Variable 'bar' is declared but never used 
@@ -56,7 +56,7 @@ baz :: () u8 {
 [INFO]: Example/CheckError/TypeCheckError0.yt:23:5: x is declared here 
     x : s8 = 42;
     ^
-[ERROR]: Example/CheckError/TypeCheckError0.yt:24:12: Type s8, is incompatible with u8 
+[ERROR]: Example/CheckError/TypeCheckError0.yt:24:12: Type s8, is incompatible with u8 (types differ)
     return x;  // Error: cannot return s8 where u8 expected
            ^
 
