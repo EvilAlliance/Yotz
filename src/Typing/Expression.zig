@@ -530,13 +530,22 @@ fn checkVarType(self: *Self, alloc: Allocator, load: *Parser.Node.Load, type_: *
     if (typeIndex == 0) {
         return addInferType(self, alloc, .inferedFromUse, load.as().asExpression(), variable.asVarConst(), type_, reports) catch |err| switch (err) {
             Error.IncompatibleType => {
-                if (!try self.inferType(
+                assert(!try self.inferType(
                     alloc,
                     variable.asVarConst(),
                     self.tu.global.nodes.getConstPtr(variable.asVarConst().expr.load(.acquire)).asConstExpression(),
                     reports,
-                )) return;
+                ));
                 return Report.incompatibleType(reports, self.tu.global.nodes.getConstPtr(variable.type.load(.acquire)).asConstTypes(), type_, load.asConst(), variable.asConst(), null);
+            },
+            Error.TooBig => {
+                try self.checkType(
+                    alloc,
+                    self.tu.global.nodes.getPtr(variable.asConstVarConst().expr.load(.acquire)).asExpression(),
+                    type_,
+                    reports,
+                );
+                return err;
             },
             else => return err,
         };
@@ -558,6 +567,15 @@ fn checkVarType(self: *Self, alloc: Allocator, load: *Parser.Node.Load, type_: *
                         variable.asConst(),
                         mismatch.kind,
                     ),
+                    Error.TooBig => {
+                        try self.checkType(
+                            alloc,
+                            self.tu.global.nodes.getPtr(variable.asConstVarConst().expr.load(.acquire)).asExpression(),
+                            type_,
+                            reports,
+                        );
+                        return err;
+                    },
                     else => return err,
                 };
 
