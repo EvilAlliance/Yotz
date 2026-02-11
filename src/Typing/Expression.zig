@@ -158,7 +158,7 @@ fn _pushDependant(self: *Self, alloc: Allocator, variable: *Parser.Node.VarConst
             const varPastFlags = loadedVariable.flags.load(.acquire);
             var varFlags = varPastFlags;
             varFlags.used = true;
-            _ = loadedVariable.flags.cmpxchgStrong(varPastFlags, varFlags, .acquire, .monotonic);
+            assert(loadedVariable.flags.cmpxchgStrong(varPastFlags, varFlags, .acquire, .monotonic) == null);
 
             try self.tu.scope.pushDependant(alloc, id, variable);
         },
@@ -176,7 +176,7 @@ fn _pushDependant(self: *Self, alloc: Allocator, variable: *Parser.Node.VarConst
             const varPastFlags = func.flags.load(.acquire);
             var varFlags = varPastFlags;
             varFlags.used = true;
-            _ = func.flags.cmpxchgStrong(varPastFlags, varFlags, .acquire, .monotonic);
+            assert(func.flags.cmpxchgStrong(varPastFlags, varFlags, .acquire, .monotonic) == null);
         },
         .addition,
         .subtraction,
@@ -422,7 +422,7 @@ fn checkCallType(self: *Self, alloc: Allocator, call_: *Parser.Node.Call, expect
     const varPastFlags = func.flags.load(.acquire);
     var varFlags = varPastFlags;
     varFlags.used = true;
-    _ = func.flags.cmpxchgStrong(varPastFlags, varFlags, .acquire, .monotonic);
+    assert(func.flags.cmpxchgStrong(varPastFlags, varFlags, .acquire, .monotonic) == null);
 
     const funcType = self.tu.global.nodes.getPtr(func.type.load(.acquire));
 
@@ -537,7 +537,7 @@ fn checkVarType(self: *Self, alloc: Allocator, load: *Parser.Node.Load, type_: *
     const varPastFlags = variable.flags.load(.acquire);
     var varFlags = varPastFlags;
     varFlags.used = true;
-    _ = variable.flags.cmpxchgStrong(varPastFlags, varFlags, .acquire, .monotonic);
+    assert(variable.flags.cmpxchgStrong(varPastFlags, varFlags, .acquire, .monotonic) == null);
 
     const typeIndex = variable.type.load(.acquire);
 

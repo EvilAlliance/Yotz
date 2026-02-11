@@ -1,6 +1,6 @@
 const Self = @This();
 pub const FileInfo = struct { path: []const u8, source: [:0]const u8 };
-pub const Args = struct { *TranslationUnit, Allocator, Parser.NodeIndex, *const Parser.Node.Types, ?*Report.Reports };
+pub const Args = struct { *const TranslationUnit, Allocator, *const Parser.Node.FuncProto, ?*Report.Reports };
 
 threadPool: Thread.Pool = undefined,
 observer: Observer.Multiple(usize, Args, struct {
@@ -11,7 +11,7 @@ observer: Observer.Multiple(usize, Args, struct {
 
     pub fn deinit(self: @This(), arg: Args, runned: bool) void {
         _ = self;
-        const tu, const alloc, _, _, const reports = arg;
+        const tu, const alloc, _, const reports = arg;
 
         if (!runned) {
             @panic("What to do");

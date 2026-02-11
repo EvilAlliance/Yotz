@@ -1,10 +1,22 @@
+fn _typing(args: std.meta.ArgsTuple(@TypeOf(typing))) void {
+    typing(args[0], args[1], args[2], args[3]) catch {
+        std.debug.panic("Run Out of Memory", .{});
+    };
+}
+
 pub fn typing(self: *const TranslationUnit, alloc: Allocator, func: *const Parser.Node.FuncProto, reports: ?*Report.Reports) Allocator.Error!void {
-    std.debug.assert(func.tag.load(.acquire) == .funcProto);
+    if (!self.global.readyTu.get(self.id).load(.acquire)) {
+        self.global.observer.mutex.lock();
+        defer self.global.observer.mutex.unlock();
+        if (!self.global.readyTu.get(self.id).load(.acquire)) {
+            try self.global.observer.pushUnlock(alloc, self.id, _typing, .{ try Util.dupe(alloc, try self.acquire(alloc)), alloc, func, reports });
+            return;
+        }
+    }
 
     const tIndex = func.retType.load(.acquire);
 
     try self.scope.push(alloc);
-    defer self.scope.pop(alloc, reports);
 
     const argsI = func.args.load(.acquire);
     if (argsI != 0) try Statement.recordFunctionArgs(self, alloc, self.global.nodes.getPtr(argsI).asProtoArg(), reports);
@@ -13,18 +25,11 @@ pub fn typing(self: *const TranslationUnit, alloc: Allocator, func: *const Parse
     const stmtORscope = self.global.nodes.get(stmtORscopeIndex);
 
     try self.scope.push(alloc);
-    defer self.scope.pop(alloc, reports);
 
     const type_ = self.global.nodes.getConstPtr(tIndex).asConstTypes();
-    {
-        self.global.observer.mutex.lock();
-        defer self.global.observer.mutex.unlock();
-        if (!self.global.readyTu.get(self.id).load(.acquire)) {
-            const i = if (stmtORscope.tag.load(.acquire) == .scope) stmtORscope.left.load(.acquire) else stmtORscopeIndex;
-            try self.global.observer.pushUnlock(alloc, self.id, resumeScopeCheck, .{ try Util.dupe(alloc, try self.acquire(alloc)), alloc, i, type_, reports });
-            return;
-        }
-    }
+
+    defer self.scope.pop(alloc, reports);
+    defer self.scope.pop(alloc, reports);
     const ret = if (stmtORscope.tag.load(.acquire) == .scope)
         try checkScope(self, alloc, stmtORscopeIndex, type_, reports)
     else
@@ -83,19 +88,6 @@ fn checkStatements(self: *const TranslationUnit, alloc: Allocator, stmt: *Parser
         },
         else => unreachable,
     }
-}
-
-comptime {
-    if (@typeInfo(@TypeOf(resumeScopeCheck)).@"fn".return_type != void) @compileError("resumeScopeCheck must not return an error");
-}
-pub fn resumeScopeCheck(args: Global.Args) void {
-    const tu, const alloc, const stmtI, const retTypeI, const reports = args;
-
-    const ret = _checkScope(tu, alloc, stmtI, retTypeI, reports) catch {
-        std.debug.panic("Run Ouf of Memory", .{});
-    };
-
-    if (!ret) Report.missingReturn(reports, retTypeI.asConst());
 }
 
 const Expression = @import("Expression.zig");
