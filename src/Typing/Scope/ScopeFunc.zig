@@ -123,7 +123,7 @@ pub fn pushDependant(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: 
         return;
     }
 
-    return ScopeGlobal.pushDependant(ctx, alloc, key, value);
+    return ScopeGlobal.pushDependant(self.global, alloc, key, value);
 }
 
 pub fn popDependant(ctx: *anyopaque, key: []const u8) ?*Parser.Node.VarConst {

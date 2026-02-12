@@ -59,6 +59,9 @@ pub fn deepClone(ctx: *anyopaque, alloc: Allocator) Allocator.Error!Scope {
 
 pub fn pushDependant(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: *Parser.Node.VarConst) Allocator.Error!void {
     const self: *Self = @ptrCast(@alignCast(ctx));
+    self.rwLock.lock();
+    defer self.rwLock.unlock();
+
     const baseValue = self.base.getPtr(key) orelse return;
 
     const dependant: *mod.Dependant = if (self.node.popFirst()) |node| @fieldParentPtr("node", node) else try alloc.create(mod.Dependant);
@@ -69,6 +72,9 @@ pub fn pushDependant(ctx: *anyopaque, alloc: Allocator, key: []const u8, value: 
 
 pub fn popDependant(ctx: *anyopaque, key: []const u8) ?*Parser.Node.VarConst {
     const self: *Self = @ptrCast(@alignCast(ctx));
+
+    self.rwLock.lock();
+    defer self.rwLock.unlock();
 
     const value = self.base.getPtr(key) orelse return null;
 
