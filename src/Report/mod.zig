@@ -22,6 +22,8 @@ pub const argumentsAreConstant = Report.argumentsAreConstant;
 pub const assignmentToConstant = Report.assignmentToConstant;
 pub const argumentCountMismatch = Report.argumentCountMismatch;
 pub const unusedVariable = Report.unusedVariable;
+pub const expectedExpression = Report.expectedExpression;
+pub const invalidOperatorForVoid = Report.invalidOperatorForVoid;
 
 pub const Reports = ArrayListThreadSafe(Report);
 
@@ -44,6 +46,8 @@ pub const ArgumentsAreConstant = @import("ArgumentsAreConstant.zig");
 pub const AssignmentToConstant = @import("AssignmentToConstant.zig");
 pub const ArgumentCountMismatch = @import("ArgumentCountMismatch.zig");
 pub const UnusedVariable = @import("UnusedVariable.zig");
+pub const ExpectedExpression = @import("ExpectedExpression.zig");
+pub const InvalidOperatorForVoid = @import("InvalidOperatorForVoid.zig");
 
 const Bucketarray = @import("../Util/BucketArray.zig").BucketArray;
 const ArrayListThreadSafe = @import("../Util/ArrayListThreadSafe.zig").ArrayListThreadSafe;

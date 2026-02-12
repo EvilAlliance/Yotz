@@ -35,7 +35,15 @@ pub fn typing(self: *const TranslationUnit, alloc: Allocator, func: *const Parse
     else
         try _checkScope(self, alloc, stmtORscopeIndex, type_, reports);
 
-    if (!ret) Report.missingReturn(reports, type_.asConst());
+    if (!ret) {
+        const typeNode = type_.asConst().asConstType();
+        const primitiveIndex = typeNode.primitive.load(.acquire);
+        const primitive: Parser.Node.Primitive = @enumFromInt(primitiveIndex);
+
+        if (primitive != .void) {
+            Report.missingReturn(reports, type_.asConst());
+        }
+    }
 }
 
 fn checkScope(self: *const TranslationUnit, alloc: Allocator, scopeIndex: Parser.NodeIndex, retType: *const Parser.Node.Types, reports: ?*Report.Reports) Allocator.Error!bool {
@@ -86,6 +94,7 @@ fn checkStatements(self: *const TranslationUnit, alloc: Allocator, stmt: *Parser
             };
             try Statement.recordVariable(self, alloc, stmt.asVarConst(), reports);
         },
+        .call => try Statement.checkVoidCall(self, alloc, stmt.asCall(), reports),
         else => unreachable,
     }
 }

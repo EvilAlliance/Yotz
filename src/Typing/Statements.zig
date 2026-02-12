@@ -101,9 +101,33 @@ pub fn checkVariable(self: *const TranslationUnit, alloc: Allocator, variable: *
 }
 
 pub fn checkReturn(self: *const TranslationUnit, alloc: Allocator, stmt: *const Parser.Node.Return, type_: *const Parser.Node.Types, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
+    const exprIndex = stmt.expr.load(.acquire);
+
+    if (exprIndex == 0) {
+        if (type_.tag.load(.acquire) == .type) {
+            const typeNode = type_.asConstType();
+            const primitiveIndex = typeNode.primitive.load(.acquire);
+            const primitive: Parser.Node.Primitive = @enumFromInt(primitiveIndex);
+
+            if (primitive != .void) return Report.expectedExpression(reports, stmt.asConst());
+            return;
+        }
+        return Report.expectedExpression(reports, stmt.asConst());
+    }
+
     var expr = try Expression.init(alloc, self);
     defer expr.deinit(alloc);
-    try expr.checkType(alloc, self.global.nodes.getPtr(stmt.expr.load(.acquire)).asExpression(), type_, reports);
+    try expr.checkType(alloc, self.global.nodes.getPtr(exprIndex).asExpression(), type_, reports);
+}
+
+pub fn checkVoidCall(self: *const TranslationUnit, alloc: Allocator, stmt: *Parser.Node.Call, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
+    var expr = try Expression.init(alloc, self);
+    defer expr.deinit(alloc);
+    const voidType = Parser.Node.Type{
+        .primitive = .init(@intFromEnum(@as(Parser.Node.Primitive, .void))),
+        .size = .init(0),
+    };
+    try expr.checkType(alloc, stmt.as().asExpression(), voidType.asConst().asConstTypes(), reports);
 }
 
 const Expression = @import("Expression.zig");
