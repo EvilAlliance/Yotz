@@ -20,6 +20,8 @@ message: union(enum) {
     assignmentToConstant: mod.AssignmentToConstant,
     argumentCountMismatch: mod.ArgumentCountMismatch,
     unusedVariable: mod.UnusedVariable,
+    expectedExpression: mod.ExpectedExpression,
+    invalidOperatorForVoid: mod.InvalidOperatorForVoid,
 },
 
 pub fn display(self: *const Self, alloc: std.mem.Allocator, message: mod.Message) Allocator.Error!void {
@@ -34,7 +36,7 @@ pub fn display(self: *const Self, alloc: std.mem.Allocator, message: mod.Message
         .dependencyCycle => |dc| dc.display(message),
         .mustReturnU8 => |mru| mru.display(message),
         .mainExpect0Args => |mea| mea.display(message),
-        .missingReturn => |mr| mr.display(message),
+        .missingReturn => |mr| mr.display(alloc, message),
         .unreachableStatement => |us| us.display(message),
         .expectedFunction => |ef| ef.display(message),
         .incompatibleReturnType => |irt| irt.display(alloc, message),
@@ -43,6 +45,8 @@ pub fn display(self: *const Self, alloc: std.mem.Allocator, message: mod.Message
         .assignmentToConstant => |atc| atc.display(message),
         .argumentCountMismatch => |acm| acm.display(message),
         .unusedVariable => |uv| uv.display(message),
+        .expectedExpression => |ee| ee.display(message),
+        .invalidOperatorForVoid => |iofv| iofv.display(message),
     };
 }
 
@@ -230,6 +234,34 @@ pub fn incompatibleReturnType(reports: ?*mod.Reports, actualReturnType: *const P
                     .place = place,
                     .declared = declared,
                     .kind = kind,
+                },
+            },
+        }) catch {};
+    }
+
+    return Typing.Expression.Error.IncompatibleType;
+}
+
+pub fn expectedExpression(reports: ?*mod.Reports, returnNode: *const Parser.Node) Typing.Expression.Error {
+    if (reports) |rs| {
+        rs.appendBounded(.{
+            .message = .{
+                .expectedExpression = .{
+                    .returnNode = returnNode,
+                },
+            },
+        }) catch {};
+    }
+
+    return Typing.Expression.Error.IncompatibleType;
+}
+
+pub fn invalidOperatorForVoid(reports: ?*mod.Reports, expr: *const Parser.Node) Typing.Expression.Error {
+    if (reports) |rs| {
+        rs.appendBounded(.{
+            .message = .{
+                .invalidOperatorForVoid = .{
+                    .expr = expr,
                 },
             },
         }) catch {};

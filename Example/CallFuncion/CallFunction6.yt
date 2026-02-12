@@ -1,0 +1,26 @@
+a :u8 =0;
+
+foo :: () void {
+    a = a + 1;
+    return;
+}
+
+bar :: () void {
+    return foo();
+}
+
+faz :: () void {
+    foo();
+}
+
+baz :: () void {
+    return foo() + bar();
+}
+
+main :: () u8 {
+    foo();
+    baz();
+    faz();
+
+    return 0;
+}

@@ -92,18 +92,22 @@ const Error = struct {
         });
     }
 
-    pub inline fn missingReturn(self: @This(), returnType: *const Parser.Node) void {
+    pub inline fn missingReturn(self: @This(), alloc: Allocator, returnType: *const Parser.Node) Allocator.Error!void {
         const loc = returnType.getLocation(self.global);
         const fileInfo = self.global.files.get(loc.source);
         const where = placeSlice(loc, fileInfo.source);
+
+        var expectedStr = std.ArrayList(u8){};
+        defer expectedStr.deinit(alloc);
+        try returnType.asConstTypes().toString(self.global, alloc, &expectedStr, 0, false);
+
         std.log.err(
-            "{s}:{}:{}: Function must return type {c}{} but has no return statement \n{s}\n{[6]c: >[7]}",
+            "{s}:{}:{}: Function must return type {s} but has no return statement \n{s}\n{[5]c: >[6]}",
             .{
                 fileInfo.path,
                 loc.row,
                 loc.col,
-                returnType.typeToString(),
-                returnType.left.load(.acquire),
+                expectedStr.items,
                 fileInfo.source[where.beg..where.end],
                 '^',
                 where.pad,
@@ -117,6 +121,40 @@ const Error = struct {
         const where = placeSlice(loc, fileInfo.source);
         std.log.err(
             "{s}:{}:{}: Expected a function but got a different type \n{s}\n{[4]c: >[5]}",
+            .{
+                fileInfo.path,
+                loc.row,
+                loc.col,
+                fileInfo.source[where.beg..where.end],
+                '^',
+                where.pad,
+            },
+        );
+    }
+
+    pub inline fn expectedExpression(self: @This(), returnNode: *const Parser.Node) void {
+        const loc = returnNode.getLocation(self.global);
+        const fileInfo = self.global.files.get(loc.source);
+        const where = placeSlice(loc, fileInfo.source);
+        std.log.err(
+            "{s}:{}:{}: Expected an expression after return statement \n{s}\n{[4]c: >[5]}",
+            .{
+                fileInfo.path,
+                loc.row,
+                loc.col,
+                fileInfo.source[where.beg..where.end],
+                '^',
+                where.pad,
+            },
+        );
+    }
+
+    pub inline fn invalidOperatorForVoid(self: @This(), expr: *const Parser.Node) void {
+        const loc = expr.getLocation(self.global);
+        const fileInfo = self.global.files.get(loc.source);
+        const where = placeSlice(loc, fileInfo.source);
+        std.log.err(
+            "{s}:{}:{}: Invalid operator for void type \n{s}\n{[4]c: >[5]}",
             .{
                 fileInfo.path,
                 loc.row,

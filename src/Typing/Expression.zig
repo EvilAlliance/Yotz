@@ -366,6 +366,26 @@ pub fn checkType(self: *Self, alloc: Allocator, expr: *Parser.Node.Expression, e
     try self.push(alloc, expr.asConst(), .check);
     defer self.pop();
 
+    if (expectedType.tag.load(.acquire) == .type) {
+        const typeNode = expectedType.asConst().asConstType();
+        const primitiveIndex = typeNode.primitive.load(.acquire);
+        const primitive: Parser.Node.Primitive = @enumFromInt(primitiveIndex);
+
+        if (primitive == .void) {
+            const exprTag = expr.tag.load(.acquire);
+            switch (exprTag) {
+                .neg,
+                .addition,
+                .subtraction,
+                .multiplication,
+                .division,
+                .power,
+                => return Report.invalidOperatorForVoid(reports, expr.asConst()),
+                else => {},
+            }
+        }
+    }
+
     try self.checkExpected(alloc, expr, expectedType, reports);
 }
 
