@@ -681,6 +681,7 @@ fn checkLitType(self: *Self, lit: *const Parser.Node.Literal, expectedType: *con
             if (number < max) return;
             return Report.incompatibleLiteral(reports, lit.asConst(), expectedType.asConst());
         },
+        Parser.Node.Primitive.void => @panic("This should be prevented"),
         Parser.Node.Primitive.float => unreachable,
     }
 }

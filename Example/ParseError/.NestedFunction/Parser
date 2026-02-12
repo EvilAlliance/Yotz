@@ -17,7 +17,7 @@ outer :: () u8 {
     return 2;
 }
 
-:b stderr 741
+:b stderr 746
 [ERROR]: Example/ParseError/NestedFunction.yt:3:20: Expected: ")" but found: '{' 
     nested :: ( u8 {
                    ^
@@ -27,7 +27,7 @@ outer :: () u8 {
 [ERROR]: Example/ParseError/NestedFunction.yt:21:15: Expected: "number literal", "(", "-", "identifier" but found: ')' 
     middle :: ) u8 {
               ^
-[ERROR]: Example/ParseError/NestedFunction.yt:21:20: Expected: ":", "=" but found: '{' 
+[ERROR]: Example/ParseError/NestedFunction.yt:21:20: Expected: ":", "=", "(" but found: '{' 
     middle :: ) u8 {
                    ^
 [ERROR]: Example/ParseError/NestedFunction.yt:23:24: Expected: "number literal", "(", "-", "identifier" but found: ';' 

@@ -325,11 +325,12 @@ fn parseStatement(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (
     const nodeIndex = switch (self.peek()[0].tag) {
         .ret => try self.parseReturn(alloc, reports),
         .iden => blk: {
-            try Report.expect(reports, self.peekMany(1)[0], &.{ .colon, .equal });
+            try Report.expect(reports, self.peekMany(1)[0], &.{ .colon, .equal, .openParen });
 
             break :blk switch (self.peekMany(1).@"0".tag) {
                 .colon => try self.parseVariableDecl(alloc, reports),
                 .equal => try self.parseAssigment(alloc, reports),
+                .openParen => (try self.parseCall(alloc, reports)).?,
                 else => unreachable,
             };
         },
@@ -398,7 +399,7 @@ fn parseReturn(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std
         .tokenIndex = .init(retIndex),
     };
     const nodeIndex = try self.tu.global.nodes.appendIndex(alloc, ret.asConst().*);
-    const exp = try self.parseExpression(alloc, reports);
+    const exp = if (Util.listContains(Lexer.Token.Type, &.{ .numberLiteral, .openParen, .minus, .iden }, self.peek().@"0".tag)) try self.parseExpression(alloc, reports) else 0;
 
     const node = self.tu.global.nodes.getPtr(nodeIndex).asRet();
 
@@ -444,7 +445,7 @@ fn parseCall(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (Alloc
             .firstArg = .init(chainedArgs),
         };
         nextCall.* = nextCallNode.asConst().*;
-        currentCall.next.store(self.tu.global.nodes.indexOf(nextCall), .release);
+        currentCall.nextCall.store(self.tu.global.nodes.indexOf(nextCall), .release);
         currentCall = nextCall.asCall();
     }
 

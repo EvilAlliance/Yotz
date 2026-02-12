@@ -11,7 +11,7 @@ const varConst = [_]Struct.FieldMap{
     .{ .b = "tag", .v = "tag" },
     .{ .b = "tokenIndex", .v = "tokenIndex" },
     .{ .b = "left", .v = "none" },
-    .{ .b = "expr", .v = "expr" },
+    .{ .b = "right", .v = "expr" },
     .{ .b = "next", .v = "next" },
     .{ .b = "flags", .v = "flags" },
 };

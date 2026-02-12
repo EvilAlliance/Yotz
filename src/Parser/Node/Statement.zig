@@ -3,7 +3,7 @@ const Self = @This();
 tag: Value(Node.Tag),
 tokenIndex: Value(mod.TokenIndex) = .init(0),
 left: Value(mod.NodeIndex) = .init(0),
-expr: Value(mod.NodeIndex) = .init(0),
+right: Value(mod.NodeIndex) = .init(0),
 next: Value(mod.NodeIndex) = .init(0),
 flags: Value(Node.Flags) = .init(Node.Flags{}),
 
@@ -11,7 +11,7 @@ const stmt = [_]Struct.FieldMap{
     .{ .b = "tag", .v = "tag" },
     .{ .b = "tokenIndex", .v = "tokenIndex" },
     .{ .b = "left", .v = "left" },
-    .{ .b = "right", .v = "expr" },
+    .{ .b = "right", .v = "right" },
     .{ .b = "next", .v = "next" },
     .{ .b = "flags", .v = "flags" },
 };
@@ -25,12 +25,13 @@ comptime {
 }
 
 pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, enter: bool) std.mem.Allocator.Error!void {
-    const exprIndex = self.expr.load(.acquire);
+    const exprIndex = self.right.load(.acquire);
 
     switch (self.tag.load(.acquire)) {
         .ret => try self.asConstReturn().toString(global, alloc, cont, d),
         .variable, .constant => try self.asConstVarConst().toString(global, alloc, cont, d),
         .assigment => try self.asConstAssigment().toString(global, alloc, cont, d),
+        .call => try self.asConst().asConstExpression().toString(global, alloc, cont, d),
         else => unreachable,
     }
 
@@ -83,4 +84,12 @@ pub fn asAssigment(self: *Self) *Node.Assignment {
 
 pub fn asConstAssigment(self: *const Self) *const Node.Assignment {
     return self.asConst().asConstAssigment();
+}
+
+pub fn asCall(self: *Self) *Node.Call {
+    return self.as().asCall();
+}
+
+pub fn asConstCall(self: *const Self) *const Node.Call {
+    return self.asConst().asConstCall();
 }

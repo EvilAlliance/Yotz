@@ -86,12 +86,14 @@ fn transformIdentiferType(self: *Global, type_: *Parser.Node.FakeType) void {
         u,
         s,
         f,
+        void,
 
         pub fn nodeKind(s: @This()) Parser.Node.Primitive {
             return switch (s) {
                 .s => .sint,
                 .u => .uint,
                 .f => .float,
+                .void => .void,
             };
         }
     };
@@ -100,11 +102,12 @@ fn transformIdentiferType(self: *Global, type_: *Parser.Node.FakeType) void {
     if (tag == .type) return;
 
     const name = type_.asConst().getText(self);
-    if (name.len > 3) @panic("Aliases or struct arent supported yet");
+    const isVoid = std.mem.eql(u8, name, "void");
+    if (!isVoid and name.len > 3) @panic("Aliases or struct arent supported yet");
 
-    const typeInfo = std.meta.stringToEnum(TypeName, name[0..1]) orelse @panic("Aliases or struct arent supported yet");
+    const typeInfo = std.meta.stringToEnum(TypeName, if (isVoid) name else name[0..1]) orelse @panic("Aliases or struct arent supported yet");
 
-    const res = std.fmt.parseInt(u32, name[1..], 10) catch @panic("Aliases or struct arent supported yet");
+    const res = if (isVoid) 0 else std.fmt.parseInt(u32, name[1..], 10) catch @panic("Aliases or struct arent supported yet");
     if (res > 64) @panic("Aliases or Struct arent supported yet");
 
     type_.left.store(res, .release);

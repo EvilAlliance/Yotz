@@ -14,7 +14,7 @@ baz :: () u8 {
     return 5;
 }
 
-:b stderr 715
+:b stderr 720
 [ERROR]: Example/ParseError/ParseError0.yt:6:9: Expected: "number literal", "(", "-", "identifier" but found: ')' 
 fail :: ) u8 {
         ^
@@ -27,7 +27,7 @@ foo :: ( u8 {
 [ERROR]: Example/ParseError/ParseError0.yt:21:12: Expected: "(", "identifier" but found: '{' 
 test :: () {
            ^
-[ERROR]: Example/ParseError/ParseError0.yt:30:5: Expected: ":", "=" but found: 'identifier' 
+[ERROR]: Example/ParseError/ParseError0.yt:30:5: Expected: ":", "=", "(" but found: 'identifier' 
 qux u8 :: () {
     ^
 [ERROR]: Example/ParseError/ParseError0.yt:30:14: Expected: "(", "identifier" but found: '{' 

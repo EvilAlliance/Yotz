@@ -130,7 +130,7 @@ pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, co
 
             try cont.append(alloc, ')');
 
-            var next = self.next.load(.acquire);
+            var next = callNode.nextCall.load(.acquire);
             while (next != 0) {
                 const call = global.nodes.getConstPtr(next).asConstCall();
 
@@ -150,7 +150,7 @@ pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, co
 
                 try cont.append(alloc, ')');
 
-                next = call.next.load(.acquire);
+                next = call.nextCall.load(.acquire);
             }
         },
         .lit => {

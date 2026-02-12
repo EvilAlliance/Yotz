@@ -49,6 +49,7 @@ pub const Primitive = enum(mod.NodeIndex) {
     sint,
     uint,
     float,
+    void,
 };
 
 pub const Flags = packed struct {
@@ -93,6 +94,7 @@ pub fn typeToString(self: @This()) u8 {
         .sint => 's',
         .uint => 'u',
         .float => 'f',
+        .void => 'v',
     });
 }
 
@@ -120,7 +122,7 @@ pub fn Iterator(comptime T: type, comptime field: []const u8) type {
             else
                 self.global.nodes.getPtr(self.current);
 
-            const nextIndex = @field(node, field).load(.acquire);
+            const nextIndex = @field(@as(T, @ptrCast(node)), field).load(.acquire);
             self.current = nextIndex;
 
             return @ptrCast(node);
@@ -448,7 +450,7 @@ pub fn asConstRoot(self: *const Self) *const Root {
 }
 
 pub fn isStatement(tag: Tag) bool {
-    return Util.listContains(Tag, &.{ .ret, .variable, .constant, .assigment }, tag);
+    return Util.listContains(Tag, &.{ .ret, .variable, .constant, .assigment, .call }, tag);
 }
 
 pub fn asStatement(self: *Self) *Statement {

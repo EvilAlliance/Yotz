@@ -33,15 +33,18 @@ pub fn asConst(self: *const Self) *const Node {
 }
 
 pub fn toString(self: *const Self, global: *Global, alloc: std.mem.Allocator, cont: *std.ArrayList(u8), d: u64, printFlags: bool) std.mem.Allocator.Error!void {
-    try cont.append(alloc, @as(u8, switch (@as(Node.Primitive, @enumFromInt(self.primitive.load(.acquire)))) {
-        .sint => 's',
-        .uint => 'u',
-        .float => 'f',
-    }));
+    try cont.appendSlice(alloc, switch (@as(Node.Primitive, @enumFromInt(self.primitive.load(.acquire)))) {
+        .sint => "s",
+        .uint => "u",
+        .float => "f",
+        .void => "void",
+    });
 
-    const size = try std.fmt.allocPrint(alloc, "{}", .{self.size.load(.acquire)});
-    try cont.appendSlice(alloc, size);
-    alloc.free(size);
+    if (self.size.load(.acquire) != 0) {
+        const size = try std.fmt.allocPrint(alloc, "{}", .{self.size.load(.acquire)});
+        try cont.appendSlice(alloc, size);
+        alloc.free(size);
+    }
 
     if (printFlags) try self.asConst().toStringFlags(alloc, cont);
 
