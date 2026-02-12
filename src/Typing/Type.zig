@@ -243,6 +243,30 @@ pub fn compareActualsTypes(global: *const Global, actual: *Parser.Node.Types, ex
     return .notFound;
 }
 
+pub fn getMostSpecificType(global: *const Global, variable: *const Parser.Node.VarConst) ?*Parser.Node.Types {
+    var it = variable.typeIterator(global);
+    var mostSpecific: ?*Parser.Node.Types = null;
+
+    while (it.next()) |typeNode| {
+        const tag = typeNode.tag.load(.acquire);
+        if (tag == .argType) @panic("Evaluete why would this happend, it could when overloading");
+        if (tag == .funcType) {
+            assert(typeNode.next.load(.acquire) == 0);
+            return typeNode;
+        }
+
+        if (tag == .type) {
+            if (mostSpecific == null) {
+                mostSpecific = typeNode;
+                continue;
+            }
+            if (canTypeBeCoerced(typeNode, mostSpecific.?) and !canTypeBeCoerced(mostSpecific.?, typeNode)) mostSpecific = typeNode;
+        }
+    }
+
+    return mostSpecific;
+}
+
 const TranslationUnit = @import("../TranslationUnit.zig");
 const Global = @import("../Global.zig");
 const Parser = @import("../Parser/mod.zig");

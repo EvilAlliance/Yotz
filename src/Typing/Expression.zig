@@ -216,7 +216,10 @@ pub fn _inferType(self: *Self, alloc: Allocator, expr: *const Parser.Node.Expres
 
             const typeIndex = variable.type.load(.acquire);
 
-            return if (typeIndex == 0) null else .{ .type = self.tu.global.nodes.getConstPtr(typeIndex).asConstTypes(), .place = expr };
+            return if (typeIndex == 0) null else .{
+                .type = if (variable.tag.load(.acquire) == .protoArg) self.tu.global.nodes.getConstPtr(typeIndex).asConstTypes() else Type.getMostSpecificType(self.tu.global, variable.asConstVarConst()).?,
+                .place = expr,
+            };
         },
         .funcProto => {
             const funcProto = expr.asConstFuncProto();

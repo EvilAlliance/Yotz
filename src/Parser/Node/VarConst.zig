@@ -34,6 +34,14 @@ comptime {
     Struct.assertCommonFieldDefaults(Node, Self, Node.COMMONDEFAULT);
 }
 
+pub fn typeIterator(self: *const Self, global: *const Global) Node.Iterator(*Node.Types, "next") {
+    return .init(global, self.type.load(.acquire));
+}
+
+pub fn typeIteratorConst(self: *const Self, global: *const Global) Node.Iterator(*const Node.Types, "next") {
+    return .init(global, self.type);
+}
+
 pub fn as(self: *Self) *Node {
     return @ptrCast(self);
 }
