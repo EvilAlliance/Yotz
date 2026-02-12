@@ -2,8 +2,9 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 98
+:b stdout 154
 main :: () u8 { 
+    return 5;
 }
 foo :: () u8 { 
     bar :: () u8 { 
@@ -11,9 +12,12 @@ foo :: () u8 {
     return 20;
 }
 outer :: () u8 { 
+    inner :: () u8 { 
+    }
+    return 2;
 }
 
-:b stderr 441
+:b stderr 741
 [ERROR]: Example/ParseError/NestedFunction.yt:3:20: Expected: ")" but found: '{' 
     nested :: ( u8 {
                    ^
@@ -23,9 +27,10 @@ outer :: () u8 {
 [ERROR]: Example/ParseError/NestedFunction.yt:21:15: Expected: "number literal", "(", "-", "identifier" but found: ')' 
     middle :: ) u8 {
               ^
-
-   ^
-
-le :: ) u8 {
-              ^
+[ERROR]: Example/ParseError/NestedFunction.yt:21:20: Expected: ":", "=" but found: '{' 
+    middle :: ) u8 {
+                   ^
+[ERROR]: Example/ParseError/NestedFunction.yt:23:24: Expected: "number literal", "(", "-", "identifier" but found: ';' 
+            return 1 * ;
+                       ^
 

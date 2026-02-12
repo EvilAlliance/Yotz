@@ -291,8 +291,8 @@ fn parseScope(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.
     while (peeked != .closeBrace and peeked != .EOF) : (peeked = self.peek()[0].tag) {
         const nodeIndex = self.parseStatement(alloc, reports) catch |err| switch (err) {
             error.UnexpectedToken => {
-                self.popUnil(&.{.semicolon});
-                _ = self.popIf(.semicolon);
+                _ = self.popIf(.ret) orelse self.popIf(.iden);
+                self.popUnil(&.{ .ret, .iden, .closeBrace });
                 continue;
             },
             error.OutOfMemory => return error.OutOfMemory,
@@ -319,7 +319,7 @@ fn parseScope(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.
     return nodeIndex;
 }
 
-fn parseStatement(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || error{UnexpectedToken})!mod.NodeIndex {
+fn parseStatement(self: *@This(), alloc: Allocator, reports: ?*Report.Reports) (std.mem.Allocator.Error || Error)!mod.NodeIndex {
     try Report.expect(reports, self.peek()[0], &.{ .ret, .iden });
 
     const nodeIndex = switch (self.peek()[0].tag) {

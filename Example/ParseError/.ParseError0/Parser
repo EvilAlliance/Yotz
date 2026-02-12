@@ -2,7 +2,7 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 97
+:b stdout 111
 main :: () u8 { 
     return 1;
 }
@@ -11,9 +11,10 @@ bar :: () u8 {
 }
 baz :: () u8 { 
     return 4;
+    return 5;
 }
 
-:b stderr 591
+:b stderr 715
 [ERROR]: Example/ParseError/ParseError0.yt:6:9: Expected: "number literal", "(", "-", "identifier" but found: ')' 
 fail :: ) u8 {
         ^
@@ -29,13 +30,7 @@ test :: () {
 [ERROR]: Example/ParseError/ParseError0.yt:30:5: Expected: ":", "=" but found: 'identifier' 
 qux u8 :: () {
     ^
-
-) {
-           ^
-[ERROR]: Example/ParseError/ParseError0.yt:30:5: Expected: ":" but found: 'identifier' 
+[ERROR]: Example/ParseError/ParseError0.yt:30:14: Expected: "(", "identifier" but found: '{' 
 qux u8 :: () {
-    ^
-
-
-    ^
+             ^
 

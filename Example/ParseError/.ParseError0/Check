@@ -2,7 +2,7 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 184
+:b stdout 198
 main: () u8 #inferedFromExpression : () u8 { 
     return 1;
 }
@@ -11,9 +11,10 @@ bar: () u8 #inferedFromExpression : () u8 {
 }
 baz: () u8 #inferedFromExpression : () u8 { 
     return 4;
+    return 5;
 }
 
-:b stderr 813
+:b stderr 1040
 [ERROR]: Example/ParseError/ParseError0.yt:6:9: Expected: "number literal", "(", "-", "identifier" but found: ')' 
 fail :: ) u8 {
         ^
@@ -34,5 +35,11 @@ baz :: () u8 {
 ^
 [ERROR]: Example/ParseError/ParseError0.yt:30:5: Expected: ":", "=" but found: 'identifier' 
 qux u8 :: () {
+    ^
+[ERROR]: Example/ParseError/ParseError0.yt:30:14: Expected: "(", "identifier" but found: '{' 
+qux u8 :: () {
+             ^
+[WARNING]: Example/ParseError/ParseError0.yt:31:5: Unreachable statement detected 
+    return 5;
     ^
 

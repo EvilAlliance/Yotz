@@ -2,8 +2,9 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 214
+:b stdout 299
 main: () u8 #inferedFromExpression : () u8 { 
+    return 5;
 }
 foo: () u8 #inferedFromExpression : () u8 { 
     bar: () u8 #inferedFromExpression : () u8 { 
@@ -11,12 +12,12 @@ foo: () u8 #inferedFromExpression : () u8 {
     return 20;
 }
 outer: () u8 #inferedFromExpression : () u8 { 
+    inner: () u8 #inferedFromExpression : () u8 { 
+    }
+    return 2;
 }
 
-:b stderr 1222
-[ERROR]: Example/ParseError/NestedFunction.yt:2:12: Function must return type u8 but has no return statement 
-main :: () u8 {
-           ^
+:b stderr 1533
 [ERROR]: Example/ParseError/NestedFunction.yt:3:20: Expected: ")" but found: '{' 
     nested :: ( u8 {
                    ^
@@ -35,10 +36,19 @@ foo :: () u8 {
 [WARNING]: Example/ParseError/NestedFunction.yt:19:1: Variable 'outer' is declared but never used 
 outer :: () u8 {
 ^
-[ERROR]: Example/ParseError/NestedFunction.yt:20:13: Function must return type u8 but has no return statement 
-outer :: () u8 {
-            ^
 [ERROR]: Example/ParseError/NestedFunction.yt:21:15: Expected: "number literal", "(", "-", "identifier" but found: ')' 
     middle :: ) u8 {
               ^
+[ERROR]: Example/ParseError/NestedFunction.yt:21:20: Expected: ":", "=" but found: '{' 
+    middle :: ) u8 {
+                   ^
+[WARNING]: Example/ParseError/NestedFunction.yt:22:9: Variable 'inner' is declared but never used 
+        inner :: () u8 {
+        ^
+[ERROR]: Example/ParseError/NestedFunction.yt:22:21: Function must return type u8 but has no return statement 
+        inner :: () u8 {
+                    ^
+[ERROR]: Example/ParseError/NestedFunction.yt:23:24: Expected: "number literal", "(", "-", "identifier" but found: ';' 
+            return 1 * ;
+                       ^
 
