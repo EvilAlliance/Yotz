@@ -162,7 +162,8 @@ fn _pushDependant(self: *Self, alloc: Allocator, variable: *Parser.Node.VarConst
             const id = load.getText(self.tu.global);
             const loadedVariable = self.tu.scope.get(id) orelse return;
 
-            if (loadedVariable.tag.load(.acquire) == .protoArg) return;
+            const tag = loadedVariable.tag.load(.acquire);
+            if (tag == .protoArg or (tag == .constant and loadedVariable.type.load(.acquire) != 0)) return;
 
             markAsUsed(loadedVariable);
 
@@ -217,7 +218,11 @@ pub fn _inferType(self: *Self, alloc: Allocator, expr: *const Parser.Node.Expres
             const typeIndex = variable.type.load(.acquire);
 
             return if (typeIndex == 0) null else .{
-                .type = if (variable.tag.load(.acquire) == .protoArg) self.tu.global.nodes.getConstPtr(typeIndex).asConstTypes() else Type.getMostSpecificType(self.tu.global, variable.asConstVarConst()).?,
+                .type = if (variable.tag.load(.acquire) == .protoArg)
+                    self.tu.global.nodes.getConstPtr(typeIndex).asConstTypes()
+                else
+                    Type.getMostSpecificType(self.tu.global, variable.asConstVarConst()) orelse return null,
+
                 .place = expr,
             };
         },
