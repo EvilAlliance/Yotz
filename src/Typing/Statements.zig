@@ -123,11 +123,15 @@ pub fn checkReturn(self: *const TranslationUnit, alloc: Allocator, stmt: *const 
 pub fn checkVoidCall(self: *const TranslationUnit, alloc: Allocator, stmt: *Parser.Node.Call, reports: ?*Report.Reports) (Allocator.Error || Expression.Error)!void {
     var expr = try Expression.init(alloc, self);
     defer expr.deinit(alloc);
+    // TODO: Try to not always ad this node
     const voidType = Parser.Node.Type{
         .primitive = .init(@intFromEnum(@as(Parser.Node.Primitive, .void))),
         .size = .init(0),
     };
-    try expr.checkType(alloc, stmt.as().asExpression(), voidType.asConst().asConstTypes(), reports);
+    const node = try self.global.nodes.reserve(alloc);
+    node.* = voidType.asConst().*;
+
+    try expr.checkType(alloc, stmt.as().asExpression(), node.asConstTypes(), reports);
 }
 
 const Expression = @import("Expression.zig");

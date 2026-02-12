@@ -162,8 +162,7 @@ fn _pushDependant(self: *Self, alloc: Allocator, variable: *Parser.Node.VarConst
             const id = load.getText(self.tu.global);
             const loadedVariable = self.tu.scope.get(id) orelse return;
 
-            const tag = loadedVariable.tag.load(.acquire);
-            if (tag == .protoArg or (tag == .constant and loadedVariable.type.load(.acquire) != 0)) return;
+            if (loadedVariable.type.load(.acquire) != 0) return;
 
             markAsUsed(loadedVariable);
 
